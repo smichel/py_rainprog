@@ -5,16 +5,17 @@ from datetime import datetime
 # from matplotlib.mlab import griddata
 from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
+from findmaxima import findmaxima
 
 fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 100
-timeSteps = 30
+timeSteps = 2
 smallVal = 2
 rainThreshold = 0.1
 time = 1
 prog = 10
 uk = 5
-num_maxes = 8
+numMaxes = 8
 
 
 
@@ -48,7 +49,6 @@ yCar = np.arange(-20000, 20000+1, res).squeeze()
 cRange = math.floor((len(XCar) - 1) / 12)
 d_s = len(XCar)
 
-startTime = datetime.now()
 
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are parameters of the function
@@ -65,21 +65,33 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
 R = np.empty([timeSteps,d_s,d_s])
 
 rPolar = z2rainrate(z)
-startTime = datetime.now()
-nestedData = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
 
+nestedData = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
+startTime = datetime.now()
 for t in range(timeSteps):
     rPolarT = rPolar[t, :, :].T
     rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
-    R[t, :, :] = griddata(points, rPolarT, (XCar, YCar), method='nearest')
+    R[t, :, :] = griddata(points, rPolarT, (XCar, YCar), method='linear')
     nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
 #R = griddata(xPolar, yPolar, rPolar, xCar, yCar, interp = 'linear')
 
+time_elapsed = datetime.now() - startTime
+print(time_elapsed)
+nestedData = np.nan_to_num(nestedData)
+R = np.nan_to_num(R)
+plt.imshow(nestedData[0, :, :])
+plt.show()
+maxima = np.empty([1, 3])
+maxima[0, 0] = np.nanmax(R[0, :, :])
+maximaIdx = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
+maxima[0, 1] = maximaIdx[0]
+maxima[0, 2] = maximaIdx[1]
 
-
-
+startTime = datetime.now()
+maxima = findmaxima(maxima, nestedData[0, :, :], cRange, numMaxes, rainThreshold)
 time_elapsed = datetime.now() - startTime
 
+print(time_elapsed)
 
 
 
@@ -91,4 +103,3 @@ for t in range(timeSteps):
     plt.imshow(nestedData[t, :, :])
     plt.show()
 
-print(time_elapsed)
