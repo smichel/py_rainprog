@@ -22,7 +22,7 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130426220000.nc'
 res = 200
-timeSteps = 5
+timeSteps = 120
 smallVal = 2
 rainThreshold = 0.1
 time = 1
@@ -71,30 +71,36 @@ nestedData = np.nan_to_num(nestedData)
 R = np.nan_to_num(R)
 maxima = np.empty([1, 3])
 maxima[0, 0] = np.nanmax(R[0, :, :])
-maximaIdx = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
-maxima[0, 1] = maximaIdx[0]
-maxima[0, 2] = maximaIdx[1]
+maxima[0, 1:3] = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
 
 startTime = datetime.now()
 maxima = findmaxima(maxima, R[0, :, :], cRange, numMaxes, rainThreshold)
+maxima[:, 1:3] = maxima[:,1:3] + cRange * 2
 time_elapsed = datetime.now() - startTime
 
 print(time_elapsed)
-
+newMaxima = np.copy(maxima)
 
 
 for t in range(timeSteps - 1):
     for q in range(len(maxima)):
         # conditions for finding new maxima in case of i>0
-        print(maxima[q, :] + cRange * 2)
-        corrArea = nestedData[t, (int(maxima[q, 2] + cRange)):(int(maxima[q, 2]) + cRange * 3), (int(maxima[q, 1] + cRange)):(int(maxima[q, 1]) + cRange * 3)]
-        dataArea = nestedData[t+1, (int(maxima[q, 2])):(int(maxima[q, 2]) + cRange * 4), (int(maxima[q, 1])):(int(maxima[q, 1]) + cRange * 4)]
+        startTime = datetime.now()
+        corrArea = nestedData[t, (int(maxima[q, 1] + cRange)):(int(maxima[q, 1]) + cRange * 3), (int(maxima[q, 2] + cRange)):(int(maxima[q, 2]) + cRange * 3)]
+        dataArea = nestedData[t+1, (int(maxima[q, 1])):(int(maxima[q, 1]) + cRange * 4), (int(maxima[q, 2])):(int(maxima[q, 2]) + cRange * 4)]
 
         c = leastsquarecorr(dataArea, corrArea)
         cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
-        print(cIdx)
+        time_elapsed = datetime.now() - startTime
+        print(nestedData[t, int(maxima[q, 1]+ cIdx[0] - 0.5 * len(c)), int(maxima[q, 2] + cIdx[1] - 0.5 * len(c))])
+        print(int(maxima[q, 2]) + cIdx[1] - 0.5 * len(c))
+        print(int(maxima[q, 1]) + cIdx[0] - 0.5 * len(c))
+        newMaxima[q, 0] = nestedData[t, int(maxima[q, 1]+ cIdx[0] - 0.5 * len(c)), int(maxima[q, 2] + cIdx[1] - 0.5 * len(c))]
+        newMaxima[q, 1] = (int(maxima[q, 1]) + cIdx[0] - 0.5 * len(c))
+        newMaxima[q, 2] = (int(maxima[q, 2]) + cIdx[1] - 0.5 * len(c))
+        print(time_elapsed)
 
-for t in range(timeSteps):
     plt.imshow(nestedData[t, :, :])
+    for u in range(len(newMaxima)-1):
+        plt.plot(newMaxima[u, 2], newMaxima[u, 1], 'yo')
     plt.show()
-
