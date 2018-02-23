@@ -3,10 +3,13 @@ import netCDF4
 import math
 from datetime import datetime
 # from matplotlib.mlab import griddata
+import matplotlib
+matplotlib.use('TkAgg')
 from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
+from testmaxima import testmaxima
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
@@ -20,15 +23,15 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130426220000.nc'
+fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 200
-timeSteps = 120
+timeSteps = 30
 smallVal = 2
-rainThreshold = 0.1
+rainThreshold = 0.5
 time = 1
 prog = 10
 uk = 5
-numMaxes = 8
+numMaxes = 4
 
 nc = netCDF4.Dataset(fp)
 data = nc.variables['dbz_ac1'][:][:][:]
@@ -61,7 +64,7 @@ startTime = datetime.now()
 for t in range(timeSteps):
     rPolarT = rPolar[t, :, :].T
     rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
-    R[t, :, :] = griddata(points, rPolarT, (XCar, YCar), method='linear')
+    R[t, :, :] = griddata(points, rPolarT, (XCar, YCar), method='nearest')
     nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
 #R = griddata(xPolar, yPolar, rPolar, xCar, yCar, interp = 'linear')
 
@@ -75,32 +78,36 @@ maxima[0, 1:3] = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
 
 startTime = datetime.now()
 maxima = findmaxima(maxima, R[0, :, :], cRange, numMaxes, rainThreshold)
-maxima[:, 1:3] = maxima[:,1:3] + cRange * 2
+maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
+
 time_elapsed = datetime.now() - startTime
+
 
 print(time_elapsed)
 newMaxima = np.copy(maxima)
 
 
-for t in range(timeSteps - 1):
+for t in range(timeSteps):
     for q in range(len(maxima)):
-        # conditions for finding new maxima in case of i>0
+        # conditions for finding new maxima in case of i > 0
+        maxima = testmaxima(maxima, nestedData[t, :, :], rainThreshold)
+        if len(maxima) < numMaxes:
+            maxima = findmaxima(maxima, nestedData[t, :, :], cRange, numMaxes, rainThreshold)
+            print('looked for new maxima')
         startTime = datetime.now()
-        corrArea = nestedData[t, (int(maxima[q, 1] + cRange)):(int(maxima[q, 1]) + cRange * 3), (int(maxima[q, 2] + cRange)):(int(maxima[q, 2]) + cRange * 3)]
-        dataArea = nestedData[t+1, (int(maxima[q, 1])):(int(maxima[q, 1]) + cRange * 4), (int(maxima[q, 2])):(int(maxima[q, 2]) + cRange * 4)]
-
+        corrArea = nestedData[t, (int(maxima[q, 1]) - cRange):(int(maxima[q, 1]) + cRange), (int(maxima[q, 2]) - cRange):(int(maxima[q, 2]) + cRange)]
+        dataArea = nestedData[t+1, (int(maxima[q, 1]) - cRange * 2):(int(maxima[q, 1]) + cRange * 2), (int(maxima[q, 2]) - cRange * 2):(int(maxima[q, 2]) + cRange * 2)]
         c = leastsquarecorr(dataArea, corrArea)
         cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
         time_elapsed = datetime.now() - startTime
-        print(nestedData[t, int(maxima[q, 1]+ cIdx[0] - 0.5 * len(c)), int(maxima[q, 2] + cIdx[1] - 0.5 * len(c))])
-        print(int(maxima[q, 2]) + cIdx[1] - 0.5 * len(c))
-        print(int(maxima[q, 1]) + cIdx[0] - 0.5 * len(c))
+
         newMaxima[q, 0] = nestedData[t, int(maxima[q, 1]+ cIdx[0] - 0.5 * len(c)), int(maxima[q, 2] + cIdx[1] - 0.5 * len(c))]
         newMaxima[q, 1] = (int(maxima[q, 1]) + cIdx[0] - 0.5 * len(c))
         newMaxima[q, 2] = (int(maxima[q, 2]) + cIdx[1] - 0.5 * len(c))
         print(time_elapsed)
 
+    fig,ax=plt.subplots()
     plt.imshow(nestedData[t, :, :])
-    for u in range(len(newMaxima)-1):
-        plt.plot(newMaxima[u, 2], newMaxima[u, 1], 'yo')
-    plt.show()
+    for u in range(len(newMaxima)):
+        ax.plot(newMaxima[u, 2], newMaxima[u, 1], 'yo')
+    maxima = np.copy(newMaxima)

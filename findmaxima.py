@@ -15,7 +15,7 @@ def findmaxima(maxima, nestedData, cRange, numMaxes, rainThreshold):
 
     dummy = sorted
 
-    for i in range(numMaxes - len(maxima) + 1):
+    for i in range(numMaxes - len(maxima)):
         distance = np.zeros([len(dummy), i+1])
         for j in range(0, i+1):
             distance[:, j] = np.sqrt(np.square(maxima[j, 1] - dummy[:, 1]) + np.square(maxima[j, 2] - dummy[:, 2]))
