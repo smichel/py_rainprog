@@ -1,6 +1,6 @@
 import numpy as np
 import netCDF4
-import math
+import time
 from datetime import datetime
 # from matplotlib.mlab import griddata
 import matplotlib
@@ -22,13 +22,12 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
-#fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+#fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 200
 timeSteps = 30
 smallVal = 2
 rainThreshold = 0.5
-time = 1
 prog = 10
 uk = 5
 numMaxes = 4
@@ -52,6 +51,8 @@ yCar = np.arange(-20000, 20000+1, res).squeeze()
 
 [XCar, YCar] = np.meshgrid(xCar, yCar)
 
+dist = np.sqrt(np.square(xCar)+np.square(YCar))
+
 cRange = int((len(XCar) - 1) / 12)
 d_s = len(XCar)
 
@@ -65,6 +66,7 @@ for t in range(timeSteps):
     rPolarT = rPolar[t, :, :].T
     rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
     R[t, :, :] = griddata(points, rPolarT, (XCar, YCar), method='nearest')
+    R[t, (dist > 20000)] = 0
     nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
 #R = griddata(xPolar, yPolar, rPolar, xCar, yCar, interp = 'linear')
 
@@ -72,6 +74,8 @@ time_elapsed = datetime.now() - startTime
 print(time_elapsed)
 nestedData = np.nan_to_num(nestedData)
 R = np.nan_to_num(R)
+
+
 maxima = np.empty([1, 3])
 maxima[0, 0] = np.nanmax(R[0, :, :])
 maxima[0, 1:3] = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
@@ -87,27 +91,33 @@ print(time_elapsed)
 newMaxima = np.copy(maxima)
 
 
-for t in range(timeSteps):
+for t in range(timeSteps-1):
     for q in range(len(maxima)):
         # conditions for finding new maxima in case of i > 0
         maxima = testmaxima(maxima, nestedData[t, :, :], rainThreshold)
         if len(maxima) < numMaxes:
             maxima = findmaxima(maxima, nestedData[t, :, :], cRange, numMaxes, rainThreshold)
             print('looked for new maxima')
-        startTime = datetime.now()
+
         corrArea = nestedData[t, (int(maxima[q, 1]) - cRange):(int(maxima[q, 1]) + cRange), (int(maxima[q, 2]) - cRange):(int(maxima[q, 2]) + cRange)]
         dataArea = nestedData[t+1, (int(maxima[q, 1]) - cRange * 2):(int(maxima[q, 1]) + cRange * 2), (int(maxima[q, 2]) - cRange * 2):(int(maxima[q, 2]) + cRange * 2)]
         c = leastsquarecorr(dataArea, corrArea)
         cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
-        time_elapsed = datetime.now() - startTime
+
 
         newMaxima[q, 0] = nestedData[t, int(maxima[q, 1]+ cIdx[0] - 0.5 * len(c)), int(maxima[q, 2] + cIdx[1] - 0.5 * len(c))]
         newMaxima[q, 1] = (int(maxima[q, 1]) + cIdx[0] - 0.5 * len(c))
         newMaxima[q, 2] = (int(maxima[q, 2]) + cIdx[1] - 0.5 * len(c))
-        print(time_elapsed)
 
-    fig,ax=plt.subplots()
-    plt.imshow(nestedData[t, :, :])
-    for u in range(len(newMaxima)):
-        ax.plot(newMaxima[u, 2], newMaxima[u, 1], 'yo')
+        print(newMaxima[q, 0])
+    if t == 0:
+        im = plt.imshow(nestedData[t, :, :])
+        plt.show(block=False)
+        l, = plt.plot(*np.transpose(newMaxima[:, 2:0:-1]), 'yo')
+    else:
+        im.set_data(nestedData[t, :, :])
+        l.set_data(*np.transpose(newMaxima[:, 2:0:-1]))
+
+
+    plt.pause(0.5)
     maxima = np.copy(newMaxima)
