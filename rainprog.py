@@ -24,7 +24,7 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
 
 fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-res = 200
+res = 100
 timeSteps = 30
 smallVal = 2
 rainThreshold = 0.5
@@ -53,7 +53,7 @@ yCar = np.arange(-20000, 20000+1, res).squeeze()
 
 dist = np.sqrt(np.square(xCar)+np.square(YCar))
 
-cRange = int((len(XCar) - 1) / 12)
+cRange = int((len(XCar) - 1) / 16)
 d_s = len(XCar)
 
 R = np.empty([timeSteps,d_s,d_s])
@@ -111,11 +111,11 @@ for t in range(timeSteps-1):
 
         print(newMaxima[q, 0])
     if t == 0:
-        im = plt.imshow(nestedData[t, :, :])
+        im = plt.imshow(np.log(nestedData[t, :, :]))
         plt.show(block=False)
         l, = plt.plot(*np.transpose(newMaxima[:, 2:0:-1]), 'yo')
     else:
-        im.set_data(nestedData[t, :, :])
+        im.set_data(np.log(nestedData[t, :, :]))
         l.set_data(*np.transpose(newMaxima[:, 2:0:-1]))
 
 
