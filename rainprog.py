@@ -24,14 +24,14 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511170000.nc'
-res = 100
-timeSteps = 30
+res = 200
+timeSteps = 25
 smallVal = 2
 rainThreshold = 0.5
-distThreshold = 18000
+distThreshold = 17000
 prog = 10
 uk = 5
-numMaxes = 10
+numMaxes = 20
 
 nc = netCDF4.Dataset(fp)
 data = nc.variables['dbz_ac1'][:][:][:]
@@ -46,6 +46,8 @@ xPolar = np.reshape(xPolar, (333*360, 1))
 yPolar = np.outer(dist, aziSin)
 yPolar = np.reshape(yPolar, (333*360, 1))
 points = np.concatenate((xPolar, yPolar), axis = 1)
+meanX = np.empty([timeSteps - 1])
+meanY = np.empty([timeSteps - 1])
 
 xCar = np.arange(-20000, 20000+1, res).squeeze()
 yCar = np.arange(-20000, 20000+1, res).squeeze()
@@ -80,9 +82,10 @@ R = np.nan_to_num(R)
 maxima = np.empty([1, 3])
 maxima[0, 0] = np.nanmax(R[0, :, :])
 maxima[0, 1:3] = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
+status = np.ones([1])
 
 startTime = datetime.now()
-maxima = findmaxima(maxima, R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
+maxima, status = findmaxima(maxima, R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist, status)
 maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
 
 time_elapsed = datetime.now() - startTime
@@ -94,30 +97,23 @@ newMaxima = np.copy(maxima)
 
 for t in range(timeSteps-1):
     print(t)
-    maxima = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res)
+    maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
     if len(maxima) < numMaxes:
-        startTime = datetime.now()
         maxima[:, 1:3] = maxima[:, 1:3] - cRange * 2
-        maxima = findmaxima(maxima, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
+        maxima, status = findmaxima(maxima, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist, status)
         maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
         print('looked for new maxima')
-        time_elapsed = datetime.now() - startTime
-        print(time_elapsed)
 
     for q in range(len(maxima)):
 
-        startTime = datetime.now()
         corrArea = nestedData[t, (int(maxima[q, 1]) - cRange):(int(maxima[q, 1]) + cRange), (int(maxima[q, 2]) - cRange):(int(maxima[q, 2]) + cRange)]
         dataArea = nestedData[t+1, (int(maxima[q, 1]) - cRange * 2):(int(maxima[q, 1]) + cRange * 2), (int(maxima[q, 2]) - cRange * 2):(int(maxima[q, 2]) + cRange * 2)]
         c = leastsquarecorr(dataArea, corrArea)
         cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
 
-
-        newMaxima[q, 0] = nestedData[t, int(maxima[q, 1]+ cIdx[0] - 0.5 * len(c)), int(maxima[q, 2] + cIdx[1] - 0.5 * len(c))]
+        newMaxima[q, 0] = nestedData[t, int(maxima[q, 1] + cIdx[0] - 0.5 * len(c)), int(maxima[q, 2] + cIdx[1] - 0.5 * len(c))]
         newMaxima[q, 1] = (int(maxima[q, 1]) + cIdx[0] - 0.5 * len(c))
         newMaxima[q, 2] = (int(maxima[q, 2]) + cIdx[1] - 0.5 * len(c))
-        time_elapsed = datetime.now() - startTime
-        print(time_elapsed)
 
     if t == 0:
         plt.figure(figsize=(10,10))
@@ -130,6 +126,18 @@ for t in range(timeSteps-1):
         o.set_data(*np.transpose(newMaxima[:, 2:0:-1]))
         n.set_data(*np.transpose(maxima[:, 2:0:-1]))
 
+    #lengths = np.sqrt(np.square(maxima[:, 1] - newMaxima[:, 1]) + np.square(maxima[:, 2] - newMaxima[:, 2]))
+    #alpha = np.arctan2(newMaxima[:, 2] - maxima[:, 2], newMaxima[:, 1] - maxima[:, 1]) * 180 / np.pi
+
+    shiftX = newMaxima[:, 1] - maxima[:, 1]
+    shiftY = newMaxima[:, 2] - maxima[:, 2]
+    meanX[t] = np.mean(shiftX)
+    meanY[t] = np.mean(shiftY)
+
 
     plt.pause(0.01)
     maxima = np.copy(newMaxima)
+    status = np.zeros(len(maxima))
+
+print(meanX)
+print(meanY)

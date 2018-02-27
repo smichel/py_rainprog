@@ -1,6 +1,6 @@
 import numpy as np
 
-def findmaxima(maxima, nestedData, cRange, numMaxes, rainThreshold, distThreshold, dist):
+def findmaxima(maxima, nestedData, cRange, numMaxes, rainThreshold, distThreshold, dist, status):
     grid = len(nestedData[1])
     dims = nestedData.shape
     nestedData = nestedData.flatten()
@@ -12,6 +12,7 @@ def findmaxima(maxima, nestedData, cRange, numMaxes, rainThreshold, distThreshol
     sorted[:, 0] = nestedData[sortedIdx]
     sorted[:, 1:3] = np.transpose(np.unravel_index(sortedIdx, dims))
     sorted = sorted[distFlat < distThreshold, :]
+
     if not maxima.size:
         maxima[0, :] = sorted[-1, :]
 
@@ -21,10 +22,11 @@ def findmaxima(maxima, nestedData, cRange, numMaxes, rainThreshold, distThreshol
         distance = np.zeros([len(dummy), len(maxima)])
         for j in range(0, len(maxima)):
             distance[:, j] = np.sqrt(np.square(maxima[j, 1] - dummy[:, 1]) + np.square(maxima[j, 2] - dummy[:, 2]))
-        potPoints = np.flatnonzero(np.prod(distance >= cRange, axis=1))
+        potPoints = np.flatnonzero(np.prod(distance >= cRange*2, axis=1))
         if dummy[potPoints[-1], 0] > rainThreshold:
             maxima = np.row_stack([maxima, np.reshape(dummy[potPoints[-1], :], (1, 3))])
+            status = np.append(status, 1)
             dummy = dummy[potPoints, :]
         else:
-            return maxima
-    return maxima
+            return maxima, status
+    return maxima, status
