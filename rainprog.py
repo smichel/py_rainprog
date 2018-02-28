@@ -25,13 +25,14 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511170000.nc'
 res = 200
-timeSteps = 25
+timeSteps = 40
 smallVal = 2
 rainThreshold = 0.5
 distThreshold = 17000
 prog = 10
-uk = 5
-numMaxes = 20
+trainTime = 8
+numMaxes = 8
+progTime = 25
 
 nc = netCDF4.Dataset(fp)
 data = nc.variables['dbz_ac1'][:][:][:]
@@ -126,18 +127,35 @@ for t in range(timeSteps-1):
         o.set_data(*np.transpose(newMaxima[:, 2:0:-1]))
         n.set_data(*np.transpose(maxima[:, 2:0:-1]))
 
-    #lengths = np.sqrt(np.square(maxima[:, 1] - newMaxima[:, 1]) + np.square(maxima[:, 2] - newMaxima[:, 2]))
-    #alpha = np.arctan2(newMaxima[:, 2] - maxima[:, 2], newMaxima[:, 1] - maxima[:, 1]) * 180 / np.pi
-
     shiftX = newMaxima[:, 1] - maxima[:, 1]
     shiftY = newMaxima[:, 2] - maxima[:, 2]
     meanX[t] = np.mean(shiftX)
     meanY[t] = np.mean(shiftY)
 
-
     plt.pause(0.01)
     maxima = np.copy(newMaxima)
     status = np.zeros(len(maxima))
 
-print(meanX)
-print(meanY)
+displacementX = np.mean(meanX[prog - trainTime:prog]) * res
+displacementY = np.mean(meanY[prog - trainTime:prog]) * res
+
+progData = np.zeros([progTime, d_s, d_s])
+points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
+
+for t in range(progTime):
+    progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(), (XCar - displacementX * t, YCar - displacementY * t), method='linear')
+    if t == 0:
+        plt.figure(figsize=(10,10))
+        imP = plt.imshow(np.log(progData[t, :, :]))
+        imR = plt.contour(np.log(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s]))
+        plt.show(block=False)
+    else:
+        imP.set_data(np.log(progData[t, :, :]))
+        for tp in imR.collections:
+            tp.remove()
+        imR = plt.contour(np.log(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s]))
+        plt.pause(0.1)
+
+
+
+
