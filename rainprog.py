@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from testmaxima import testmaxima
+from testangles import testangles
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
@@ -23,16 +24,16 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511170000.nc'
+fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 200
-timeSteps = 40
+timeSteps = 30
 smallVal = 2
-rainThreshold = 0.5
+rainThreshold = 0.1
 distThreshold = 17000
 prog = 10
 trainTime = 8
-numMaxes = 8
-progTime = 25
+numMaxes = 10
+progTime = 15
 
 nc = netCDF4.Dataset(fp)
 data = nc.variables['dbz_ac1'][:][:][:]
@@ -47,8 +48,8 @@ xPolar = np.reshape(xPolar, (333*360, 1))
 yPolar = np.outer(dist, aziSin)
 yPolar = np.reshape(yPolar, (333*360, 1))
 points = np.concatenate((xPolar, yPolar), axis = 1)
-meanX = np.empty([timeSteps - 1])
-meanY = np.empty([timeSteps - 1])
+meanX = np.zeros([timeSteps - 1])
+meanY = np.zeros([timeSteps - 1])
 
 xCar = np.arange(-20000, 20000+1, res).squeeze()
 yCar = np.arange(-20000, 20000+1, res).squeeze()
@@ -90,8 +91,8 @@ maxima, status = findmaxima(maxima, R[0, :, :], cRange, numMaxes, rainThreshold,
 maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
 
 time_elapsed = datetime.now() - startTime
-
-
+contours = [0.1, 0.2, 0.5, 1, 2, 5, 10, 100]
+contourLabels = [0.1, 0.2, 0.5, 1, 2, 5, 10, 100]
 print(time_elapsed)
 newMaxima = np.copy(maxima)
 
@@ -105,6 +106,7 @@ for t in range(timeSteps-1):
         maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
         print('looked for new maxima')
 
+    newMaxima = np.empty([len(maxima), 3])
     for q in range(len(maxima)):
 
         corrArea = nestedData[t, (int(maxima[q, 1]) - cRange):(int(maxima[q, 1]) + cRange), (int(maxima[q, 2]) - cRange):(int(maxima[q, 2]) + cRange)]
@@ -118,17 +120,23 @@ for t in range(timeSteps-1):
 
     if t == 0:
         plt.figure(figsize=(10,10))
-        im = plt.imshow(np.log(nestedData[t, :, :]))
+        im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.LogNorm())
         plt.show(block=False)
         o, = plt.plot(*np.transpose(newMaxima[:, 2:0:-1]), 'ko')
         n, = plt.plot(*np.transpose(maxima[:, 2:0:-1]), 'wo')
+        s = plt.colorbar(im)
+        s.set_clim(vmin=0.1,vmax=100)
+        s.set_ticks(contours)
+        s.set_ticklabels(contourLabels)
     else:
-        im.set_data(np.log(nestedData[t, :, :]))
+        im.set_data(nestedData[t, :, :])
         o.set_data(*np.transpose(newMaxima[:, 2:0:-1]))
         n.set_data(*np.transpose(maxima[:, 2:0:-1]))
 
     shiftX = newMaxima[:, 1] - maxima[:, 1]
     shiftY = newMaxima[:, 2] - maxima[:, 2]
+    #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
+    shiftX, shiftY = testangles(shiftX, shiftY, status)
     meanX[t] = np.mean(shiftX)
     meanY[t] = np.mean(shiftY)
 
@@ -136,26 +144,24 @@ for t in range(timeSteps-1):
     maxima = np.copy(newMaxima)
     status = np.zeros(len(maxima))
 
-displacementX = np.mean(meanX[prog - trainTime:prog]) * res
-displacementY = np.mean(meanY[prog - trainTime:prog]) * res
+displacementX = np.nanmean(meanX[prog - trainTime:prog]) * res
+displacementY = np.nanmean(meanY[prog - trainTime:prog]) * res
 
 progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
 
 for t in range(progTime):
-    progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(), (XCar - displacementX * t, YCar - displacementY * t), method='linear')
+    progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(), (XCar - displacementX * t, YCar - displacementY * t), method='nearest')
     if t == 0:
         plt.figure(figsize=(10,10))
-        imP = plt.imshow(np.log(progData[t, :, :]))
+        imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.LogNorm())
         imR = plt.contour(np.log(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s]))
         plt.show(block=False)
+
+
     else:
-        imP.set_data(np.log(progData[t, :, :]))
+        imP.set_data(progData[t, :, :])
         for tp in imR.collections:
             tp.remove()
         imR = plt.contour(np.log(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s]))
         plt.pause(0.1)
-
-
-
-
