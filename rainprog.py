@@ -23,8 +23,8 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
-#fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+#fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 200
 timeSteps = 30
 smallVal = 2
@@ -91,8 +91,8 @@ maxima, status = findmaxima(maxima, R[0, :, :], cRange, numMaxes, rainThreshold,
 maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
 
 time_elapsed = datetime.now() - startTime
-contours = [0.1, 0.2, 0.5, 1, 2, 5, 10, 100]
-contourLabels = [0.1, 0.2, 0.5, 1, 2, 5, 10, 100]
+contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
+
 print(time_elapsed)
 newMaxima = np.copy(maxima)
 
@@ -119,15 +119,14 @@ for t in range(timeSteps-1):
         newMaxima[q, 2] = (int(maxima[q, 2]) + cIdx[1] - 0.5 * len(c))
 
     if t == 0:
-        plt.figure(figsize=(10,10))
-        im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.LogNorm())
+        plt.figure(figsize=(8,8))
+        im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.show(block=False)
         o, = plt.plot(*np.transpose(newMaxima[:, 2:0:-1]), 'ko')
         n, = plt.plot(*np.transpose(maxima[:, 2:0:-1]), 'wo')
-        s = plt.colorbar(im)
-        s.set_clim(vmin=0.1,vmax=100)
+        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
         s.set_ticks(contours)
-        s.set_ticklabels(contourLabels)
+        #s.set_ticklabels(contourLabels)
     else:
         im.set_data(nestedData[t, :, :])
         o.set_data(*np.transpose(newMaxima[:, 2:0:-1]))
@@ -153,15 +152,16 @@ points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s
 for t in range(progTime):
     progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(), (XCar - displacementX * t, YCar - displacementY * t), method='nearest')
     if t == 0:
-        plt.figure(figsize=(10,10))
-        imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.LogNorm())
-        imR = plt.contour(np.log(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s]))
+        plt.figure(figsize=(8,8))
+        imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+        imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.show(block=False)
-
+        sa = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+        sa.set_ticks(contours)
 
     else:
         imP.set_data(progData[t, :, :])
         for tp in imR.collections:
             tp.remove()
-        imR = plt.contour(np.log(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s]))
+        imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.pause(0.1)
