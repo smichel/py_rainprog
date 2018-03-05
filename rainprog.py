@@ -23,8 +23,8 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
-fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-#fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+#fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 200
 timeSteps = 30
 smallVal = 2
