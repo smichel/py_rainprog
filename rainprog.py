@@ -24,16 +24,16 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/Users/u300675/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 200
-timeSteps = 30
+timeSteps = 45
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
 prog = 10
 trainTime = 8
 numMaxes = 10
-progTime = 15
+progTime = 30
 
 nc = netCDF4.Dataset(fp)
 data = nc.variables['dbz_ac1'][:][:][:]
@@ -98,13 +98,13 @@ newMaxima = np.copy(maxima)
 
 
 for t in range(timeSteps-1):
-    print(t)
+    #print(t)
     maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
     if len(maxima) < numMaxes:
         maxima[:, 1:3] = maxima[:, 1:3] - cRange * 2
         maxima, status = findmaxima(maxima, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist, status)
         maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
-        print('looked for new maxima')
+        #print('looked for new maxima')
 
     newMaxima = np.empty([len(maxima), 3])
     for q in range(len(maxima)):
@@ -135,7 +135,7 @@ for t in range(timeSteps-1):
     shiftX = newMaxima[:, 1] - maxima[:, 1]
     shiftY = newMaxima[:, 2] - maxima[:, 2]
     #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
-    shiftX, shiftY = testangles(shiftX, shiftY, status)
+    shiftX, shiftY = testangles(shiftX, shiftY, status, res)
     meanX[t] = np.mean(shiftX)
     meanY[t] = np.mean(shiftY)
 
@@ -150,7 +150,7 @@ progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
 
 for t in range(progTime):
-    progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(), (XCar - displacementX * t, YCar - displacementY * t), method='nearest')
+    progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(), (XCar - displacementY * t, YCar - displacementX * t), method='nearest')
     if t == 0:
         plt.figure(figsize=(8,8))
         imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))

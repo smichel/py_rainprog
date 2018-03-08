@@ -1,14 +1,11 @@
 import numpy as np
 import math
-def testangles(shiftX, shiftY, status):
+def testangles(shiftX, shiftY, status, res):
 
-    lengths = np.sqrt(np.square(shiftX) + np.square(shiftY))
-    lengthsEx = np.empty([len(lengths)])
-    for i in range(len(lengths)):
-        lengthsEx[i] = np.mean(np.delete(lengths, i))
+    lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * res
 
-    shiftXex = shiftX[(lengths * 2 <= lengthsEx) | (lengths * 0.5 >= lengthsEx)]
-    shiftYex = shiftY[(lengths * 2 <= lengthsEx) | (lengths * 0.5 >= lengthsEx)]
+    shiftXex = shiftX[lengths <= 800]
+    shiftYex = shiftY[lengths <= 800]
 
     meanXex = np.empty([len(shiftXex)])
     meanYex = np.empty([len(shiftYex)])
@@ -17,7 +14,7 @@ def testangles(shiftX, shiftY, status):
         meanXex[i] = np.mean(np.delete(shiftXex,i))
         meanYex[i] = np.mean(np.delete(shiftYex,i))
 
-    shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) & (np.sign(meanYex) == np.sign(shiftYex))]
-    shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) & (np.sign(meanYex) == np.sign(shiftYex))]
+    shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+    shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
 
     return shiftX, shiftY
