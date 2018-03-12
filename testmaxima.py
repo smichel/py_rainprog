@@ -11,4 +11,13 @@ def testmaxima(maxima, nestedData, rainThreshold, distThreshold, res, status):
     maxima = maxima[dist < distThreshold, :]
     status = status[dist < distThreshold]
 
+    maximaProx = np.empty([len(maxima)])
+    for q in range(len(maxima)):
+        maximaProx[q] = np.mean([nestedData[int(maxima[q, 1] - 1), int(maxima[q, 2])],
+                                nestedData[int(maxima[q, 1] + 1), int(maxima[q, 2])],
+                                nestedData[int(maxima[q, 1]), int(maxima[q, 2] - 1)],
+                                nestedData[int(maxima[q, 1]), int(maxima[q, 2] + 1)]])
+    maxima = maxima[maximaProx > rainThreshold, :]
+    status = status[maximaProx > rainThreshold]
+
     return maxima, status

@@ -7,12 +7,12 @@ import matplotlib
 matplotlib.use('TkAgg')
 from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
+from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from testmaxima import testmaxima
 from testangles import testangles
-
-def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are parameters of the function
+def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
     b = np.full_like(z, 1.9, dtype=np.double)
     cond1 = z <= 44.0
@@ -24,16 +24,23 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are pa
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-res = 200
-timeSteps = 45
+fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426110000.nc'
+res = 100
+u = 1.2
+v = 3.2
+x0 = 120
+y0 = 120
+amp = 10
+sigma = 30
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 10
+prog = 25
 trainTime = 8
 numMaxes = 10
-progTime = 30
+progTime = 20
+useRealData = 1
+timeSteps = prog + progTime
 
 nc = netCDF4.Dataset(fp)
 data = nc.variables['dbz_ac1'][:][:][:]
@@ -67,19 +74,26 @@ rPolar = z2rainrate(z)
 
 nestedData = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
 startTime = datetime.now()
-for t in range(timeSteps):
-    rPolarT = rPolar[t, :, :].T
-    rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
-    R[t, :, :] = griddata(points, rPolarT, (XCar, YCar), method='nearest')
-    R[t, (dist > 20000)] = 0
-    nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
+if useRealData:
+    for t in range(timeSteps):
+        rPolarT = rPolar[t, :, :].T
+        rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
+        R[t, :, :] = griddata(points, rPolarT, (XCar, YCar), method='nearest')
+        R[t, (dist > 20000)] = 0
+        nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
+else:
+    R = createblob(u, v, x0, y0, d_s, res, amp, sigma, timeSteps)
+    R[:, (dist > 20000)] = 0
+    nestedData[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
+
 #R = griddata(xPolar, yPolar, rPolar, xCar, yCar, interp = 'linear')
 
 time_elapsed = datetime.now() - startTime
 print(time_elapsed)
 nestedData = np.nan_to_num(nestedData)
 R = np.nan_to_num(R)
-
+#plt.imshow(nestedData[prog, :, :])
+#plt.show()
 
 maxima = np.empty([1, 3])
 maxima[0, 0] = np.nanmax(R[0, :, :])
@@ -97,20 +111,24 @@ print(time_elapsed)
 newMaxima = np.copy(maxima)
 
 
-for t in range(timeSteps-1):
+for t in range(prog):
     #print(t)
     maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
     if len(maxima) < numMaxes:
         maxima[:, 1:3] = maxima[:, 1:3] - cRange * 2
         maxima, status = findmaxima(maxima, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist, status)
         maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
-        #print('looked for new maxima')
+        print('looked for new maxima')
+
+    maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
 
     newMaxima = np.empty([len(maxima), 3])
     for q in range(len(maxima)):
 
-        corrArea = nestedData[t, (int(maxima[q, 1]) - cRange):(int(maxima[q, 1]) + cRange), (int(maxima[q, 2]) - cRange):(int(maxima[q, 2]) + cRange)]
-        dataArea = nestedData[t+1, (int(maxima[q, 1]) - cRange * 2):(int(maxima[q, 1]) + cRange * 2), (int(maxima[q, 2]) - cRange * 2):(int(maxima[q, 2]) + cRange * 2)]
+        corrArea = nestedData[t, (int(maxima[q, 1]) - cRange):(int(maxima[q, 1]) + cRange),
+                   (int(maxima[q, 2]) - cRange):(int(maxima[q, 2]) + cRange)]
+        dataArea = nestedData[t+1, (int(maxima[q, 1]) - cRange * 2):(int(maxima[q, 1]) + cRange * 2),
+                   (int(maxima[q, 2]) - cRange * 2):(int(maxima[q, 2]) + cRange * 2)]
         c = leastsquarecorr(dataArea, corrArea)
         cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
 
@@ -150,18 +168,21 @@ progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
 
 for t in range(progTime):
-    progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(), (XCar - displacementY * t, YCar - displacementX * t), method='nearest')
+    progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
+                                 (XCar - displacementY * t, YCar - displacementX * t), method='nearest')
     if t == 0:
         plt.figure(figsize=(8,8))
         imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+        imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s],
+                          contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.show(block=False)
-        sa = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+        sa = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
         sa.set_ticks(contours)
 
     else:
         imP.set_data(progData[t, :, :])
         for tp in imR.collections:
             tp.remove()
-        imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+        imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours,
+                          norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.pause(0.1)
