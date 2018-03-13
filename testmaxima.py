@@ -17,7 +17,11 @@ def testmaxima(maxima, nestedData, rainThreshold, distThreshold, res, status):
                                 nestedData[int(maxima[q, 1] + 1), int(maxima[q, 2])],
                                 nestedData[int(maxima[q, 1]), int(maxima[q, 2] - 1)],
                                 nestedData[int(maxima[q, 1]), int(maxima[q, 2] + 1)]])
+    la = len(maxima)
     maxima = maxima[maximaProx > rainThreshold, :]
     status = status[maximaProx > rainThreshold]
+    if la != len(maxima):
+        print('maximaProx')
+
 
     return maxima, status

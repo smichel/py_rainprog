@@ -24,18 +24,12 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426110000.nc'
-res = 100
-u = 1.2
-v = 3.2
-x0 = 120
-y0 = 120
-amp = 10
-sigma = 30
+fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130613030000.nc'
+res = 200
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 25
+prog = 10
 trainTime = 8
 numMaxes = 10
 progTime = 20
@@ -82,7 +76,7 @@ if useRealData:
         R[t, (dist > 20000)] = 0
         nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
 else:
-    R = createblob(u, v, x0, y0, d_s, res, amp, sigma, timeSteps)
+    R = createblob(d_s, res, timeSteps)
     R[:, (dist > 20000)] = 0
     nestedData[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
 
@@ -107,13 +101,15 @@ maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
 time_elapsed = datetime.now() - startTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
+shiftXlist = []
+shiftYlist = []
 print(time_elapsed)
 newMaxima = np.copy(maxima)
 
 
 for t in range(prog):
     #print(t)
-    maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
+    #maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
     if len(maxima) < numMaxes:
         maxima[:, 1:3] = maxima[:, 1:3] - cRange * 2
         maxima, status = findmaxima(maxima, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist, status)
@@ -149,15 +145,18 @@ for t in range(prog):
         im.set_data(nestedData[t, :, :])
         o.set_data(*np.transpose(newMaxima[:, 2:0:-1]))
         n.set_data(*np.transpose(maxima[:, 2:0:-1]))
-
+    plt.pause(0.01)
     shiftX = newMaxima[:, 1] - maxima[:, 1]
     shiftY = newMaxima[:, 2] - maxima[:, 2]
     #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
     shiftX, shiftY = testangles(shiftX, shiftY, status, res)
+
+    shiftXlist.append(shiftX)
+    shiftYlist.append(shiftY)
+
     meanX[t] = np.mean(shiftX)
     meanY[t] = np.mean(shiftY)
 
-    plt.pause(0.01)
     maxima = np.copy(newMaxima)
     status = np.zeros(len(maxima))
 
