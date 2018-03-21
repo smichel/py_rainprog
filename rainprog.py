@@ -6,12 +6,15 @@ from datetime import datetime
 import matplotlib
 matplotlib.use('TkAgg')
 from scipy.interpolate import griddata
+from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from testmaxima import testmaxima
 from testangles import testangles
+
+
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
     b = np.full_like(z, 1.9, dtype=np.double)
@@ -22,6 +25,11 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     a[cond2] = 320
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
+
+# Define model function to be used to fit to the data above:
+def gauss(x, *p):
+    A, mu, sigma = p
+    return A*np.exp(-(x-mu)**2/2.*sigma**2)
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130613030000.nc'
@@ -49,8 +57,8 @@ xPolar = np.reshape(xPolar, (333*360, 1))
 yPolar = np.outer(dist, aziSin)
 yPolar = np.reshape(yPolar, (333*360, 1))
 points = np.concatenate((xPolar, yPolar), axis = 1)
-meanX = np.zeros([timeSteps - 1])
-meanY = np.zeros([timeSteps - 1])
+meanX = np.zeros([prog])
+meanY = np.zeros([prog])
 
 xCar = np.arange(-20000, 20000+1, res).squeeze()
 yCar = np.arange(-20000, 20000+1, res).squeeze()
@@ -162,6 +170,42 @@ for t in range(prog):
 
 displacementX = np.nanmean(meanX[prog - trainTime:prog]) * res
 displacementY = np.nanmean(meanY[prog - trainTime:prog]) * res
+bins = np.linspace(-800/res,800/res, num=9)
+shiftX = np.hstack(shiftXlist[prog - trainTime:prog])
+
+histX, bin_edges = np.histogram(np.hstack(shiftXlist[prog - trainTime:prog]), bins)
+histY, _ = np.histogram(np.hstack(shiftYlist[prog - trainTime:prog]), bins)
+bin_centres = (bin_edges[:-1] + bin_edges[1:])/2
+new_bin_centres = np.linspace(bin_centres[0], bin_centres[-1], 200)
+# p0 is the initial guess for the fitting coefficients (A, mu and sigma above)
+p0 = [1., 0., 1.]
+
+coeffX, var_matrix = curve_fit(gauss, bin_centres, histX, p0=p0, maxfev=2000)
+coeffY, var_matrix = curve_fit(gauss, bin_centres, histY, p0=p0, maxfev=2000)
+# Get the fitted curve
+histX_fit = gauss(new_bin_centres, *coeffX)
+histY_fit = gauss(new_bin_centres, *coeffY)
+
+fig = plt.subplots()
+plt.plot(bin_centres, histX, label='Data')
+plt.plot(new_bin_centres, histX_fit, label='Fitted data')
+
+# Finally, lets get the fitting parameters, i.e. the mean and standard deviation:
+print('Fitted mean = ', coeffX[1])
+print('Fitted standard deviation = ', coeffX[2])
+
+plt.show(block=False)
+
+fig = plt.subplots()
+plt.plot(bin_centres, histY, label='Data')
+plt.plot(new_bin_centres, histY_fit, label='Fitted data')
+
+# Finally, lets get the fitting parameters, i.e. the mean and standard deviation:
+print('Fitted mean = ', coeffY[1])
+print('Fitted standard deviation = ', coeffY[2])
+
+plt.show(block=False)
+
 
 progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
@@ -185,3 +229,8 @@ for t in range(progTime):
         imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours,
                           norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.pause(0.1)
+
+#fig, ax = plt.subplots()
+#ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
+#ax.bar(bin_edges[:-1]+0.1, histY, color='r', width = 0.2)
+#plt.show(block=False)

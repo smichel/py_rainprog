@@ -12,10 +12,9 @@ def createblob(d_s, res, timeSteps):
     y0 = 0
     amp = 10
     sigma = 10
+
     def f(x, x0, y, y0, amp, sigma):
         return amp*np.exp(-(np.square(x-x0)/(2*sigma**2)+(np.square(y-y0)/(2*sigma**2))))
-
-
 
     for t in range(timeSteps):
         gaussBlob[t, :, :] = f(x, x0, y, y0, amp, sigma)+f(x, x1, y, y0, amp*0.8, sigma)
