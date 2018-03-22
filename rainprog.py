@@ -13,7 +13,7 @@ from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from testmaxima import testmaxima
 from testangles import testangles
-
+import init
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
@@ -26,10 +26,14 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
+
 # Define model function to be used to fit to the data above:
 def gauss(x, *p):
     A, mu, sigma = p
     return A*np.exp(-(x-mu)**2/2.*sigma**2)
+
+
+
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130613030000.nc'
@@ -37,7 +41,7 @@ res = 200
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 10
+prog = 15
 trainTime = 8
 numMaxes = 10
 progTime = 20
@@ -115,6 +119,7 @@ print(time_elapsed)
 newMaxima = np.copy(maxima)
 
 
+
 for t in range(prog):
     #print(t)
     #maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
@@ -170,42 +175,6 @@ for t in range(prog):
 
 displacementX = np.nanmean(meanX[prog - trainTime:prog]) * res
 displacementY = np.nanmean(meanY[prog - trainTime:prog]) * res
-bins = np.linspace(-800/res,800/res, num=9)
-shiftX = np.hstack(shiftXlist[prog - trainTime:prog])
-
-histX, bin_edges = np.histogram(np.hstack(shiftXlist[prog - trainTime:prog]), bins)
-histY, _ = np.histogram(np.hstack(shiftYlist[prog - trainTime:prog]), bins)
-bin_centres = (bin_edges[:-1] + bin_edges[1:])/2
-new_bin_centres = np.linspace(bin_centres[0], bin_centres[-1], 200)
-# p0 is the initial guess for the fitting coefficients (A, mu and sigma above)
-p0 = [1., 0., 1.]
-
-coeffX, var_matrix = curve_fit(gauss, bin_centres, histX, p0=p0, maxfev=2000)
-coeffY, var_matrix = curve_fit(gauss, bin_centres, histY, p0=p0, maxfev=2000)
-# Get the fitted curve
-histX_fit = gauss(new_bin_centres, *coeffX)
-histY_fit = gauss(new_bin_centres, *coeffY)
-
-fig = plt.subplots()
-plt.plot(bin_centres, histX, label='Data')
-plt.plot(new_bin_centres, histX_fit, label='Fitted data')
-
-# Finally, lets get the fitting parameters, i.e. the mean and standard deviation:
-print('Fitted mean = ', coeffX[1])
-print('Fitted standard deviation = ', coeffX[2])
-
-plt.show(block=False)
-
-fig = plt.subplots()
-plt.plot(bin_centres, histY, label='Data')
-plt.plot(new_bin_centres, histY_fit, label='Fitted data')
-
-# Finally, lets get the fitting parameters, i.e. the mean and standard deviation:
-print('Fitted mean = ', coeffY[1])
-print('Fitted standard deviation = ', coeffY[2])
-
-plt.show(block=False)
-
 
 progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)

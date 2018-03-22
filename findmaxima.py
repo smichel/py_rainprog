@@ -1,4 +1,5 @@
 import numpy as np
+import init
 
 def findmaxima(maxima, nestedData, cRange, numMaxes, rainThreshold, distThreshold, dist, status):
     grid = len(nestedData[1])
