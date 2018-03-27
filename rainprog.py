@@ -13,7 +13,7 @@ from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from testmaxima import testmaxima
 from testangles import testangles
-import init
+from init import Square
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
@@ -101,14 +101,18 @@ R = np.nan_to_num(R)
 #plt.imshow(nestedData[prog, :, :])
 #plt.show()
 
-maxima = np.empty([1, 3])
-maxima[0, 0] = np.nanmax(R[0, :, :])
-maxima[0, 1:3] = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
-status = np.ones([1])
+firstMaxima = np.empty([1, 3])
+firstMaxima[0, 0] = np.nanmax(R[0, :, :])
+firstMaxima[0, 1:3] = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
+fields = []
+fields.append(Square(cRange, firstMaxima, 1, rainThreshold, distThreshold, dist, 0))
 
 startTime = datetime.now()
-maxima, status = findmaxima(maxima, R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist, status)
-maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
+fields = findmaxima(fields, R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
+for i in range(len(fields)):
+    if fields[i].status:
+        fields[i].maxima[:, 1:3] = fields[i].maxima[:, 1:3] + cRange * 2
+
 
 time_elapsed = datetime.now() - startTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
@@ -116,20 +120,20 @@ contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 shiftXlist = []
 shiftYlist = []
 print(time_elapsed)
-newMaxima = np.copy(maxima)
-
-
 
 for t in range(prog):
     #print(t)
     #maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
-    if len(maxima) < numMaxes:
-        maxima[:, 1:3] = maxima[:, 1:3] - cRange * 2
-        maxima, status = findmaxima(maxima, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist, status)
-        maxima[:, 1:3] = maxima[:, 1:3] + cRange * 2
+    if len(fields) < numMaxes:
+        for i in range(len(fields)):
+            fields[i].maxima[:, 1:3] = fields[i].maxima[:, 1:3] + cRange * 2
+        fields = findmaxima(fields, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
+        for i in range(len(fields)):
+            fields[i].maxima[:, 1:3] = fields[i].maxima[:, 1:3] - cRange * 2
+
         print('looked for new maxima')
 
-    maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
+    fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res)
 
     newMaxima = np.empty([len(maxima), 3])
     for q in range(len(maxima)):

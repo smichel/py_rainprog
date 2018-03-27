@@ -1,6 +1,11 @@
 import numpy as np
 
-def testmaxima(maxima, nestedData, rainThreshold, distThreshold, res, status):
+def testmaxima(fields, nestedData, rainThreshold, distThreshold, res):
+
+    maxima = np.empty([len(fields), 3])
+    status = np.arange(len(fields))
+    for i in range(len(fields)):
+        maxima[i, 0:3] = fields[i].maxima
 
     mask = maxima[:, 0] > rainThreshold
     maxima = maxima[mask]
@@ -17,11 +22,15 @@ def testmaxima(maxima, nestedData, rainThreshold, distThreshold, res, status):
                                 nestedData[int(maxima[q, 1] + 1), int(maxima[q, 2])],
                                 nestedData[int(maxima[q, 1]), int(maxima[q, 2] - 1)],
                                 nestedData[int(maxima[q, 1]), int(maxima[q, 2] + 1)]])
-    la = len(maxima)
+
     maxima = maxima[maximaProx > rainThreshold, :]
     status = status[maximaProx > rainThreshold]
-    if la != len(maxima):
-        print('maximaProx')
+
+    contained = np.zeros([len(fields)], dtype = bool)
+    for i in range(len(fields)):
+        if i in status:
+            contained[i] = False
 
 
-    return maxima, status
+    fields = fields[contained]
+    return fields
