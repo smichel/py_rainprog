@@ -35,16 +35,16 @@ def gauss(x, *p):
 
 
 
-#fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130613030000.nc'
+fp = 'C:/Rainprog/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+#fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130613030000.nc'
 res = 200
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 15
+prog = 10
 trainTime = 8
 numMaxes = 10
-progTime = 20
+progTime = 5
 useRealData = 1
 timeSteps = prog + progTime
 
@@ -166,7 +166,7 @@ for t in range(prog):
     shiftX = newMaxima[:, 1] - maxima[:, 1]
     shiftY = newMaxima[:, 2] - maxima[:, 2]
     #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
-    shiftX, shiftY = testangles(shiftX, shiftY, status, res)
+    shiftX, shiftY, status = testangles(fields, status, res)
 
     shiftXlist.append(shiftX)
     shiftYlist.append(shiftY)

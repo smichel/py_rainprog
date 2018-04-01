@@ -8,6 +8,8 @@ class Square:
         self.distThreshold = distThreshold  # distance threshold to radarboundary
         self.dist = dist  # global distancefield
         self.id = id  # square identifier
+        self.shiftX = []
+        self.shiftY = []
         self.histX = []  # history of X displacements
         self.histY = []  # history of Y displacements
         self.histMaxima = []  # history of maxima locations

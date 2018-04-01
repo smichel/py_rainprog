@@ -4,6 +4,7 @@ def testmaxima(fields, nestedData, rainThreshold, distThreshold, res):
 
     maxima = np.empty([len(fields), 3])
     status = np.arange(len(fields))
+
     for i in range(len(fields)):
         maxima[i, 0:3] = fields[i].maxima
 
@@ -26,11 +27,8 @@ def testmaxima(fields, nestedData, rainThreshold, distThreshold, res):
     maxima = maxima[maximaProx > rainThreshold, :]
     status = status[maximaProx > rainThreshold]
 
-    contained = np.zeros([len(fields)], dtype = bool)
-    for i in range(len(fields)):
-        if i in status:
-            contained[i] = False
+    for i in reversed(range(len(fields))):
+        if i not in status:
+            del fields[i]
 
-
-    fields = fields[contained]
     return fields
