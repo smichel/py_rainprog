@@ -1,7 +1,7 @@
 import numpy as np
 from init import Square
 
-def testangles(fields, status, res):
+def testangles(fields, res):
 
     shiftX = np.empty([len(fields)])
     shiftY = np.empty([len(fields)])
@@ -20,7 +20,7 @@ def testangles(fields, status, res):
     meanXex = np.empty([len(shiftXex)])
     meanYex = np.empty([len(shiftYex)])
 
-    for i in range(len(shiftXex)):
+    for i in range(len(meanXex)):
         meanXex[i] = np.mean(np.delete(shiftXex,i))
         meanYex[i] = np.mean(np.delete(shiftYex,i))
 
