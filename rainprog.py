@@ -42,7 +42,7 @@ distThreshold = 17000
 prog = 10
 trainTime = 8
 numMaxes = 10
-progTime = 15
+progTime = 5
 useRealData = 1
 timeSteps = prog + progTime
 
@@ -140,26 +140,29 @@ for t in range(prog):
         c = leastsquarecorr(dataArea, corrArea)
         cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
 
-        field.shiftX = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c) - field.maxima[0, 1])
-        field.shiftY = int(field.maxima[0, 2] + cIdx[0] - 0.5 * len(c) - field.maxima[0, 2])
-
-        field.maxima[0, 0] = nestedData[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)), int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
+        field.shiftX = int(cIdx[0] - 0.5 * len(c))
+        field.shiftY = int(cIdx[1] - 0.5 * len(c))
+        field.add_maximum(np.copy(field.maxima))
+        field.maxima[0, 0] = nestedData[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
+                                        int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
         field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
-        field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[0] - 0.5 * len(c))
+        field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
 
     if t == 0:
         plt.figure(figsize=(8,8))
         im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.show(block=False)
-        #o, = plt.plot(*np.transpose(newMaxima[:, 2:0:-1]), 'ko')
-        #n, = plt.plot(*np.transpose(maxima[:, 2:0:-1]), 'wo')
+        for field in fields:
+            o, = plt.plot(*np.transpose(field.maxima[0, 2:0:-1]), 'ko')
+            n, = plt.plot(*np.transpose(field.histMaxima[-1][0, 2:0:-1]), 'wo')
         s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
         s.set_ticks(contours)
         #s.set_ticklabels(contourLabels)
     else:
         im.set_data(nestedData[t, :, :])
-        #o.set_data(*np.transpose(newMaxima[:, 2:0:-1]))
-        #n.set_data(*np.transpose(maxima[:, 2:0:-1]))
+        for field in fields:
+            o.set_data(*np.transpose(field.maxima[0, 2:0:-1]))
+            n.set_data(*np.transpose(field.histMaxima[-1][:, 2:0:-1]))
     plt.pause(0.01)
 
     #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi

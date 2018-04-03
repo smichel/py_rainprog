@@ -13,3 +13,6 @@ class Square:
         self.histX = []  # history of X displacements
         self.histY = []  # history of Y displacements
         self.histMaxima = []  # history of maxima locations
+
+    def add_maximum(self, maximum):
+        self.histMaxima.append(maximum)
