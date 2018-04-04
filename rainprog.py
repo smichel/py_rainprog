@@ -10,7 +10,7 @@ from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from testmaxima import testmaxima
 from testangles import testangles
-from init import Square
+from init import Square, totalField
 
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
@@ -33,8 +33,8 @@ def gauss(x, *p):
 
 
 
-fp = 'C:/Rainprog/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-#fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130613030000.nc'
+#fp = 'C:/Rainprog/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130613030000.nc'
 res = 200
 smallVal = 2
 rainThreshold = 0.1
@@ -42,7 +42,7 @@ distThreshold = 17000
 prog = 10
 trainTime = 8
 numMaxes = 10
-progTime = 5
+progTime = 15
 useRealData = 1
 timeSteps = prog + progTime
 
@@ -148,28 +148,28 @@ for t in range(prog):
         field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
         field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
 
-    if t == 0:
-        plt.figure(figsize=(8,8))
-        im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        plt.show(block=False)
-        for field in fields:
-            o, = plt.plot(*np.transpose(field.maxima[0, 2:0:-1]), 'ko')
-            n, = plt.plot(*np.transpose(field.histMaxima[-1][0, 2:0:-1]), 'wo')
-        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-        s.set_ticks(contours)
-        #s.set_ticklabels(contourLabels)
-    else:
-        im.set_data(nestedData[t, :, :])
-        for field in fields:
-            o.set_data(*np.transpose(field.maxima[0, 2:0:-1]))
-            n.set_data(*np.transpose(field.histMaxima[-1][:, 2:0:-1]))
-    plt.pause(0.01)
-
     #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
     shiftX, shiftY, status = testangles(fields, res)
 
     meanX[t] = np.mean(shiftX)
     meanY[t] = np.mean(shiftY)
+
+    allFields = totalField(fields, rainThreshold, distThreshold, dist, numMaxes, shiftX, shiftY)
+
+    if t == 0:
+        plt.figure(figsize=(8,8))
+        im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+        plt.show(block=False)
+        o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
+        n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
+        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+        s.set_ticks(contours)
+        #s.set_ticklabels(contourLabels)
+    else:
+        im.set_data(nestedData[t, :, :])
+        o.set_data(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]))
+        n.set_data(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]))
+    plt.pause(0.01)
 
 displacementX = np.nanmean(meanX[prog - trainTime:prog]) * res
 displacementY = np.nanmean(meanY[prog - trainTime:prog]) * res
