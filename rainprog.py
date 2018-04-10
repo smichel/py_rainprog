@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
-from testmaxima import testmaxima
 from testangles import testangles
 from init import Square, totalField
 
@@ -39,10 +38,11 @@ res = 200
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 20
-trainTime = 10
+prog = 10
+global trainTime
+trainTime = 5
 numMaxes = 20
-progTime = 20
+progTime = 2
 useRealData = 1
 timeSteps = prog + progTime
 
@@ -96,20 +96,13 @@ time_elapsed = datetime.now() - startTime
 print(time_elapsed)
 nestedData = np.nan_to_num(nestedData)
 R = np.nan_to_num(R)
-#plt.imshow(nestedData[prog, :, :])
-#plt.show()
 
-firstMaxima = np.empty([1, 3])
-firstMaxima[0, 0] = np.nanmax(R[0, :, :])
-firstMaxima[0, 1:3] = np.unravel_index(np.nanargmax(R[0, :, :]), R[0, :, :].shape)
-fields = []
-fields.append(Square(cRange, firstMaxima, 1, rainThreshold, distThreshold, dist, 0))
 
 startTime = datetime.now()
-fields = findmaxima(fields, R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
-for i in fields:
-    if i.status:
-        i.maxima[:, 1:3] = i.maxima[:, 1:3] + cRange * 2
+allFields = totalField(findmaxima([], R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, res, cRange)
+for field in allFields.activeFields:
+    if field.status:
+        field.maxima[:, 1:3] = field.maxima[:, 1:3] + cRange * 2
 
 
 time_elapsed = datetime.now() - startTime
@@ -120,18 +113,18 @@ print(time_elapsed)
 for t in range(prog):
     #print(t)
     #maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
-    if len(fields) < numMaxes:
-        for field in fields:
+    if len(allFields.activeFields) < numMaxes:
+        for field in allFields.activeFields:
             field.maxima[0, 1:3] = field.maxima[0, 1:3] - cRange * 2
-        fields = findmaxima(fields, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
-        for field in fields:
+        allFields.activeFields = findmaxima(allFields.activeFields, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
+        for field in allFields.activeFields:
             field.maxima[0, 1:3] = field.maxima[0, 1:3] + cRange * 2
 
         print('looked for new maxima')
 
-    fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res, cRange)
-
-    for field in fields:
+    #fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res, cRange)
+    allFields.testmaxima(nestedData[t, :, :])
+    for field in allFields.activeFields:
 
         corrArea = nestedData[t, (int(field.maxima[0, 1]) - cRange):(int(field.maxima[0, 1]) + cRange),
                    (int(field.maxima[0, 2]) - cRange):(int(field.maxima[0, 2]) + cRange)]
@@ -149,12 +142,12 @@ for t in range(prog):
         field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
 
     #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
-    shiftX, shiftY, status = testangles(fields, res)
+    shiftX, shiftY, status = testangles(allFields.activeFields, res)
 
     meanX[t] = np.mean(shiftX)
     meanY[t] = np.mean(shiftY)
 
-    allFields = totalField(fields, rainThreshold, distThreshold, dist, numMaxes, shiftX, shiftY)
+    #allFields = totalField(fields, rainThreshold, distThreshold, dist, numMaxes)
 
     if t == 0:
         plt.figure(figsize=(8,8))
@@ -170,6 +163,7 @@ for t in range(prog):
         o.set_data(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]))
         n.set_data(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]))
     plt.pause(0.01)
+    allFields.update_fields()
 
 displacementX = np.nanmean(meanX[prog - trainTime:prog]) * res
 displacementY = np.nanmean(meanY[prog - trainTime:prog]) * res

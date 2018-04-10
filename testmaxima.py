@@ -1,4 +1,5 @@
 import numpy as np
+from init import totalField
 
 
 def testmaxima(fields, nestedData, rainThreshold, distThreshold, res, cRange):

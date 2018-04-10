@@ -1,5 +1,5 @@
 import numpy as np
-from init import Square
+from init import Square, totalField
 
 def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshold, dist):
     grid = len(nestedData[1])
@@ -15,7 +15,7 @@ def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshol
     sorted = sorted[distFlat < distThreshold, :]
 
     if not len(fields):
-        fields.append(Square(cRange, sorted[-1, :], 1, rainThreshold, distThreshold, dist, id))
+        fields.append(Square(cRange, np.reshape(sorted[-1, :], (1, 3)), 1, rainThreshold, distThreshold, dist, id))
 
     dummy = sorted
     for i in range(numMaxes - len(fields)):
