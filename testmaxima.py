@@ -1,7 +1,7 @@
 import numpy as np
 
-def testmaxima(fields, nestedData, rainThreshold, distThreshold, res):
 
+def testmaxima(fields, nestedData, rainThreshold, distThreshold, res, cRange):
     maxima = np.empty([len(fields), 3])
     status = np.arange(len(fields))
 

@@ -34,15 +34,15 @@ def gauss(x, *p):
 
 
 #fp = 'C:/Rainprog/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130613030000.nc'
+fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 200
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 10
-trainTime = 8
-numMaxes = 10
-progTime = 15
+prog = 20
+trainTime = 10
+numMaxes = 20
+progTime = 20
 useRealData = 1
 timeSteps = prog + progTime
 
@@ -122,14 +122,14 @@ for t in range(prog):
     #maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
     if len(fields) < numMaxes:
         for field in fields:
-            field.maxima[0, 1:3] = field.maxima[0, 1:3] + cRange * 2
+            field.maxima[0, 1:3] = field.maxima[0, 1:3] - cRange * 2
         fields = findmaxima(fields, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
         for field in fields:
-            field.maxima[0, 1:3] = field.maxima[0, 1:3] - cRange * 2
+            field.maxima[0, 1:3] = field.maxima[0, 1:3] + cRange * 2
 
         print('looked for new maxima')
 
-    fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res)
+    fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res, cRange)
 
     for field in fields:
 

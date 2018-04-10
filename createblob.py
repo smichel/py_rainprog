@@ -6,7 +6,7 @@ def createblob(d_s, res, timeSteps):
     y = np.arange(d_s)
     [x, y] = np.meshgrid(x, y)
     u = 1
-    v = 2
+    v = 2.4
     x0 = 50
     x1 = 100
     y0 = 0
