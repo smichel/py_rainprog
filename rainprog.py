@@ -34,15 +34,14 @@ def gauss(x, *p):
 
 #fp = 'C:/Rainprog/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-res = 200
+res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
 prog = 10
-global trainTime
-trainTime = 5
+trainTime = 8
 numMaxes = 20
-progTime = 2
+progTime = 10
 useRealData = 1
 timeSteps = prog + progTime
 
@@ -99,7 +98,7 @@ R = np.nan_to_num(R)
 
 
 startTime = datetime.now()
-allFields = totalField(findmaxima([], R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, res, cRange)
+allFields = totalField(findmaxima([], R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, res, cRange, trainTime)
 for field in allFields.activeFields:
     if field.status:
         field.maxima[:, 1:3] = field.maxima[:, 1:3] + cRange * 2
@@ -136,6 +135,7 @@ for t in range(prog):
         field.shiftX = int(cIdx[0] - 0.5 * len(c))
         field.shiftY = int(cIdx[1] - 0.5 * len(c))
         field.add_maximum(np.copy(field.maxima))
+        field.add_shift(field.shiftX, field.shiftY)
         field.maxima[0, 0] = nestedData[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
                                         int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
         field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
@@ -150,7 +150,7 @@ for t in range(prog):
     #allFields = totalField(fields, rainThreshold, distThreshold, dist, numMaxes)
 
     if t == 0:
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(8, 8))
         im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.show(block=False)
         o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
@@ -165,6 +165,10 @@ for t in range(prog):
     plt.pause(0.01)
     allFields.update_fields()
 
+for field in allFields.activeFields:
+    field.stdX = np.std(np.asarray(field.histX))
+    field.stdY = np.std(np.asarray(field.histY))
+
 displacementX = np.nanmean(meanX[prog - trainTime:prog]) * res
 displacementY = np.nanmean(meanY[prog - trainTime:prog]) * res
 
@@ -175,7 +179,7 @@ for t in range(progTime):
     progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
                                  (XCar - displacementY * t, YCar - displacementX * t), method='nearest')
     if t == 0:
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(8, 8))
         imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s],
                           contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
@@ -190,6 +194,23 @@ for t in range(progTime):
         imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours,
                           norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.pause(0.1)
+
+plt.figure(figsize=(8, 8))
+for field in allFields.activeFields:
+    for t in field.histMaxima:
+        plt.plot(*np.transpose(t[0][2:0:-1]), 'ko')
+for field in allFields.inactiveFields:
+    for t in field.histMaxima:
+        plt.plot(*np.transpose(t[0][2:0:-1]), 'ro')
+plt.show(block=False)
+
+plt.figure(figsize=(8, 8))
+for field in allFields.activeFields:
+    plt.plot(field.stdX, 'ko')
+    plt.plot(field.stdY, 'ro')
+plt.show(block=False)
+plt.pause(0.1)
+print(cRange)
 
 #fig, ax = plt.subplots()
 #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)

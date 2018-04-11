@@ -1,9 +1,11 @@
 import numpy as np
+
+
 class Square:
 
     def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist, id):
         self.cRange = cRange  # cRange
-        self.maxima = maxima  # center point of the square and its rainfall intensity
+        self.maxima = maxima  # center point of the field and its rainfall intensity
         self.status = status  # status of the maximum
         self.rainThreshold = rainThreshold  # minimal rainthreshold
         self.distThreshold = distThreshold  # distance threshold to radarboundary
@@ -14,14 +16,21 @@ class Square:
         self.histX = []  # history of X displacements
         self.histY = []  # history of Y displacements
         self.histMaxima = []  # history of maxima locations
-        self.lifeTime = 0  # lifetime of the square in timesteps, begins at 0
+        self.lifeTime = 0  # lifetime of the field in timesteps, begins at 0
+        self.stdX = []  # standard deviation of the x displacement
+        self.stdY = []  # standard deviation of the y displacement
 
     def add_maximum(self, maximum):
         self.histMaxima.append(maximum)
 
+    def add_shift(self, shiftX, shiftY):
+        self.histX.append(shiftX)
+        self.histY.append(shiftY)
+
+
 class totalField:
 
-    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, res, cRange):
+    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, res, cRange, trainTime):
         self.activeFields = fields
         self.inactiveFields = []
         self.rainThreshold = rainThreshold  # minimal rainthreshold
@@ -32,7 +41,10 @@ class totalField:
         self.shiftY = []
         self.res = res  # resolution of the grid in m
         self.cRange = cRange  # correlation range in gridboxes
-
+        self.trainTime = trainTime
+        #self.ids = np.arange(self.numMaxes*self.trainTime)
+        #self.activeIds = []  # ids in use (active and inactive fields)
+        #self.inactiveIds = []  # ids not in use
     def return_maxima(self, time):
         maxima = np.empty([len(self.activeFields), 3])
         if time == 0:
@@ -77,11 +89,15 @@ class totalField:
                 del self.activeFields[i]
 
     def update_fields(self):
+
         for field in self.activeFields:
             field.lifeTime = field.lifeTime + 1
+            #self.activeIds.append(field.id)
 
         for field in self.inactiveFields:
             field.lifeTime = field.lifeTime - 1
-            #if field.lifeTime > 5:
+            if field.lifeTime <= -self.trainTime:
+                self.inactiveFields.remove(field)
+            #self.activeIds.append(field.id)
 
         #do that
