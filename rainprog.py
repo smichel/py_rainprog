@@ -38,10 +38,10 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 10
+prog = 20
 trainTime = 8
 numMaxes = 20
-progTime = 10
+progTime = 20
 useRealData = 1
 timeSteps = prog + progTime
 
@@ -68,7 +68,7 @@ yCar = np.arange(-20000, 20000+1, res).squeeze()
 
 dist = np.sqrt(np.square(xCar)+np.square(YCar))
 
-cRange = int((len(XCar) - 1) / 16)
+cRange = int((len(XCar) - 1) / 20)
 d_s = len(XCar)
 
 R = np.empty([timeSteps,d_s,d_s])
@@ -152,6 +152,7 @@ for t in range(prog):
     if t == 0:
         plt.figure(figsize=(8, 8))
         im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+        plt.gca().invert_yaxis()
         plt.show(block=False)
         o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
         n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
@@ -165,15 +166,45 @@ for t in range(prog):
     plt.pause(0.01)
     allFields.update_fields()
 
-for field in allFields.activeFields:
-    field.stdX = np.std(np.asarray(field.histX))
-    field.stdY = np.std(np.asarray(field.histY))
 
 displacementX = np.nanmean(meanX[prog - trainTime:prog]) * res
 displacementY = np.nanmean(meanY[prog - trainTime:prog]) * res
 
 progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
+
+plt.figure(figsize=(8, 8))
+for field in allFields.activeFields:
+    for t in field.histMaxima:
+        plt.plot(*np.transpose(t[0][2:0:-1]), 'ko')
+for field in allFields.inactiveFields:
+    for t in field.histMaxima:
+        plt.plot(*np.transpose(t[0][2:0:-1]), 'ro')
+plt.show(block=False)
+
+plt.figure(figsize=(8, 8))
+for i, field in enumerate(allFields.activeFields):
+    plt.plot(i, field.meanX, 'ro')
+    plt.plot(i, field.meanX - field.stdX, 'ko')
+    plt.plot(i, field.meanX + field.stdX, 'ko')
+
+plt.figure(figsize=(8, 8))
+for i, field in enumerate(allFields.activeFields):
+    plt.plot(i, field.meanY, 'ro')
+    plt.plot(i, field.meanY - field.stdY, 'ko')
+    plt.plot(i, field.meanY + field.stdY, 'ko')
+
+plt.show(block=False)
+
+allFieldsMeanX = np.nanmean(allFields.return_fieldMeanX())
+allFieldsMeanY = np.nanmean(allFields.return_fieldMeanY())
+allFieldsStdX = np.nanmean(allFields.return_fieldStdX())
+allFieldsStdY = np.nanmean(allFields.return_fieldStdY())
+
+print(allFieldsMeanX)
+print(allFieldsMeanY)
+print(allFieldsStdX)
+print(allFieldsStdY)
 
 for t in range(progTime):
     progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
@@ -183,6 +214,7 @@ for t in range(progTime):
         imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s],
                           contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+        plt.gca().invert_yaxis()
         plt.show(block=False)
         sa = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
         sa.set_ticks(contours)
@@ -195,22 +227,6 @@ for t in range(progTime):
                           norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.pause(0.1)
 
-plt.figure(figsize=(8, 8))
-for field in allFields.activeFields:
-    for t in field.histMaxima:
-        plt.plot(*np.transpose(t[0][2:0:-1]), 'ko')
-for field in allFields.inactiveFields:
-    for t in field.histMaxima:
-        plt.plot(*np.transpose(t[0][2:0:-1]), 'ro')
-plt.show(block=False)
-
-plt.figure(figsize=(8, 8))
-for field in allFields.activeFields:
-    plt.plot(field.stdX, 'ko')
-    plt.plot(field.stdY, 'ro')
-plt.show(block=False)
-plt.pause(0.1)
-print(cRange)
 
 #fig, ax = plt.subplots()
 #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
