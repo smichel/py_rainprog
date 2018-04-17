@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.ma as ma
 
 
 class Square:
@@ -11,6 +12,7 @@ class Square:
         self.distThreshold = distThreshold  # distance threshold to radarboundary
         self.dist = dist  # global distancefield
         self.id = id  # square identifier
+
         self.shiftX = []
         self.shiftY = []
         self.histX = []  # history of X displacements
@@ -21,8 +23,19 @@ class Square:
         self.histMeanY = []  # history of meanY
         self.stdX = []  # standard deviation of the x displacement
         self.stdY = []  # standard deviation of the y displacement
-        self.histStdX = []
-        self.histStdY = []
+        self.histStdX = []  # history of stdX
+        self.histStdY = []  # history of stdY
+
+        self.norm = []  # length of displacement
+        self.angle = []  # angle of displacement
+        self.meanNorm = []
+        self.meanAngle = []
+        self.histNorm = []  # history of norms
+        self.histAngle = []  # history of angles
+        self.stdNorm = []
+        self.stdAngle = []
+        self.histStdNorm = []
+        self.histStdAngle = []
         self.histMaxima = []  # history of maxima locations
         self.lifeTime = 0  # lifetime of the field in timesteps, begins at 0
 
@@ -33,6 +46,11 @@ class Square:
         self.histX.append(shiftX)
         self.histY.append(shiftY)
 
+    def add_norm(self, norm):
+        self.histNorm.append(norm)
+
+    def add_angle(self, angle):
+        self.histAngle.append(angle)
 
 class totalField:
 
@@ -65,7 +83,8 @@ class totalField:
     def return_fieldMeanX(self):
         fieldMeanX = []
         for field in self.activeFields:
-            fieldMeanX.append(field.meanX)
+            if field.lifeTime >= self.trainTime:
+                fieldMeanX.append(field.meanX)
 
         return np.asarray(fieldMeanX)
 
@@ -73,7 +92,8 @@ class totalField:
         fieldMeanY = []
 
         for field in self.activeFields:
-            fieldMeanY.append(field.meanY)
+            if field.lifeTime >= self.trainTime:
+                fieldMeanY.append(field.meanY)
 
         return np.asarray(fieldMeanY)
 
@@ -81,7 +101,8 @@ class totalField:
         fieldStdX = []
 
         for field in self.activeFields:
-            fieldStdX.append(field.stdX)
+            if field.lifeTime >= self.trainTime:
+                fieldStdX.append(field.stdX)
 
         return np.asarray(fieldStdX)
 
@@ -89,7 +110,8 @@ class totalField:
         fieldStdY = []
 
         for field in self.activeFields:
-            fieldStdY.append(field.stdY)
+            if field.lifeTime >= self.trainTime:
+                fieldStdY.append(field.stdY)
 
         return np.asarray(fieldStdY)
 
@@ -131,15 +153,20 @@ class totalField:
         for field in self.activeFields:
             field.lifeTime = field.lifeTime + 1
             #self.activeIds.append(field.id)
-            if field.lifeTime > self.trainTime:
+            if field.lifeTime >= self.trainTime:
                 field.meanX = np.mean(np.asarray(field.histX[-self.trainTime:-1]))
                 field.meanY = np.mean(np.asarray(field.histY[-self.trainTime:-1]))
                 field.stdX = np.std(np.asarray(field.histX[-self.trainTime:-1]))
                 field.stdY = np.std(np.asarray(field.histY[-self.trainTime:-1]))
+                field.meanNorm = np.norm(field.meanX, field.meanY)
+                field.meanAngle = get_metangle(field.meanX, field.meanY)
+                field.stdNorm = np.std(np.asarray(field.histStd[-self.trainTime:-1]))
+                field.stdAngle = get_metangle(field.stdX, field.stdY)
                 field.histMeanX.append(field.meanX)
                 field.histMeanY.append(field.meanY)
                 field.histStdX.append(field.stdX)
                 field.histStdY.append(field.stdY)
+
 
         for field in self.inactiveFields:
             field.lifeTime = field.lifeTime - 1
@@ -148,3 +175,19 @@ class totalField:
             #self.activeIds.append(field.id)
 
         #do that
+
+def get_metangle(x, y):
+    '''Get meteorological angle of input vector.
+
+    Args:
+        x (numpy.ndarray): X-components of input vectors.
+        y (numpy.ndarray): Y-components of input vectors.
+
+    Returns:
+        (numpy.ma.core.MaskedArray): Meteorological angles.
+
+    '''
+    mask = np.logical_and(x == 0, y == 0)  # Vectors (0, 0) not valid.
+    met_ang = ma.masked_array((90 - np.degrees(np.arctan2(x, y)) + 360) % 360, mask=mask,
+                                  fill_value=np.nan)
+    return met_ang

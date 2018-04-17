@@ -9,7 +9,7 @@ from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from testangles import testangles
-from init import Square, totalField
+from init import Square, totalField, get_metangle
 
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
@@ -134,6 +134,10 @@ for t in range(prog):
 
         field.shiftX = int(cIdx[0] - 0.5 * len(c))
         field.shiftY = int(cIdx[1] - 0.5 * len(c))
+        field.norm = np.norm(field.shiftX, field.shiftY)
+        field.angle = get_metangle(field.shiftX, field.shiftY)
+        field.add_norm(field.norm)
+        field.add_angle(field.angle)
         field.add_maximum(np.copy(field.maxima))
         field.add_shift(field.shiftX, field.shiftY)
         field.maxima[0, 0] = nestedData[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
@@ -184,15 +188,32 @@ plt.show(block=False)
 
 plt.figure(figsize=(8, 8))
 for i, field in enumerate(allFields.activeFields):
-    plt.plot(i, field.meanX, 'ro')
-    plt.plot(i, field.meanX - field.stdX, 'ko')
-    plt.plot(i, field.meanX + field.stdX, 'ko')
+    if field.lifeTime >= trainTime:
+        plt.plot(i, field.meanX, color='black',marker='o')
+        plt.plot(i, field.meanX - field.stdX, color='gray', marker='o')
+        plt.plot(i, field.meanX + field.stdX, color='gray', marker='o')
 
 plt.figure(figsize=(8, 8))
 for i, field in enumerate(allFields.activeFields):
-    plt.plot(i, field.meanY, 'ro')
-    plt.plot(i, field.meanY - field.stdY, 'ko')
-    plt.plot(i, field.meanY + field.stdY, 'ko')
+    if field.lifeTime >= trainTime:
+        plt.plot(i, field.meanY, color='navy', marker='o')
+        plt.plot(i, field.meanY - field.stdY, color='blue', marker='o')
+        plt.plot(i, field.meanY + field.stdY, color='blue', marker='o')
+
+for q, field in enumerate(allFields.activeFields):
+    if field.lifeTime >= trainTime:
+        plt.figure(figsize=(8, 8))
+        for i, t in enumerate(field.histMeanX):
+            plt.plot(i, t, color='black', marker='o')
+            plt.plot(i, t - field.histStdX[i], color='gray', marker='o')
+            plt.plot(i, t + field.histStdX[i], color='gray', marker='o')
+
+        for i, t in enumerate(field.histMeanY):
+            plt.plot(i, t, color='navy', marker='o')
+            plt.plot(i, t - field.histStdY[i], color='blue', marker='o')
+            plt.plot(i, t + field.histStdY[i], color='blue', marker='o')
+
+        plt.title(q)
 
 plt.show(block=False)
 
