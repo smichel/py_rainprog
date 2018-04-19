@@ -65,6 +65,8 @@ class totalField:
         self.numMaxes = numMaxes  # number of maxima
         self.shiftX = []
         self.shiftY = []
+        self.meanX = []
+        self.meanY = []
         self.res = res  # resolution of the grid in m
         self.cRange = cRange  # correlation range in gridboxes
         self.trainTime = trainTime
@@ -182,6 +184,36 @@ class totalField:
             #self.activeIds.append(field.id)
 
         #do that
+
+    def testangles(self):
+
+        shiftX = np.empty([len(self.activeFields)])
+        shiftY = np.empty([len(self.activeFields)])
+        status = np.arange(len(self.activeFields))
+
+        for i in range(len(self.activeFields)):
+            shiftX[i] = self.activeFields[i].shiftX
+            shiftY[i] = self.activeFields[i].shiftY
+
+        lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * res
+
+        shiftXex = shiftX[lengths <= 800]
+        shiftYex = shiftY[lengths <= 800]
+        status = status[lengths <= 800]
+
+        meanXex = np.empty([len(shiftXex)])
+        meanYex = np.empty([len(shiftYex)])
+
+        for i in range(len(meanXex)):
+            meanXex[i] = np.mean(np.delete(shiftXex, i))
+            meanYex[i] = np.mean(np.delete(shiftYex, i))
+
+        shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+        shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+        status = status[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+
+        self.meanX = np.nanmean(shiftX)
+        self.meanY = np.nanmean(shiftY)
 
 def get_metangle(x, y):
     '''Get meteorological angle of input vector.

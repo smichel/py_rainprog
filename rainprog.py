@@ -38,7 +38,7 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 20
+prog = 60
 trainTime = 8
 numMaxes = 20
 progTime = 20
@@ -146,10 +146,10 @@ for t in range(prog):
         field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
 
     #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
-    shiftX, shiftY, status = testangles(allFields.activeFields, res)
+    testangles(allFields)
 
-    meanX[t] = np.mean(shiftX)
-    meanY[t] = np.mean(shiftY)
+    #meanX[t] = np.mean(shiftX)
+    #meanY[t] = np.mean(shiftY)
 
     #allFields = totalField(fields, rainThreshold, distThreshold, dist, numMaxes)
 
