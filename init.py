@@ -34,6 +34,8 @@ class Square:
         self.histAngle = []  # history of angles
         self.stdNorm = []
         self.stdAngle = []
+        self.histMeanNorm = []
+        self.histMeanAngle = []
         self.histStdNorm = []
         self.histStdAngle = []
         self.histMaxima = []  # history of maxima locations
@@ -158,14 +160,19 @@ class totalField:
                 field.meanY = np.mean(np.asarray(field.histY[-self.trainTime:-1]))
                 field.stdX = np.std(np.asarray(field.histX[-self.trainTime:-1]))
                 field.stdY = np.std(np.asarray(field.histY[-self.trainTime:-1]))
-                field.meanNorm = np.norm(field.meanX, field.meanY)
+                field.meanNorm = np.linalg.norm([field.meanX, field.meanY])
                 field.meanAngle = get_metangle(field.meanX, field.meanY)
-                field.stdNorm = np.std(np.asarray(field.histStd[-self.trainTime:-1]))
+                field.stdNorm = np.std(np.asarray(field.histNorm[-self.trainTime:-1]))
                 field.stdAngle = get_metangle(field.stdX, field.stdY)
+                field.stdAngle = field.stdAngle.filled()
                 field.histMeanX.append(field.meanX)
                 field.histMeanY.append(field.meanY)
                 field.histStdX.append(field.stdX)
                 field.histStdY.append(field.stdY)
+                field.histMeanNorm.append(field.meanNorm)
+                field.histMeanAngle.append(field.meanAngle)
+                field.histStdNorm.append(field.stdNorm)
+                field.histStdAngle.append(field.stdAngle)
 
 
         for field in self.inactiveFields:

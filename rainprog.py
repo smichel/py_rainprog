@@ -134,7 +134,7 @@ for t in range(prog):
 
         field.shiftX = int(cIdx[0] - 0.5 * len(c))
         field.shiftY = int(cIdx[1] - 0.5 * len(c))
-        field.norm = np.norm(field.shiftX, field.shiftY)
+        field.norm = np.linalg.norm([field.shiftX, field.shiftY])
         field.angle = get_metangle(field.shiftX, field.shiftY)
         field.add_norm(field.norm)
         field.add_angle(field.angle)
@@ -200,18 +200,45 @@ for i, field in enumerate(allFields.activeFields):
         plt.plot(i, field.meanY - field.stdY, color='blue', marker='o')
         plt.plot(i, field.meanY + field.stdY, color='blue', marker='o')
 
+plt.figure(figsize=(8, 8))
 for q, field in enumerate(allFields.activeFields):
     if field.lifeTime >= trainTime:
-        plt.figure(figsize=(8, 8))
-        for i, t in enumerate(field.histMeanX):
+        for i, t in enumerate(field.histNorm):
             plt.plot(i, t, color='black', marker='o')
-            plt.plot(i, t - field.histStdX[i], color='gray', marker='o')
-            plt.plot(i, t + field.histStdX[i], color='gray', marker='o')
+            #plt.plot(i, t - field.histStdNorm[i], color='gray', marker='o')
+            #plt.plot(i, t + field.histStdNorm[i], color='gray', marker='o')
 
-        for i, t in enumerate(field.histMeanY):
+        plt.title(q)
+
+plt.figure(figsize=(8, 8))
+for q, field in enumerate(allFields.activeFields):
+    if field.lifeTime >= trainTime:
+        for i, t in enumerate(field.histAngle):
             plt.plot(i, t, color='navy', marker='o')
-            plt.plot(i, t - field.histStdY[i], color='blue', marker='o')
-            plt.plot(i, t + field.histStdY[i], color='blue', marker='o')
+            #plt.plot(i, t - field.histStdAngle[i], color='blue', marker='o')
+            #plt.plot(i, t + field.histStdAngle[i], color='blue', marker='o')
+
+        plt.title(q)
+
+plt.show(block=False)
+
+plt.figure(figsize=(8, 8))
+for q, field in enumerate(allFields.activeFields):
+    if field.lifeTime >= trainTime:
+        for i, t in enumerate(field.histX):
+            plt.plot(i, t, alpha = 0.1, color='black', marker='o')
+            #plt.plot(i, t - field.histStdNorm[i], color='gray', marker='o')
+            #plt.plot(i, t + field.histStdNorm[i], color='gray', marker='o')
+
+        plt.title(q)
+
+plt.figure(figsize=(8, 8))
+for q, field in enumerate(allFields.activeFields):
+    if field.lifeTime >= trainTime:
+        for i, t in enumerate(field.histY):
+            plt.plot(i, t, alpha = 0.1, color='navy', marker='o')
+            #plt.plot(i, t - field.histStdAngle[i], color='blue', marker='o')
+            #plt.plot(i, t + field.histStdAngle[i], color='blue', marker='o')
 
         plt.title(q)
 
