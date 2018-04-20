@@ -67,6 +67,8 @@ class totalField:
         self.shiftY = []
         self.meanX = []
         self.meanY = []
+        self.histMeanX = []
+        self.histMeanY = []
         self.res = res  # resolution of the grid in m
         self.cRange = cRange  # correlation range in gridboxes
         self.trainTime = trainTime
@@ -154,6 +156,9 @@ class totalField:
 
     def update_fields(self):
 
+        self.histMeanX.append(self.meanX)
+        self.histMeanY.append(self.meanY)
+
         for field in self.activeFields:
             field.lifeTime = field.lifeTime + 1
             #self.activeIds.append(field.id)
@@ -195,7 +200,7 @@ class totalField:
             shiftX[i] = self.activeFields[i].shiftX
             shiftY[i] = self.activeFields[i].shiftY
 
-        lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * res
+        lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * self.res
 
         shiftXex = shiftX[lengths <= 800]
         shiftYex = shiftY[lengths <= 800]

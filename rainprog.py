@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
-from testangles import testangles
 from init import Square, totalField, get_metangle
 
 
@@ -38,11 +37,11 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 60
+prog = 20
 trainTime = 8
 numMaxes = 20
 progTime = 20
-useRealData = 1
+useRealData = 0
 timeSteps = prog + progTime
 
 nc = netCDF4.Dataset(fp)
@@ -146,7 +145,7 @@ for t in range(prog):
         field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
 
     #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
-    testangles(allFields)
+    allFields.testangles()
 
     #meanX[t] = np.mean(shiftX)
     #meanY[t] = np.mean(shiftY)
@@ -171,8 +170,6 @@ for t in range(prog):
     allFields.update_fields()
 
 
-displacementX = np.nanmean(meanX[prog - trainTime:prog]) * res
-displacementY = np.nanmean(meanY[prog - trainTime:prog]) * res
 
 progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
@@ -248,6 +245,9 @@ allFieldsMeanX = np.nanmean(allFields.return_fieldMeanX())
 allFieldsMeanY = np.nanmean(allFields.return_fieldMeanY())
 allFieldsStdX = np.nanmean(allFields.return_fieldStdX())
 allFieldsStdY = np.nanmean(allFields.return_fieldStdY())
+
+displacementX = np.nanmean(allFields.histMeanX[prog - trainTime:prog])*res
+displacementY = np.nanmean(allFields.histMeanY[prog - trainTime:prog])*res
 
 print(allFieldsMeanX)
 print(allFieldsMeanY)
