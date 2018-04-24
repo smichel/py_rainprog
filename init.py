@@ -38,7 +38,10 @@ class Square:
         self.histMeanAngle = []
         self.histStdNorm = []
         self.histStdAngle = []
+        self.relStdNorm = []
+        self.histRelStdNorm = []
         self.histMaxima = []  # history of maxima locations
+
         self.lifeTime = 0  # lifetime of the field in timesteps, begins at 0
 
     def add_maximum(self, maximum):
@@ -163,13 +166,14 @@ class totalField:
             field.lifeTime = field.lifeTime + 1
             #self.activeIds.append(field.id)
             if field.lifeTime >= self.trainTime:
-                field.meanX = np.mean(np.asarray(field.histX[-self.trainTime:-1]))
-                field.meanY = np.mean(np.asarray(field.histY[-self.trainTime:-1]))
-                field.stdX = np.std(np.asarray(field.histX[-self.trainTime:-1]))
-                field.stdY = np.std(np.asarray(field.histY[-self.trainTime:-1]))
+                field.meanX = np.nanmean(np.asarray(field.histX[-self.trainTime:-1]))
+                field.meanY = np.nanmean(np.asarray(field.histY[-self.trainTime:-1]))
+                field.stdX = np.nanstd(np.asarray(field.histX[-self.trainTime:-1]))
+                field.stdY = np.nanstd(np.asarray(field.histY[-self.trainTime:-1]))
                 field.meanNorm = np.linalg.norm([field.meanX, field.meanY])
                 field.meanAngle = get_metangle(field.meanX, field.meanY)
-                field.stdNorm = np.std(np.asarray(field.histNorm[-self.trainTime:-1]))
+                field.stdNorm = np.nanstd(np.asarray(field.histNorm[-self.trainTime:-1]))
+                field.relStdNorm = field.stdNorm / field.meanNorm
                 field.stdAngle = get_metangle(field.stdX, field.stdY)
                 field.stdAngle = field.stdAngle.filled()
                 field.histMeanX.append(field.meanX)
@@ -179,6 +183,7 @@ class totalField:
                 field.histMeanNorm.append(field.meanNorm)
                 field.histMeanAngle.append(field.meanAngle)
                 field.histStdNorm.append(field.stdNorm)
+                field.histRelStdNorm.append(field.relStdNorm)
                 field.histStdAngle.append(field.stdAngle)
 
 
@@ -191,34 +196,47 @@ class totalField:
         #do that
 
     def testangles(self):
+        for field in reversed(self.activeFields):
+            print(field.lifeTime)
+            if field.lifeTime < self.trainTime:
+                self.activeFields.remove(field)
 
-        shiftX = np.empty([len(self.activeFields)])
-        shiftY = np.empty([len(self.activeFields)])
-        status = np.arange(len(self.activeFields))
+        filter = set()
+        for t in range(self.trainTime):
+            shiftX = np.empty([len(self.activeFields)])
+            shiftY = np.empty([len(self.activeFields)])
+            status = np.arange(len(self.activeFields))
 
-        for i in range(len(self.activeFields)):
-            shiftX[i] = self.activeFields[i].shiftX
-            shiftY[i] = self.activeFields[i].shiftY
+            for i in range(len(self.activeFields)):
+                shiftX[i] = self.activeFields[i].histX[-t-1]
+                shiftY[i] = self.activeFields[i].histY[-t-1]
 
-        lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * self.res
+            lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * self.res
 
-        shiftXex = shiftX[lengths <= 800]
-        shiftYex = shiftY[lengths <= 800]
-        status = status[lengths <= 800]
+            shiftXex = shiftX[lengths <= 800]
+            shiftYex = shiftY[lengths <= 800]
+            status = status[lengths <= 800]
 
-        meanXex = np.empty([len(shiftXex)])
-        meanYex = np.empty([len(shiftYex)])
+            meanXex = np.empty([len(shiftXex)])
+            meanYex = np.empty([len(shiftYex)])
 
-        for i in range(len(meanXex)):
-            meanXex[i] = np.mean(np.delete(shiftXex, i))
-            meanYex[i] = np.mean(np.delete(shiftYex, i))
+            for i in range(len(meanXex)):
+                meanXex[i] = np.mean(np.delete(shiftXex, i))
+                meanYex[i] = np.mean(np.delete(shiftYex, i))
 
-        shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
-        shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
-        status = status[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            status = status[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
 
-        self.meanX = np.nanmean(shiftX)
-        self.meanY = np.nanmean(shiftY)
+            filter = filter.union(set(np.arange(len(self.activeFields))) - set(status))
+
+        filter = sorted(list(filter))
+
+        for i in reversed(range(len(self.activeFields))):
+            if i in filter:
+                self.inactiveFields.append(self.activeFields[i])
+                self.inactiveFields[-1].lifeTime = -1
+                del self.activeFields[i]
 
 def get_metangle(x, y):
     '''Get meteorological angle of input vector.

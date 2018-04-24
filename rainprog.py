@@ -41,7 +41,8 @@ prog = 20
 trainTime = 8
 numMaxes = 20
 progTime = 20
-useRealData = 0
+useRealData = 1
+prognosis = 0
 timeSteps = prog + progTime
 
 nc = netCDF4.Dataset(fp)
@@ -144,13 +145,6 @@ for t in range(prog):
         field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
         field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
 
-    #angles = np.arctan2(shiftY, shiftX) * 180 / np.pi
-    allFields.testangles()
-
-    #meanX[t] = np.mean(shiftX)
-    #meanY[t] = np.mean(shiftY)
-
-    #allFields = totalField(fields, rainThreshold, distThreshold, dist, numMaxes)
 
     if t == 0:
         plt.figure(figsize=(8, 8))
@@ -167,9 +161,10 @@ for t in range(prog):
         o.set_data(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]))
         n.set_data(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]))
     plt.pause(0.01)
+
     allFields.update_fields()
 
-
+allFields.testangles()
 
 progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
@@ -253,27 +248,27 @@ print(allFieldsMeanX)
 print(allFieldsMeanY)
 print(allFieldsStdX)
 print(allFieldsStdY)
+if prognosis:
+    for t in range(progTime):
+        progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
+                                     (XCar - displacementY * t, YCar - displacementX * t), method='nearest')
+        if t == 0:
+            plt.figure(figsize=(8, 8))
+            imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s],
+                              contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            plt.gca().invert_yaxis()
+            plt.show(block=False)
+            sa = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
+            sa.set_ticks(contours)
 
-for t in range(progTime):
-    progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
-                                 (XCar - displacementY * t, YCar - displacementX * t), method='nearest')
-    if t == 0:
-        plt.figure(figsize=(8, 8))
-        imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s],
-                          contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        plt.gca().invert_yaxis()
-        plt.show(block=False)
-        sa = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
-        sa.set_ticks(contours)
-
-    else:
-        imP.set_data(progData[t, :, :])
-        for tp in imR.collections:
-            tp.remove()
-        imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours,
-                          norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        plt.pause(0.1)
+        else:
+            imP.set_data(progData[t, :, :])
+            for tp in imR.collections:
+                tp.remove()
+            imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours,
+                              norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            plt.pause(0.1)
 
 
 #fig, ax = plt.subplots()
