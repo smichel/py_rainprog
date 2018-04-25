@@ -1,6 +1,8 @@
 import numpy as np
 import numpy.ma as ma
-
+import scipy.interpolate as spint
+import scipy.spatial.qhull as qhull
+import itertools
 
 class Square:
 
@@ -106,6 +108,22 @@ class totalField:
 
         return np.asarray(fieldMeanY)
 
+    def return_fieldHistX(self):
+        fieldHistX = []
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistX.append(field.histX[-self.trainTime:-1])
+
+        return np.asarray(fieldHistX)
+
+    def return_fieldHistY(self):
+        fieldHistY = []
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistY.append(field.histY[-self.trainTime:-1])
+
+        return np.asarray(fieldHistY)
+
     def return_fieldStdX(self):
         fieldStdX = []
 
@@ -189,15 +207,14 @@ class totalField:
 
         for field in self.inactiveFields:
             field.lifeTime = field.lifeTime - 1
-            #if field.lifeTime <= -self.trainTime:
-            #    self.inactiveFields.remove(field)
+            if field.lifeTime <= -self.trainTime*4:
+                self.inactiveFields.remove(field)
             #self.activeIds.append(field.id)
 
         #do that
 
     def testangles(self):
         for field in reversed(self.activeFields):
-            print(field.lifeTime)
             if field.lifeTime < self.trainTime:
                 self.activeFields.remove(field)
 
@@ -224,8 +241,8 @@ class totalField:
                 meanXex[i] = np.mean(np.delete(shiftXex, i))
                 meanYex[i] = np.mean(np.delete(shiftYex, i))
 
-            shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
-            shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            #shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            #shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
             status = status[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
 
             filter = filter.union(set(np.arange(len(self.activeFields))) - set(status))
@@ -253,3 +270,18 @@ def get_metangle(x, y):
     met_ang = ma.masked_array((90 - np.degrees(np.arctan2(x, y)) + 360) % 360, mask=mask,
                                   fill_value=np.nan)
     return met_ang
+
+def interp_weights(xy, uv, d=2):
+    #  from https://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
+    tri = qhull.Delaunay(xy)
+    simplex = tri.find_simplex(uv)
+    vertices = np.take(tri.simplices, simplex, axis=0)
+    temp = np.take(tri.transform, simplex, axis=0)
+    delta = uv - temp[:, d]
+    bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+    return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+
+def interpolate(values, vtx, wts, fill_value=np.nan):
+    ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
+    ret[np.any(wts < 0, axis=1)] = fill_value
+    return ret

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
-from init import Square, totalField, get_metangle
+from init import Square, totalField, get_metangle, interp_weights, interpolate
 
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
@@ -29,20 +29,19 @@ def gauss(x, *p):
     return A*np.exp(-(x-mu)**2/2.*sigma**2)
 
 
-
-
 #fp = 'C:/Rainprog/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 20
+prog = 60
 trainTime = 8
 numMaxes = 20
 progTime = 20
 useRealData = 1
-prognosis = 0
+prognosis = 1
+statistics = 1
 timeSteps = prog + progTime
 
 nc = netCDF4.Dataset(fp)
@@ -68,6 +67,10 @@ yCar = np.arange(-20000, 20000+1, res).squeeze()
 
 dist = np.sqrt(np.square(xCar)+np.square(YCar))
 
+target = np.zeros([XCar.shape[0]*XCar.shape[1],2])
+target[:,0] = XCar.flatten()
+target[:,1] = YCar.flatten()
+
 cRange = int((len(XCar) - 1) / 20)
 d_s = len(XCar)
 
@@ -77,11 +80,12 @@ rPolar = z2rainrate(z)
 
 nestedData = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
 startTime = datetime.now()
+vtx, wts = interp_weights(points, target)
 if useRealData:
     for t in range(timeSteps):
         rPolarT = rPolar[t, :, :].T
         rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
-        R[t, :, :] = griddata(points, rPolarT, (XCar, YCar), method='nearest')
+        R[t, :, :] = np.reshape(interpolate(rPolarT, vtx, wts), (d_s, d_s))
         R[t, (dist > 20000)] = 0
         nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
 else:
@@ -89,7 +93,6 @@ else:
     R[:, (dist > 20000)] = 0
     nestedData[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
 
-#R = griddata(xPolar, yPolar, rPolar, xCar, yCar, interp = 'linear')
 
 time_elapsed = datetime.now() - startTime
 print(time_elapsed)
@@ -169,80 +172,81 @@ allFields.testangles()
 progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
 
-plt.figure(figsize=(8, 8))
-for field in allFields.activeFields:
-    for t in field.histMaxima:
-        plt.plot(*np.transpose(t[0][2:0:-1]), 'ko')
-for field in allFields.inactiveFields:
-    for t in field.histMaxima:
-        plt.plot(*np.transpose(t[0][2:0:-1]), 'ro')
-plt.show(block=False)
+if statistics:
+    plt.figure(figsize=(8, 8))
+    for field in allFields.activeFields:
+        for t in field.histMaxima:
+            plt.plot(*np.transpose(t[0][2:0:-1]), 'ko')
+    for field in allFields.inactiveFields:
+        for t in field.histMaxima:
+            plt.plot(*np.transpose(t[0][2:0:-1]), 'ro')
+    plt.show(block=False)
 
-plt.figure(figsize=(8, 8))
-for i, field in enumerate(allFields.activeFields):
-    if field.lifeTime >= trainTime:
-        plt.plot(i, field.meanX, color='black',marker='o')
-        plt.plot(i, field.meanX - field.stdX, color='gray', marker='o')
-        plt.plot(i, field.meanX + field.stdX, color='gray', marker='o')
+    plt.figure(figsize=(8, 8))
+    for i, field in enumerate(allFields.activeFields):
+        if field.lifeTime >= trainTime:
+            plt.plot(i, field.meanX, color='black',marker='o')
+            plt.plot(i, field.meanX - field.stdX, color='gray', marker='o')
+            plt.plot(i, field.meanX + field.stdX, color='gray', marker='o')
 
-plt.figure(figsize=(8, 8))
-for i, field in enumerate(allFields.activeFields):
-    if field.lifeTime >= trainTime:
-        plt.plot(i, field.meanY, color='navy', marker='o')
-        plt.plot(i, field.meanY - field.stdY, color='blue', marker='o')
-        plt.plot(i, field.meanY + field.stdY, color='blue', marker='o')
+    plt.figure(figsize=(8, 8))
+    for i, field in enumerate(allFields.activeFields):
+        if field.lifeTime >= trainTime:
+            plt.plot(i, field.meanY, color='navy', marker='o')
+            plt.plot(i, field.meanY - field.stdY, color='blue', marker='o')
+            plt.plot(i, field.meanY + field.stdY, color='blue', marker='o')
 
-plt.figure(figsize=(8, 8))
-for q, field in enumerate(allFields.activeFields):
-    if field.lifeTime >= trainTime:
-        for i, t in enumerate(field.histNorm):
-            plt.plot(i, t, color='black', marker='o')
-            #plt.plot(i, t - field.histStdNorm[i], color='gray', marker='o')
-            #plt.plot(i, t + field.histStdNorm[i], color='gray', marker='o')
+    plt.figure(figsize=(8, 8))
+    for q, field in enumerate(allFields.activeFields):
+        if field.lifeTime >= trainTime:
+            for i, t in enumerate(field.histNorm):
+                plt.plot(i, t, color='black', marker='o')
+                #plt.plot(i, t - field.histStdNorm[i], color='gray', marker='o')
+                #plt.plot(i, t + field.histStdNorm[i], color='gray', marker='o')
 
-        plt.title(q)
+            plt.title(q)
 
-plt.figure(figsize=(8, 8))
-for q, field in enumerate(allFields.activeFields):
-    if field.lifeTime >= trainTime:
-        for i, t in enumerate(field.histAngle):
-            plt.plot(i, t, color='navy', marker='o')
-            #plt.plot(i, t - field.histStdAngle[i], color='blue', marker='o')
-            #plt.plot(i, t + field.histStdAngle[i], color='blue', marker='o')
+    plt.figure(figsize=(8, 8))
+    for q, field in enumerate(allFields.activeFields):
+        if field.lifeTime >= trainTime:
+            for i, t in enumerate(field.histAngle):
+                plt.plot(i, t, color='navy', marker='o')
+                #plt.plot(i, t - field.histStdAngle[i], color='blue', marker='o')
+                #plt.plot(i, t + field.histStdAngle[i], color='blue', marker='o')
 
-        plt.title(q)
+            plt.title(q)
 
-plt.show(block=False)
+    plt.show(block=False)
 
-plt.figure(figsize=(8, 8))
-for q, field in enumerate(allFields.activeFields):
-    if field.lifeTime >= trainTime:
-        for i, t in enumerate(field.histX):
-            plt.plot(i, t, alpha = 0.1, color='black', marker='o')
-            #plt.plot(i, t - field.histStdNorm[i], color='gray', marker='o')
-            #plt.plot(i, t + field.histStdNorm[i], color='gray', marker='o')
+    plt.figure(figsize=(8, 8))
+    for q, field in enumerate(allFields.activeFields):
+        if field.lifeTime >= trainTime:
+            for i, t in enumerate(field.histX):
+                plt.plot(i, t, alpha = 0.1, color='black', marker='o')
+                #plt.plot(i, t - field.histStdNorm[i], color='gray', marker='o')
+                #plt.plot(i, t + field.histStdNorm[i], color='gray', marker='o')
 
-        plt.title(q)
+            plt.title(q)
 
-plt.figure(figsize=(8, 8))
-for q, field in enumerate(allFields.activeFields):
-    if field.lifeTime >= trainTime:
-        for i, t in enumerate(field.histY):
-            plt.plot(i, t, alpha = 0.1, color='navy', marker='o')
-            #plt.plot(i, t - field.histStdAngle[i], color='blue', marker='o')
-            #plt.plot(i, t + field.histStdAngle[i], color='blue', marker='o')
+    plt.figure(figsize=(8, 8))
+    for q, field in enumerate(allFields.activeFields):
+        if field.lifeTime >= trainTime:
+            for i, t in enumerate(field.histY):
+                plt.plot(i, t, alpha = 0.1, color='navy', marker='o')
+                #plt.plot(i, t - field.histStdAngle[i], color='blue', marker='o')
+                #plt.plot(i, t + field.histStdAngle[i], color='blue', marker='o')
 
-        plt.title(q)
+            plt.title(q)
 
-plt.show(block=False)
+    plt.show(block=False)
 
 allFieldsMeanX = np.nanmean(allFields.return_fieldMeanX())
 allFieldsMeanY = np.nanmean(allFields.return_fieldMeanY())
 allFieldsStdX = np.nanmean(allFields.return_fieldStdX())
 allFieldsStdY = np.nanmean(allFields.return_fieldStdY())
 
-displacementX = np.nanmean(allFields.histMeanX[prog - trainTime:prog])*res
-displacementY = np.nanmean(allFields.histMeanY[prog - trainTime:prog])*res
+displacementX = np.nanmean(allFields.return_fieldHistX())*res
+displacementY = np.nanmean(allFields.return_fieldHistY())*res
 
 print(allFieldsMeanX)
 print(allFieldsMeanY)
