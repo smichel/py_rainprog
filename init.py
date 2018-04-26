@@ -302,5 +302,5 @@ def interp_weights(xy, uv, d=2):
 
 def interpolate(values, vtx, wts, fill_value=np.nan):
     ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
-    #ret[np.any(wts < 0, axis=1)] = fill_value
+    ret[np.any(wts < -1e5, axis=1)] = fill_value
     return ret
