@@ -4,6 +4,7 @@ import scipy.interpolate as spint
 import scipy.spatial.qhull as qhull
 import itertools
 
+
 class Square:
 
     def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist, id):
@@ -169,6 +170,16 @@ class totalField:
         maxima = maxima[maximaProx > self.rainThreshold, :]
         status = status[maximaProx > self.rainThreshold]
 
+        status=list(status)
+
+        for i, field in enumerate(self.activeFields):
+            if field.lifeTime > 1:
+                if (field.maxima[0, 1:3] == field.histMaxima[-1][0, 1:3]).all():
+                    try:
+                        status.remove(i)
+                    except ValueError:
+                        pass
+
         for i in reversed(range(len(self.activeFields))):
             if i not in status:
                 self.inactiveFields.append(self.activeFields[i])
@@ -218,7 +229,8 @@ class totalField:
             if field.lifeTime < self.trainTime:
                 self.activeFields.remove(field)
 
-        filter = set()
+        filter = []
+        extraFilter = set()
         for t in range(self.trainTime):
             shiftX = np.empty([len(self.activeFields)])
             shiftY = np.empty([len(self.activeFields)])
@@ -232,6 +244,7 @@ class totalField:
 
             shiftXex = shiftX[lengths <= 800]
             shiftYex = shiftY[lengths <= 800]
+            extraFilter = extraFilter.union(set(status[lengths > 800]))
             status = status[lengths <= 800]
 
             meanXex = np.empty([len(shiftXex)])
@@ -241,16 +254,22 @@ class totalField:
                 meanXex[i] = np.mean(np.delete(shiftXex, i))
                 meanYex[i] = np.mean(np.delete(shiftYex, i))
 
-            #shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
-            #shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
-            status = status[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            # shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            # shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            # status = status[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
+            angleEx = get_metangle(meanXex, meanYex)
+            angle = get_metangle(shiftXex, shiftYex)
+            a = 180 - np.abs(np.abs(angle - angleEx) - 180)
 
-            filter = filter.union(set(np.arange(len(self.activeFields))) - set(status))
+            status = status[a<45]
+            filter.extend(list(status))
 
-        filter = sorted(list(filter))
+        unique, counts = np.unique(np.array(filter), return_counts=True)
+
+        filter = (np.full_like(counts, self.trainTime) - counts) >= 3
 
         for i in reversed(range(len(self.activeFields))):
-            if i in filter:
+            if filter[i]:
                 self.inactiveFields.append(self.activeFields[i])
                 self.inactiveFields[-1].lifeTime = -1
                 del self.activeFields[i]
@@ -283,5 +302,5 @@ def interp_weights(xy, uv, d=2):
 
 def interpolate(values, vtx, wts, fill_value=np.nan):
     ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
-    ret[np.any(wts < 0, axis=1)] = fill_value
+    #ret[np.any(wts < 0, axis=1)] = fill_value
     return ret

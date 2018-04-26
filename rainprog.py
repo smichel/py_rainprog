@@ -30,12 +30,13 @@ def gauss(x, *p):
 
 
 #fp = 'C:/Rainprog/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc'
+#fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 60
+prog = 16
 trainTime = 8
 numMaxes = 20
 progTime = 20
@@ -48,17 +49,15 @@ nc = netCDF4.Dataset(fp)
 data = nc.variables['dbz_ac1'][:][:][:]
 z = data
 azi = nc.variables['azi'][:]
-dist = nc.variables['range'][:]
+rang = nc.variables['range'][:]
 
 aziCos = np.cos(np.radians(azi))
 aziSin = np.sin(np.radians(azi))
-xPolar = np.outer(dist, aziCos)
+xPolar = np.outer(rang, aziCos)
 xPolar = np.reshape(xPolar, (333*360, 1))
-yPolar = np.outer(dist, aziSin)
+yPolar = np.outer(rang, aziSin)
 yPolar = np.reshape(yPolar, (333*360, 1))
 points = np.concatenate((xPolar, yPolar), axis = 1)
-meanX = np.zeros([prog])
-meanY = np.zeros([prog])
 
 xCar = np.arange(-20000, 20000+1, res).squeeze()
 yCar = np.arange(-20000, 20000+1, res).squeeze()
@@ -85,15 +84,16 @@ if useRealData:
     for t in range(timeSteps):
         rPolarT = rPolar[t, :, :].T
         rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
-        R[t, :, :] = np.reshape(interpolate(rPolarT, vtx, wts), (d_s, d_s))
-        R[t, (dist > 20000)] = 0
+        R[t, :, :] = np.reshape(interpolate(rPolarT.flatten(), vtx, wts), (d_s, d_s))
+        R[t, (dist >= np.max(rang))] = 0
         nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
 else:
     R = createblob(d_s, res, timeSteps)
     R[:, (dist > 20000)] = 0
     nestedData[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
 
-
+print(np.sum(np.isnan(rPolarT)))
+print(np.sum(np.isnan(R)))
 time_elapsed = datetime.now() - startTime
 print(time_elapsed)
 nestedData = np.nan_to_num(nestedData)
@@ -166,6 +166,15 @@ for t in range(prog):
     plt.pause(0.01)
 
     allFields.update_fields()
+
+plt.figure(figsize=(8, 8))
+for field in allFields.activeFields:
+    for t in field.histMaxima:
+        plt.plot(*np.transpose(t[0][2:0:-1]), 'ko')
+for field in allFields.inactiveFields:
+    for t in field.histMaxima:
+        plt.plot(*np.transpose(t[0][2:0:-1]), 'ro')
+plt.show(block=False)
 
 allFields.testangles()
 
