@@ -265,7 +265,7 @@ class totalField:
             filter.extend(list(status))
 
         unique, counts = np.unique(np.array(filter), return_counts=True)
-
+        #extraFilter = np.arange(len(self.activeFields)) in extraFilter
         filter = (np.full_like(counts, self.trainTime) - counts) >= 3
 
         for i in reversed(range(len(self.activeFields))):
