@@ -22,7 +22,7 @@ def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshol
         distance = np.zeros([len(dummy), len(fields)])
         for j in range(0, len(fields)):
             distance[:, j] = np.sqrt(np.square(fields[j].maxima[0, 1] - dummy[:, 1]) + np.square(fields[j].maxima[0, 2] - dummy[:, 2]))
-        potPoints = np.flatnonzero(np.prod(distance >= cRange*2, axis=1))
+        potPoints = np.flatnonzero(np.prod(distance >= cRange*3, axis=1))
         if not len(potPoints):
             return fields
         if dummy[potPoints[-1], 0] > rainThreshold:
