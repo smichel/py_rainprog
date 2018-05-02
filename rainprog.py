@@ -30,13 +30,13 @@ def gauss(x, *p):
 
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc'
+fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 16
+prog = 15
 trainTime = 8
 numMaxes = 20
 progTime = 20
@@ -92,8 +92,7 @@ else:
     R[:, (dist > 20000)] = 0
     nestedData[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
 
-print(np.sum(np.isnan(rPolarT)))
-print(np.sum(np.isnan(R)))
+
 time_elapsed = datetime.now() - startTime
 print(time_elapsed)
 nestedData = np.nan_to_num(nestedData)

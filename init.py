@@ -143,6 +143,15 @@ class totalField:
 
         return np.asarray(fieldStdY)
 
+    def return_fieldRelStdNorm(self):
+        fieldRelStdNorm = []
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldRelStdNorm.append(field.relStdNorm)
+
+        return np.asarray(fieldRelStdNorm)
+
     def testmaxima(self, nestedData):
         maxima = np.empty([len(self.activeFields), 3])
         status = np.arange(len(self.activeFields))
@@ -229,8 +238,8 @@ class totalField:
             if field.lifeTime < self.trainTime:
                 self.activeFields.remove(field)
 
-        filter = []
-        extraFilter = set()
+        angleFilter = []
+        lengthFilter = []
         for t in range(self.trainTime):
             shiftX = np.empty([len(self.activeFields)])
             shiftY = np.empty([len(self.activeFields)])
@@ -242,10 +251,11 @@ class totalField:
 
             lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * self.res
 
-            shiftXex = shiftX[lengths <= 800]
-            shiftYex = shiftY[lengths <= 800]
-            extraFilter = extraFilter.union(set(status[lengths > 800]))
-            status = status[lengths <= 800]
+            shiftXex = shiftX[lengths <= 1000]
+            shiftYex = shiftY[lengths <= 1000]
+            lengthFilter.extend(status[lengths <= 1000])
+
+            status = status[lengths <= 1000]
 
             meanXex = np.empty([len(shiftXex)])
             meanYex = np.empty([len(shiftYex)])
@@ -254,22 +264,20 @@ class totalField:
                 meanXex[i] = np.mean(np.delete(shiftXex, i))
                 meanYex[i] = np.mean(np.delete(shiftYex, i))
 
-            # shiftX = shiftXex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
-            # shiftY = shiftYex[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
-            # status = status[(np.sign(meanXex) == np.sign(shiftXex)) | (np.sign(meanYex) == np.sign(shiftYex))]
             angleEx = get_metangle(meanXex, meanYex)
             angle = get_metangle(shiftXex, shiftYex)
             a = 180 - np.abs(np.abs(angle - angleEx) - 180)
 
             status = status[a<45]
-            filter.extend(list(status))
+            angleFilter.extend(list(status))
 
-        unique, counts = np.unique(np.array(filter), return_counts=True)
-        #extraFilter = np.arange(len(self.activeFields)) in extraFilter
-        filter = (np.full_like(counts, self.trainTime) - counts) >= 3
+        lengthUnique, lengthCounts = np.unique(np.array(lengthFilter), return_counts=True)
+        angleUnique, angleCounts = np.unique(np.array(angleFilter), return_counts=True)
+        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) >= 3
+        lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) >= 1
 
         for i in reversed(range(len(self.activeFields))):
-            if filter[i]:
+            if aFilter[i] | lFilter[i]:
                 self.inactiveFields.append(self.activeFields[i])
                 self.inactiveFields[-1].lifeTime = -1
                 del self.activeFields[i]
