@@ -15,7 +15,8 @@ def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshol
     sorted = sorted[distFlat < distThreshold, :]
 
     if not len(fields):
-        fields.append(Square(cRange, np.reshape(sorted[-1, :], (1, 3)), 1, rainThreshold, distThreshold, dist, 0))
+        fields.append(Square(cRange, np.reshape(sorted[-1, :], (1, 3)), 1, rainThreshold, distThreshold, dist))
+
 
     dummy = sorted
     for i in range(numMaxes - len(fields)):
@@ -26,7 +27,7 @@ def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshol
         if not len(potPoints):
             return fields
         if dummy[potPoints[-1], 0] > rainThreshold:
-            fields.append(Square(cRange, np.reshape(dummy[potPoints[-1], :], (1, 3)), 1, rainThreshold, distThreshold, dist, i))
+            fields.append(Square(cRange, np.reshape(dummy[potPoints[-1], :], (1, 3)), 1, rainThreshold, distThreshold, dist))
             dummy = dummy[potPoints, :]
         else:
             return fields

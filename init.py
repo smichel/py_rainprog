@@ -7,14 +7,14 @@ import itertools
 
 class Square:
 
-    def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist, id):
+    def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist):
         self.cRange = cRange  # cRange
         self.maxima = maxima  # center point of the field and its rainfall intensity
         self.status = status  # status of the maximum
         self.rainThreshold = rainThreshold  # minimal rainthreshold
         self.distThreshold = distThreshold  # distance threshold to radarboundary
         self.dist = dist  # global distancefield
-        self.id = id  # square identifier
+        self.id = 0  # square identifier
 
         self.shiftX = []
         self.shiftY = []
@@ -60,6 +60,9 @@ class Square:
     def add_angle(self, angle):
         self.histAngle.append(angle)
 
+    def get_id(self, inactiveIds):
+        self.id = inactiveIds[-1]
+
 class totalField:
 
     def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, res, cRange, trainTime):
@@ -78,10 +81,11 @@ class totalField:
         self.res = res  # resolution of the grid in m
         self.cRange = cRange  # correlation range in gridboxes
         self.trainTime = trainTime
-        #self.ids = np.arange(self.numMaxes*self.trainTime)
-        #self.activeIds = []  # ids in use (active and inactive fields)
-        #self.inactiveIds = []  # ids not in use
+        self.ids = np.arange(self.numMaxes*self.trainTime, 0, -1)
+        self.activeIds = []  # ids in use (active and inactive fields)
+        self.inactiveIds = list(self.ids)  # ids not in use
 
+        self.assign_ids()
     def return_maxima(self, time):
         maxima = np.empty([len(self.activeFields), 3])
         if time == 0:
@@ -152,7 +156,7 @@ class totalField:
 
         return np.asarray(fieldRelStdNorm)
 
-    def testmaxima(self, nestedData):
+    def test_maxima(self, nestedData):
         maxima = np.empty([len(self.activeFields), 3])
         status = np.arange(len(self.activeFields))
 
@@ -227,13 +231,14 @@ class totalField:
 
         for field in self.inactiveFields:
             field.lifeTime = field.lifeTime - 1
-            if field.lifeTime <= -self.trainTime*4:
+            if field.lifeTime <= -self.trainTime:
+                self.inactiveIds.append(field.id)
+                self.activeIds.remove(field.id)
                 self.inactiveFields.remove(field)
-            #self.activeIds.append(field.id)
 
         #do that
 
-    def testangles(self):
+    def test_angles(self):
         for field in reversed(self.activeFields):
             if field.lifeTime < self.trainTime:
                 self.activeFields.remove(field)
@@ -281,6 +286,15 @@ class totalField:
                 self.inactiveFields.append(self.activeFields[i])
                 self.inactiveFields[-1].lifeTime = -1
                 del self.activeFields[i]
+
+    def assign_ids(self):
+        for field in self.activeFields:
+            if not field.id:
+                field.get_id(self.inactiveIds)
+                self.activeIds.append(self.inactiveIds[-1])
+                del self.inactiveIds[-1]
+
+
 
 def get_metangle(x, y):
     '''Get meteorological angle of input vector.

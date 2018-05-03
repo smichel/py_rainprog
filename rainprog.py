@@ -36,7 +36,7 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 15
+prog = 20
 trainTime = 8
 numMaxes = 40
 progTime = 20
@@ -117,13 +117,14 @@ for t in range(prog):
         for field in allFields.activeFields:
             field.maxima[0, 1:3] = field.maxima[0, 1:3] - cRange * 2
         allFields.activeFields = findmaxima(allFields.activeFields, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
+        allFields.assign_ids()
         for field in allFields.activeFields:
             field.maxima[0, 1:3] = field.maxima[0, 1:3] + cRange * 2
 
         print('looked for new maxima')
 
     #fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res, cRange)
-    allFields.testmaxima(nestedData[t, :, :])
+    allFields.test_maxima(nestedData[t, :, :])
     for field in allFields.activeFields:
 
         corrArea = nestedData[t, (int(field.maxima[0, 1]) - cRange):(int(field.maxima[0, 1]) + cRange),
@@ -167,19 +168,21 @@ for t in range(prog):
     allFields.update_fields()
 
 
+
 if statistics:
     plt.figure(figsize=(8, 8))
     lenA = len(allFields.activeFields)
     lenI = len(allFields.inactiveFields)
     for i, field in enumerate(allFields.activeFields):
+        col=np.concatenate([np.zeros([1]), np.random.rand(2,)])
         for t in field.histMaxima:
-            plt.plot(*np.transpose(t[0][2:0:-1]), color=(0, 0, 1, (i/(lenA*2)+0.2)), marker='o')
+            plt.plot(*np.transpose(t[0][2:0:-1]), color=col, marker='o')
     for i, field in enumerate(allFields.inactiveFields):
         for t in field.histMaxima:
-            plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0, (i/(lenI*2)+0.2)), marker='o')
+            plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
     plt.show(block=False)
 
-allFields.testangles()
+allFields.test_angles()
 
 progData = np.zeros([progTime, d_s, d_s])
 points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
@@ -189,11 +192,12 @@ if statistics:
     lenA = len(allFields.activeFields)
     lenI = len(allFields.inactiveFields)
     for i, field in enumerate(allFields.activeFields):
+        col=np.concatenate([np.zeros([1]), np.random.rand(2,)])
         for t in field.histMaxima:
-            plt.plot(*np.transpose(t[0][2:0:-1]), color=(0, 0, 1, (i/(lenA*2)+0.2)), marker='o')
-    for i, field in enumerate(allFields.inactiveFields):
-        for t in field.histMaxima:
-            plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0, (i/(lenI*2)+0.2)), marker='o')
+            plt.plot(*np.transpose(t[0][2:0:-1]), color=col, marker='o')
+        for i, field in enumerate(allFields.inactiveFields):
+            for t in field.histMaxima:
+                plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
     plt.show(block=False)
 
 
@@ -207,13 +211,13 @@ if statistics:
 
             plt.title('HistNorm')
 
-    plt.figure(figsize=(8, 8))
+    fig = plt.figure(figsize=(8, 8))
+    ax = plt.subplot(111, projection='polar')
     for q, field in enumerate(allFields.activeFields):
         if field.lifeTime >= trainTime:
             for i, t in enumerate(field.histAngle):
-                plt.plot(i, t, color='navy', marker='o')
-                #plt.plot(i, t - field.histStdAngle[i], color='blue', marker='o')
-                #plt.plot(i, t + field.histStdAngle[i], color='blue', marker='o')
+                plt.polar(t * np.pi / 180, allFields.activeFields[q].histNorm[i], color='k', marker='o',
+                          alpha=0.1)
 
             plt.title('HistAngle')
 
