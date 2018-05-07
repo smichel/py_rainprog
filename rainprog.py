@@ -169,14 +169,14 @@ for t in range(prog):
 
 
 
+
+col = np.concatenate([np.zeros([1,np.max(allFields.activeIds)]), np.random.rand(2,np.max(allFields.activeIds))])
+
 if statistics:
     plt.figure(figsize=(8, 8))
-    lenA = len(allFields.activeFields)
-    lenI = len(allFields.inactiveFields)
     for i, field in enumerate(allFields.activeFields):
-        col=np.concatenate([np.zeros([1]), np.random.rand(2,)])
         for t in field.histMaxima:
-            plt.plot(*np.transpose(t[0][2:0:-1]), color=col, marker='o')
+            plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
     for i, field in enumerate(allFields.inactiveFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
@@ -189,12 +189,9 @@ points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s
 
 if statistics:
     plt.figure(figsize=(8, 8))
-    lenA = len(allFields.activeFields)
-    lenI = len(allFields.inactiveFields)
     for i, field in enumerate(allFields.activeFields):
-        col=np.concatenate([np.zeros([1]), np.random.rand(2,)])
         for t in field.histMaxima:
-            plt.plot(*np.transpose(t[0][2:0:-1]), color=col, marker='o')
+            plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
         for i, field in enumerate(allFields.inactiveFields):
             for t in field.histMaxima:
                 plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
