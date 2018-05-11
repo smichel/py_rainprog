@@ -36,13 +36,13 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 20
+prog = 60
 trainTime = 8
-numMaxes = 40
+numMaxes = 20
 progTime = 20
 useRealData = 1
-prognosis = 0
-statistics = 1
+prognosis = 1
+statistics = 0
 livePlot = 1
 timeSteps = prog + progTime
 
@@ -246,6 +246,15 @@ allFieldsMeanX = np.nanmean(allFields.return_fieldMeanX())
 allFieldsMeanY = np.nanmean(allFields.return_fieldMeanY())
 allFieldsStdX = np.nanstd(allFields.return_fieldMeanX())
 allFieldsStdY = np.nanstd(allFields.return_fieldMeanY())
+
+allFieldsNorm = allFields.return_fieldHistMeanNorm()
+allFieldsAngle = allFields.return_fieldHistMeanAngle()
+
+allFieldsMeanNorm = np.linalg.norm([allFieldsMeanX, allFieldsMeanY])
+allFieldsMeanAngle = get_metangle(allFieldsMeanX, allFieldsMeanY)
+
+allFieldsStdNorm = np.linalg.norm([allFieldsStdX, allFieldsStdY])
+allFieldsStdAngle = get_metangle(allFieldsStdX, allFieldsStdY)
 
 displacementX = np.nanmean(allFields.return_fieldHistX())*res
 displacementY = np.nanmean(allFields.return_fieldHistY())*res

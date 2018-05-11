@@ -156,6 +156,24 @@ class totalField:
 
         return np.asarray(fieldRelStdNorm)
 
+    def return_fieldHistMeanNorm(self):
+        fieldHistMeanNorm = []
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistMeanNorm.extend(field.histMeanNorm)
+
+        return np.asarray(fieldHistMeanNorm)
+
+    def return_fieldHistMeanAngle(self):
+        fieldHistMeanAngle = []
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistMeanAngle.extend(field.histMeanAngle)
+
+        return np.asarray(fieldHistMeanAngle)
+
     def test_maxima(self, nestedData):
         maxima = np.empty([len(self.activeFields), 3])
         status = np.arange(len(self.activeFields))
@@ -214,6 +232,7 @@ class totalField:
                 field.stdY = np.nanstd(np.asarray(field.histY[-self.trainTime:-1]))
                 field.meanNorm = np.linalg.norm([field.meanX, field.meanY])
                 field.meanAngle = get_metangle(field.meanX, field.meanY)
+                field.meanAngle = field.meanAngle.filled()
                 field.stdNorm = np.nanstd(np.asarray(field.histNorm[-self.trainTime:-1]))
                 field.relStdNorm = field.stdNorm / field.meanNorm
                 field.stdAngle = get_metangle(field.stdX, field.stdY)
@@ -278,8 +297,8 @@ class totalField:
 
         lengthUnique, lengthCounts = np.unique(np.array(lengthFilter), return_counts=True)
         angleUnique, angleCounts = np.unique(np.array(angleFilter), return_counts=True)
-        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) >= 3
-        lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) >= 1
+        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) >= 3 # angleFilter
+        lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) > 0 # lengthFilter
 
         for i in reversed(range(len(self.activeFields))):
             if aFilter[i] | lFilter[i]:
