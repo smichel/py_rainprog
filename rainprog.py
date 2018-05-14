@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
-from init import Square, totalField, get_metangle, interp_weights, interpolate, get_values
+from init import Square, totalField, get_metangle, interp_weights, interpolate, importance_sampling
 
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
@@ -41,9 +41,10 @@ trainTime = 8
 numMaxes = 20
 progTime = 20
 useRealData = 1
-prognosis = 0
+prognosis = 1
 statistics = 0
-livePlot = 0
+livePlot = 1
+samples = 32
 timeSteps = prog + progTime
 
 nc = netCDF4.Dataset(fp)
@@ -184,9 +185,6 @@ if statistics:
 
 allFields.test_angles()
 
-progData = np.zeros([progTime, d_s, d_s])
-points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
-
 if statistics:
     plt.figure(figsize=(8, 8))
     for i, field in enumerate(allFields.activeFields):
@@ -261,7 +259,6 @@ displacementY = np.nanmean(allFields.return_fieldHistY())*res
 
 covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm))
 gaussMeans = [allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)]
-get_values(gaussMeans, covNormAngle,150,150, nestedData[15,:,:],32)
 #use allFieldsMeanNorm & np.sin(allFieldsMeanAngle*allFieldsMeanNorm for means
 #use covNormAngle for covariance matrix
 #x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
@@ -271,16 +268,22 @@ print(allFieldsMeanY)
 print(allFieldsStdX)
 print(allFieldsStdY)
 
+prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
+points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
+
 
 if prognosis:
     for t in range(progTime):
-        progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
-                                     (XCar - displacementY * t, YCar - displacementX * t), method='nearest')
-
+        #progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
+                                     #(XCar - displacementY * t, YCar - displacementX * t), method='nearest')
+        if t == 0:
+            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(nestedData[prog, :, :], gaussMeans, covNormAngle, samples, d_s, cRange)
+        else:
+            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(prog_data[t-1, :, :], gaussMeans, covNormAngle, samples, d_s, cRange)
         if livePlot:
             if t == 0:
                 plt.figure(figsize=(8, 8))
-                imP = plt.imshow(progData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                imP = plt.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s],
                                   contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.gca().invert_yaxis()
@@ -289,7 +292,7 @@ if prognosis:
                 sa.set_ticks(contours)
 
             else:
-                imP.set_data(progData[t, :, :])
+                imP.set_data(prog_data[t, :, :])
                 for tp in imR.collections:
                     tp.remove()
                 imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours,
