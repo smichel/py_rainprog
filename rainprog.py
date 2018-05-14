@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
-from init import Square, totalField, get_metangle, interp_weights, interpolate
+from init import Square, totalField, get_metangle, interp_weights, interpolate, get_values
 
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
@@ -36,14 +36,14 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 60
+prog = 20
 trainTime = 8
 numMaxes = 20
 progTime = 20
 useRealData = 1
-prognosis = 1
+prognosis = 0
 statistics = 0
-livePlot = 1
+livePlot = 0
 timeSteps = prog + progTime
 
 nc = netCDF4.Dataset(fp)
@@ -259,10 +259,19 @@ allFieldsStdAngle = get_metangle(allFieldsStdX, allFieldsStdY)
 displacementX = np.nanmean(allFields.return_fieldHistX())*res
 displacementY = np.nanmean(allFields.return_fieldHistY())*res
 
+covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm))
+gaussMeans = [allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)]
+get_values(gaussMeans, covNormAngle,150,150, nestedData[15,:,:],32)
+#use allFieldsMeanNorm & np.sin(allFieldsMeanAngle*allFieldsMeanNorm for means
+#use covNormAngle for covariance matrix
+#x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
+
 print(allFieldsMeanX)
 print(allFieldsMeanY)
 print(allFieldsStdX)
 print(allFieldsStdY)
+
+
 if prognosis:
     for t in range(progTime):
         progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),

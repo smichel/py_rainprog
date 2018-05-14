@@ -345,3 +345,10 @@ def interpolate(values, vtx, wts, fill_value=np.nan):
     ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
     ret[np.any(wts < -1e5, axis=1)] = fill_value
     return ret
+
+def importance_sampling():
+    return 0
+
+def get_values(gaussMeans, covNormAngle, x, y, nested_data, samples):
+    x_,y_ = np.random.multivariate_normal(gaussMeans, covNormAngle, samples).T
+    x_,y_ = x_+x,y_+y
