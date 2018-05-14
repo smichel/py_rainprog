@@ -11,7 +11,7 @@ def createblob(d_s, res, timeSteps):
     x1 = 100
     y0 = 0
     amp = 10
-    sigma = 10
+    sigma = 30
 
     def f(x, x0, y, y0, amp, sigma):
         return amp*np.exp(-(np.square(x-x0)/(2*sigma**2)+(np.square(y-y0)/(2*sigma**2))))
