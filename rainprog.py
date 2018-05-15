@@ -30,21 +30,21 @@ def gauss(x, *p):
 
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130727150000.nc'
+fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130619200000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 20
+prog = 40
 trainTime = 8
 numMaxes = 20
-progTime = 20
+progTime = 50
 useRealData = 1
 prognosis = 1
 statistics = 0
 livePlot = 1
-samples = 32
+samples = 16
 timeSteps = prog + progTime
 
 nc = netCDF4.Dataset(fp)
@@ -258,47 +258,50 @@ displacementX = np.nanmean(allFields.return_fieldHistX())*res
 displacementY = np.nanmean(allFields.return_fieldHistY())*res
 
 covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm))
-gaussMeans = [allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)]
+gaussMeans = [allFieldsMeanX, allFieldsMeanY]
+#gaussMeans = [allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)]
 #use allFieldsMeanNorm & np.sin(allFieldsMeanAngle*allFieldsMeanNorm for means
 #use covNormAngle for covariance matrix
 #x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
 
-print(allFieldsMeanX)
-print(allFieldsMeanY)
-print(allFieldsStdX)
-print(allFieldsStdY)
+#print(allFieldsMeanX)
+#print(allFieldsMeanY)
+#print(allFieldsStdX)
+#print(allFieldsStdY)
 
 prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
-points = np.concatenate((np.reshape(XCar, (d_s * d_s, 1)), np.reshape(YCar, (d_s * d_s, 1))), axis = 1)
-
+x = np.arange(2 * cRange, 2 * cRange + d_s)
+y = np.arange(2 * cRange, 2 * cRange + d_s)
+yx, xy = np.meshgrid(x, y)
 
 if prognosis:
     for t in range(progTime):
         #progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
                                      #(XCar - displacementY * t, YCar - displacementX * t), method='nearest')
         if t == 0:
-            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(nestedData[prog, :, :], gaussMeans, covNormAngle, samples, d_s, cRange)
+            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(nestedData[prog, :, :], gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange)
         else:
-            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(prog_data[t-1, :, :], gaussMeans, covNormAngle, samples, d_s, cRange)
+            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(prog_data[t-1, :, :], gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange)
+
         if livePlot:
             if t == 0:
                 plt.figure(figsize=(8, 8))
                 imP = plt.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s],
+                imR = plt.contour(nestedData[prog + t, :, :],
                                   contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.gca().invert_yaxis()
                 plt.show(block=False)
                 sa = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
                 sa.set_ticks(contours)
-
+                sa.set_clim(0.0, 20.0)
             else:
                 imP.set_data(prog_data[t, :, :])
                 for tp in imR.collections:
                     tp.remove()
-                imR = plt.contour(nestedData[prog + t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s], contours,
+                imR = plt.contour(nestedData[prog + t, :, :], contours,
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.pause(0.1)
-
+            plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 time_elapsed = datetime.now() - startTime
 
 print(time_elapsed)

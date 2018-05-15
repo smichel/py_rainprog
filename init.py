@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.ma as ma
 import scipy.spatial.qhull as qhull
-
+from datetime import datetime
 
 class Square:
 
@@ -344,29 +344,22 @@ def interpolate(values, vtx, wts, fill_value=np.nan):
     ret[np.any(wts < -1e5, axis=1)] = fill_value
     return ret
 
-def importance_sampling(nested_data, gaussMeans, covNormAngle, samples, d_s, cRange):
-    x = np.arange(2*cRange,2*cRange+d_s)
-    y = np.arange(2*cRange,2*cRange+d_s)
-    xy,yx = np.meshgrid(x, y)
-    prog_data = np.reshape(get_values(gaussMeans, covNormAngle, xy.flatten(), xy.flatten(), nested_data, samples),[d_s,d_s])
-
+def importance_sampling(nested_data, gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange):
+    prog_data = np.reshape(get_values(gaussMeans, covNormAngle, xy.flatten(), yx.flatten(), nested_data, samples),[d_s,d_s])
     return prog_data
 
 def get_values(gaussMeans, covNormAngle, x, y, nested_data, samples):  # nested_data should be 2d
     xSample, ySample = np.random.multivariate_normal(gaussMeans, covNormAngle, samples).T
-    x_ = np.zeros([len(x),samples])
-    y_ = np.zeros([len(x),samples])
-    for i in range(len(x)):
-        x_[i]= x[i] - xSample
-        y_[i]= y[i] - ySample
-
+    x = np.full((samples, len(x)), x).T
+    y = np.full((samples, len(y)), y).T
+    x_= x - xSample
+    y_= y - ySample
     vals = np.nanmean(interp2d(nested_data, x_, y_),axis=1)
     return vals
 
-def interp2d(nested_data, x, y):  # nested_data should be 2d
+def interp2d(nested_data, x, y):  # nested_data in 2d
     vals = nested_data[np.int_(x), np.int_(y)] * (np.mod(x, 1) * np.mod(y, 1)) + \
         nested_data[np.int_(x), np.int_(y)+1] * (np.mod(x, 1) * (1 - np.mod(y, 1))) + \
         nested_data[np.int_(x)+1, np.int_(y)+1] * ((1 - np.mod(x, 1)) * (1 - np.mod(y, 1))) + \
         nested_data[np.int_(x)+1, np.int_(y)] * (1 - np.mod(x, 1)) * np.mod(y, 1)
-
     return vals

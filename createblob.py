@@ -7,9 +7,9 @@ def createblob(d_s, res, timeSteps):
     [x, y] = np.meshgrid(x, y)
     u = 1
     v = 2.4
-    x0 = 50
-    x1 = 100
-    y0 = 0
+    x0 = 150
+    x1 = 150
+    y0 = 150
     amp = 10
     sigma = 30
 
