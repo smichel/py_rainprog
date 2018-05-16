@@ -30,21 +30,22 @@ def gauss(x, *p):
 
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_HWT_wrx00_l2_dbz_v00_20130619200000.nc'
+fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+#fp = '/scratch/local1/BOO/HHG_lawr_level2_hdcp2_2016-06-06/lawr/HHG/level2_hdcp2/2016/06/m4t_HHG_wrx00_l2_dbz_v00_20160607160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 17000
-prog = 40
+prog = 20
 trainTime = 8
 numMaxes = 20
 progTime = 50
 useRealData = 1
 prognosis = 1
-statistics = 0
+statistics = 1
 livePlot = 1
-samples = 16
+samples = 12
 timeSteps = prog + progTime
 
 nc = netCDF4.Dataset(fp)
@@ -301,7 +302,7 @@ if prognosis:
                 imR = plt.contour(nestedData[prog + t, :, :], contours,
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.pause(0.1)
-            plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
+            #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 time_elapsed = datetime.now() - startTime
 
 print(time_elapsed)

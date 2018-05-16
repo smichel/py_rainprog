@@ -2,6 +2,7 @@ import numpy as np
 import numpy.ma as ma
 import scipy.spatial.qhull as qhull
 from datetime import datetime
+import h5py
 
 class Square:
 
@@ -256,12 +257,16 @@ class totalField:
         #do that
 
     def test_angles(self):
+        fieldNums = 0
         for field in reversed(self.activeFields):
             if field.lifeTime < self.trainTime:
                 self.activeFields.remove(field)
+            else:
+                fieldNums = fieldNums + 1
 
-        angleFilter = []
-        lengthFilter = []
+        angleFilter = list(range(fieldNums))
+        lengthFilter = list(range(fieldNums))
+
         for t in range(self.trainTime):
             shiftX = np.empty([len(self.activeFields)])
             shiftY = np.empty([len(self.activeFields)])
@@ -295,8 +300,8 @@ class totalField:
 
         lengthUnique, lengthCounts = np.unique(np.array(lengthFilter), return_counts=True)
         angleUnique, angleCounts = np.unique(np.array(angleFilter), return_counts=True)
-        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) >= 3 # angleFilter
-        lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) > 0 # lengthFilter
+        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) >= 4 # angleFilter
+        lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) > 1 # lengthFilter
 
         for i in reversed(range(len(self.activeFields))):
             if aFilter[i] | lFilter[i]:
@@ -363,3 +368,48 @@ def interp2d(nested_data, x, y):  # nested_data in 2d
         nested_data[np.int_(x)+1, np.int_(y)+1] * ((1 - np.mod(x, 1)) * (1 - np.mod(y, 1))) + \
         nested_data[np.int_(x)+1, np.int_(y)] * (1 - np.mod(x, 1)) * np.mod(y, 1)
     return vals
+
+class DWDData:
+
+    def read_dwd_file(self, filepath):
+
+        '''Read in DWD radar data.
+
+        Reads DWD radar data and saves data to object. Only attributes
+        needed for my calculations are read in. If more information
+        about the file and the attributes is wished, check out the
+        `hdf5 <https://support.hdfgroup.org/HDF5/>`_-file with hdfview
+        or hd5dump -H.
+
+        Args:
+            filename (str): Name of radar data file.
+
+        '''
+        with h5py.File(filepath, 'r') as boo:
+            # radar site coordinates and elevation
+            lon_site = boo.get('where').attrs['lon']
+            lat_site = boo.get('where').attrs['lat']
+            alt_site = boo.get('where').attrs['height']
+            self.sitecoords = (lon_site, lat_site, alt_site)
+            self.elevation = boo.get('dataset1/where').attrs['elangle']
+
+            # Number of azimuth rays, start azimuth, azimuth steps
+            az_rays = boo.get('dataset1/where').attrs['nrays']
+            az_start = boo.get('dataset1/where').attrs['startaz']
+            az_steps = boo.get('dataset1/how').attrs['angle_step']
+
+            # Number of range bins, start range, range steps
+            r_bins = boo.get('dataset1/where').attrs['nbins']
+            r_start = boo.get('dataset1/where').attrs['rstart']
+            r_steps = boo.get('dataset1/where').attrs['rscale']
+
+            # Azimuth and range arrays
+            self.r = np.arange(r_start, r_start + r_bins*r_steps, r_steps)
+            self.az = np.arange(az_start, az_start + az_rays*az_steps, az_steps)
+
+            # Corrected reflectivity data
+            gain = boo.get('dataset1/data1/what').attrs['gain']
+            offset = boo.get('dataset1/data1/what').attrs['offset']
+            refl = boo.get('dataset1/data1/data')
+            self.refl = refl*gain + offset
+
