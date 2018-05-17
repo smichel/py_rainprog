@@ -316,7 +316,16 @@ class totalField:
                 self.activeIds.append(self.inactiveIds[-1])
                 del self.inactiveIds[-1]
 
-
+def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
+    a = np.full_like(z, 77, dtype=np.double)
+    b = np.full_like(z, 1.9, dtype=np.double)
+    cond1 = z <= 44.0
+    a[cond1] = 200
+    b[cond1] = 1.6
+    cond2 = z <= 36.5
+    a[cond2] = 320
+    b[cond2] = 1.4
+    return ((10 ** (z / 10)) / a) ** (1. / b)
 
 def get_metangle(x, y):
     '''Get meteorological angle of input vector.
@@ -405,11 +414,38 @@ class DWDData:
 
             # Azimuth and range arrays
             self.r = np.arange(r_start, r_start + r_bins*r_steps, r_steps)
-            self.az = np.arange(az_start, az_start + az_rays*az_steps, az_steps)
+            self.azi = np.arange(az_start, az_start + az_rays*az_steps, az_steps)
 
             # Corrected reflectivity data
             gain = boo.get('dataset1/data1/what').attrs['gain']
             offset = boo.get('dataset1/data1/what').attrs['offset']
             refl = boo.get('dataset1/data1/data')
             self.refl = refl*gain + offset
+
+    def gridding(self):
+
+        res = 500
+        aziCos = np.cos(np.radians(self.azi))
+        aziSin = np.sin(np.radians(self.azi))
+        xPolar = np.outer(self.r, aziCos)
+        xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
+        yPolar = np.outer(self.r, aziSin)
+        yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
+        points = np.concatenate((xPolar, yPolar), axis = 1)
+
+        xCar = np.arange(-150000, 150000 + 1, res).squeeze()
+        yCar = np.copy(xCar)
+        d_s = len(xCar)
+
+        [XCar, YCar] = np.meshgrid(xCar, yCar)
+        target = np.zeros([XCar.shape[0] * XCar.shape[1], 2])
+        target[:, 0] = XCar.flatten()
+        target[:, 1] = YCar.flatten()
+
+        vtx, wts = interp_weights(points, target)
+
+        rPolar = z2rainrate(self.refl).T
+        rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
+
+        self.R = np.reshape(interpolate(rPolar.flatten(), vtx, wts), (d_s, d_s))
 
