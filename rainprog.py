@@ -18,18 +18,19 @@ def gauss(x, *p):
 
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-#fp = '/scratch/local1/BOO/HHG_lawr_level2_hdcp2_2016-06-06/lawr/HHG/level2_hdcp2/2016/06/m4t_HHG_wrx00_l2_dbz_v00_20160607160000.nc'
+#fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607140000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
-fp_boo = '/scratch/local1/BOO/2016/06/06/ras07-pcpng01_sweeph5allm_any_00-2016060616003400-boo-10132-hd5'
+
+fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714403300-boo-10132-hd5'
 res = 100
 smallVal = 2
 rainThreshold = 0.1
-distThreshold = 17000
-prog = 20
+distThreshold = 19500
+prog = 10
 trainTime = 8
 numMaxes = 20
-progTime = 50
+progTime = 110
 useRealData = 1
 prognosis = 1
 statistics = 1
@@ -42,6 +43,9 @@ data = nc.variables['dbz_ac1'][:][:][:]
 z = data
 azi = nc.variables['azi'][:]
 r = nc.variables['range'][:]
+lat = 9.973997  # location of the hamburg radar
+lon = 53.56833
+zsl = 100  # altitude of the hamburg radar
 
 aziCos = np.cos(np.radians(azi))
 aziSin = np.sin(np.radians(azi))
@@ -93,7 +97,9 @@ boo.gridding()
 time_elapsed = datetime.now() - startTime
 print(time_elapsed)
 plt.imshow(boo.R)
-plt.show()
+plt.gca().invert_yaxis()
+
+plt.show(block=False)
 nestedData = np.nan_to_num(nestedData)
 R = np.nan_to_num(R)
 
@@ -137,6 +143,7 @@ for t in range(prog):
         field.shiftY = int(cIdx[1] - 0.5 * len(c))
         field.norm = np.linalg.norm([field.shiftX, field.shiftY])
         field.angle = get_metangle(field.shiftX, field.shiftY)
+        field.angle = field.angle.filled()
         field.add_norm(field.norm)
         field.add_angle(field.angle)
         field.add_maximum(np.copy(field.maxima))
