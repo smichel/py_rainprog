@@ -425,6 +425,8 @@ class DWDData:
     def gridding(self):
 
         res = 500
+        latDeg = 110540  # one degree equals 110540 m
+        lonDeg = 113200  # one degree * cos(lat*pi/180) equals 113200 m
         aziCos = np.cos(np.radians(self.azi))
         aziSin = np.sin(np.radians(self.azi))
         xPolar = np.outer(self.r, aziCos)
@@ -438,6 +440,8 @@ class DWDData:
         d_s = len(xCar)
 
         [XCar, YCar] = np.meshgrid(xCar, yCar)
+        self.Lat = self.sitecoords[0] + XCar / latDeg
+        self.Lon = self.sitecoords[1] + YCar / (lonDeg * (np.cos(self.Lat * np.pi / 180)))
         target = np.zeros([XCar.shape[0] * XCar.shape[1], 2])
         target[:, 0] = XCar.flatten()
         target[:, 1] = YCar.flatten()

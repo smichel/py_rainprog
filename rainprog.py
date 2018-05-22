@@ -1,5 +1,6 @@
 import numpy as np
 import netCDF4
+import os
 from datetime import datetime
 import matplotlib
 matplotlib.use('TkAgg')
@@ -23,6 +24,7 @@ fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607140000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
 fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714403300-boo-10132-hd5'
+filelist = os.listdir('/scratch/local1/BOO/2016/06/07/')
 res = 100
 smallVal = 2
 rainThreshold = 0.1
@@ -46,7 +48,8 @@ r = nc.variables['range'][:]
 lat = 9.973997  # location of the hamburg radar
 lon = 53.56833
 zsl = 100  # altitude of the hamburg radar
-
+latDeg = 110540  # one degree equals 110540 m
+lonDeg = 113200  # one degree * cos(lat*pi/180) equals 113200 m
 aziCos = np.cos(np.radians(azi))
 aziSin = np.sin(np.radians(azi))
 xPolar = np.outer(r, aziCos)
@@ -59,7 +62,8 @@ xCar = np.arange(-20000, 20000+1, res).squeeze()
 yCar = np.arange(-20000, 20000+1, res).squeeze()
 
 [XCar, YCar] = np.meshgrid(xCar, yCar)
-
+Lat = lat + XCar / latDeg
+Lon = lon + YCar / (lonDeg * (np.cos(Lat * np.pi / 180)))
 dist = np.sqrt(np.square(xCar)+np.square(YCar))
 
 target = np.zeros([XCar.shape[0]*XCar.shape[1],2])
