@@ -6,10 +6,11 @@ import matplotlib
 matplotlib.use('TkAgg')
 from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
-from init import Square, totalField, get_metangle, interp_weights, interpolate, importance_sampling, DWDData, z2rainrate
+from init import Square, totalField, get_metangle, interp_weights, interpolate, importance_sampling, DWDData, z2rainrate, findRadarSite, getFiles
 
 
 # Define model function to be used to fit to the data above:
@@ -20,11 +21,14 @@ def gauss(x, *p):
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607140000.nc'
+rTime = 14
+fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
-fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714403300-boo-10132-hd5'
-filelist = os.listdir('/scratch/local1/BOO/2016/06/07/')
+fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
+booFileList = sorted(os.listdir('/scratch/local1/BOO/2016/06/07/'))
+selectedFiles = getFiles(booFileList, rTime)
+
 res = 100
 smallVal = 2
 rainThreshold = 0.1
@@ -97,12 +101,15 @@ startTime = datetime.now()
 boo=DWDData()
 boo.read_dwd_file(fp_boo)
 boo.gridding()
+HHGposition = findRadarSite(lat, lon, boo)
 
 time_elapsed = datetime.now() - startTime
 print(time_elapsed)
+fig,ax = plt.subplots(figsize=(8,8))
 plt.imshow(boo.R)
 plt.gca().invert_yaxis()
-
+radarCircle = mpatches.Circle((HHGposition[1], HHGposition[0]), 20000/500, color = 'w', linewidth=1, fill=0)
+ax.add_patch(radarCircle)
 plt.show(block=False)
 nestedData = np.nan_to_num(nestedData)
 R = np.nan_to_num(R)

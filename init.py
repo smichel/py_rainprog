@@ -378,6 +378,20 @@ def interp2d(nested_data, x, y):  # nested_data in 2d
         nested_data[np.int_(x)+1, np.int_(y)] * (1 - np.mod(x, 1)) * np.mod(y, 1)
     return vals
 
+def findRadarSite(HHGlat, HHGlon, BOO):
+    lat = np.abs(BOO.lat - HHGlat)
+    lon = np.abs(BOO.lon - HHGlon)
+    latIdx = np.where(lat == lat.min())
+    lonIdx = np.where(lon == lon.min())
+    return latIdx[1][0], lonIdx[0][0]
+
+def getFiles(filelist, time):
+    files = []
+    for i, file in enumerate(filelist):
+        if file[41:43]== str(time):
+            files.append(i)
+    return files
+
 class DWDData:
 
     def read_dwd_file(self, filepath):
@@ -440,16 +454,16 @@ class DWDData:
         d_s = len(xCar)
 
         [XCar, YCar] = np.meshgrid(xCar, yCar)
-        self.Lat = self.sitecoords[0] + XCar / latDeg
-        self.Lon = self.sitecoords[1] + YCar / (lonDeg * (np.cos(self.Lat * np.pi / 180)))
+        self.lat = self.sitecoords[0] + XCar / latDeg
+        self.lon = self.sitecoords[1] + YCar / (lonDeg * (np.cos(self.lat * np.pi / 180)))
         target = np.zeros([XCar.shape[0] * XCar.shape[1], 2])
         target[:, 0] = XCar.flatten()
         target[:, 1] = YCar.flatten()
 
-        vtx, wts = interp_weights(points, target)
+        self.vtx, self.wts = interp_weights(points, target)
 
         rPolar = z2rainrate(self.refl).T
         rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
 
-        self.R = np.reshape(interpolate(rPolar.flatten(), vtx, wts), (d_s, d_s))
+        self.R = np.reshape(interpolate(rPolar.flatten(), self.vtx, self.wts), (d_s, d_s))
 
