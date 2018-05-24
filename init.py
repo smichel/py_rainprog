@@ -388,8 +388,8 @@ def findRadarSite(HHGlat, HHGlon, BOO):
 def getFiles(filelist, time):
     files = []
     for i, file in enumerate(filelist):
-        if file[41:43]== str(time):
-            files.append(i)
+        if (np.abs(int(file[41:43])- time) <= 1):
+            files.append(file)
     return files
 
 class DWDData:
@@ -435,10 +435,8 @@ class DWDData:
             offset = boo.get('dataset1/data1/what').attrs['offset']
             refl = boo.get('dataset1/data1/data')
             self.refl = refl*gain + offset
+    def getGrid(self, booresolution):
 
-    def gridding(self):
-
-        res = 500
         latDeg = 110540  # one degree equals 110540 m
         lonDeg = 113200  # one degree * cos(lat*pi/180) equals 113200 m
         aziCos = np.cos(np.radians(self.azi))
@@ -447,13 +445,15 @@ class DWDData:
         xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
         yPolar = np.outer(self.r, aziSin)
         yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
-        points = np.concatenate((xPolar, yPolar), axis = 1)
+        points = np.concatenate((xPolar, yPolar), axis=1)
 
-        xCar = np.arange(-50000, 50000 + 1, res).squeeze()
-        yCar = np.arange(-100000, 0+1, res).squeeze()
-        d_s = len(xCar)
+
+        xCar = np.arange(-150000, 150000 + 1, booresolution).squeeze()
+        yCar = np.arange(-150000, 150000 + 1, booresolution).squeeze()
+        self.d_s = len(xCar)
 
         [XCar, YCar] = np.meshgrid(xCar, yCar)
+        self.dist = np.sqrt(np.square(xCar) + np.square(YCar))
         self.lat = self.sitecoords[0] + XCar / latDeg
         self.lon = self.sitecoords[1] + YCar / (lonDeg * (np.cos(self.lat * np.pi / 180)))
         target = np.zeros([XCar.shape[0] * XCar.shape[1], 2])
@@ -462,8 +462,12 @@ class DWDData:
 
         self.vtx, self.wts = interp_weights(points, target)
 
+    def gridding(self, vtx, wts, d_s):
+
         rPolar = z2rainrate(self.refl).T
         rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
 
-        self.R = np.reshape(interpolate(rPolar.flatten(), self.vtx, self.wts), (d_s, d_s))
+        self.R = np.reshape(interpolate(rPolar.flatten(), vtx, wts), (d_s, d_s))
 
+    def addTimestep(self, R):
+        self.R = np.dstack((self.R, R))

@@ -22,27 +22,30 @@ def gauss(x, *p):
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 rTime = 14
-fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
+fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime+1) + '0000.nc'
+directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
 fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
-booFileList = sorted(os.listdir('/scratch/local1/BOO/2016/06/07/'))
+booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
 res = 100
+booResolution = 500
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 10
+prog = 60
 trainTime = 8
 numMaxes = 20
-progTime = 110
+progTime = 50
 useRealData = 1
 prognosis = 1
 statistics = 1
 livePlot = 1
 samples = 12
 timeSteps = prog + progTime
+contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
 nc = netCDF4.Dataset(fp)
 data = nc.variables['dbz_ac1'][:][:][:]
@@ -95,22 +98,40 @@ else:
     R[:, (dist > 20000)] = 0
     nestedData[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
 
-
-
 startTime = datetime.now()
 boo=DWDData()
-boo.read_dwd_file(fp_boo)
-boo.gridding()
-HHGposition = findRadarSite(lat, lon, boo)
+boo.read_dwd_file(directoryPath + selectedFiles[0])
+selectedFiles.pop(0)
+boo.getGrid(booResolution)
+boo.gridding(boo.vtx, boo.wts, boo.d_s)
 
+
+for i, file in enumerate(selectedFiles):
+    buf = DWDData()
+    buf.read_dwd_file(directoryPath + selectedFiles[i])
+    buf.gridding(boo.vtx, boo.wts, boo.d_s)
+    boo.addTimestep(buf.R)
+
+
+boo.R = np.swapaxes(boo.R, 0, 2)
+HHGposition = findRadarSite(lat, lon, boo)
+boo.R[:, (boo.dist > boo.r.max())] = 0
 time_elapsed = datetime.now() - startTime
 print(time_elapsed)
 fig,ax = plt.subplots(figsize=(8,8))
-plt.imshow(boo.R)
-plt.gca().invert_yaxis()
-radarCircle = mpatches.Circle((HHGposition[1], HHGposition[0]), 20000/500, color = 'w', linewidth=1, fill=0)
-ax.add_patch(radarCircle)
-plt.show(block=False)
+
+for i in range(boo.R.shape[0]):
+    if (i == 0):
+        im = plt.imshow(boo.R[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+        plt.gca().invert_yaxis()
+        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+        s.set_ticks(contours)
+        radarCircle = mpatches.Circle((HHGposition[0], HHGposition[1]), 20000 / 500, color='w', linewidth=1, fill=0)
+        ax.add_patch(radarCircle)
+        plt.show(block=False)
+    plt.pause(0.1)
+    im.set_data(boo.R[i, :, :])
+
 nestedData = np.nan_to_num(nestedData)
 R = np.nan_to_num(R)
 
@@ -122,7 +143,6 @@ for field in allFields.activeFields:
         field.maxima[:, 1:3] = field.maxima[:, 1:3] + cRange * 2
 
 
-contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
 
 for t in range(prog):
@@ -169,6 +189,7 @@ for t in range(prog):
             plt.figure(figsize=(8, 8))
             im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
             plt.gca().invert_yaxis()
+            plt.gca().invert_xaxis()
             plt.show(block=False)
             o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
             n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
