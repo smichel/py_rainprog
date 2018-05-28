@@ -22,7 +22,7 @@ def gauss(x, *p):
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 rTime = 14
-fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime+1) + '0000.nc'
+fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime-1) + '0000.nc'
 directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
@@ -35,10 +35,10 @@ booResolution = 500
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 60
+prog = 20
 trainTime = 8
 numMaxes = 20
-progTime = 50
+progTime = 20
 useRealData = 1
 prognosis = 1
 statistics = 1
@@ -104,7 +104,7 @@ boo.read_dwd_file(directoryPath + selectedFiles[0])
 selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
-
+nestedData=np.rot90(nestedData,3,(1,2))
 
 for i, file in enumerate(selectedFiles):
     buf = DWDData()
@@ -190,6 +190,7 @@ for t in range(prog):
             im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
             plt.gca().invert_yaxis()
             plt.gca().invert_xaxis()
+
             plt.show(block=False)
             o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
             n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
