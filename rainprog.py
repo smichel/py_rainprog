@@ -22,7 +22,7 @@ def gauss(x, *p):
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 rTime = 14
-fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime-1) + '0000.nc'
+fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime-2) + '0000.nc'
 directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
@@ -30,15 +30,15 @@ fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-201606
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
-res = 100
+res = 200
 booResolution = 500
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 20
+prog = 60
 trainTime = 8
 numMaxes = 20
-progTime = 20
+progTime = 60
 useRealData = 1
 prognosis = 1
 statistics = 1
@@ -105,6 +105,8 @@ selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
 nestedData=np.rot90(nestedData,3,(1,2))
+R = np.rot90(R, 3, (1,2))
+
 
 for i, file in enumerate(selectedFiles):
     buf = DWDData()
@@ -114,7 +116,10 @@ for i, file in enumerate(selectedFiles):
 
 
 boo.R = np.swapaxes(boo.R, 0, 2)
+boo.R=np.rot90(boo.R,3,(1,2))
+
 HHGposition = findRadarSite(lat, lon, boo)
+
 boo.R[:, (boo.dist > boo.r.max())] = 0
 time_elapsed = datetime.now() - startTime
 print(time_elapsed)
@@ -126,7 +131,7 @@ for i in range(boo.R.shape[0]):
         plt.gca().invert_yaxis()
         s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
         s.set_ticks(contours)
-        radarCircle = mpatches.Circle((HHGposition[0], HHGposition[1]), 20000 / 500, color='w', linewidth=1, fill=0)
+        radarCircle = mpatches.Circle((HHGposition[1], HHGposition[0]), 20000 / 500, color='w', linewidth=1, fill=0)
         ax.add_patch(radarCircle)
         plt.show(block=False)
     plt.pause(0.1)
@@ -196,6 +201,7 @@ for t in range(prog):
             n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
             s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
             s.set_ticks(contours)
+            s.set_clim(np.min(nestedData),np.max(nestedData))
             #s.set_ticklabels(contourLabels)
         else:
             im.set_data(nestedData[t, :, :])
@@ -327,6 +333,7 @@ if prognosis:
                 imR = plt.contour(nestedData[prog + t, :, :],
                                   contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.gca().invert_yaxis()
+                plt.gca().invert_xaxis()
                 plt.show(block=False)
                 sa = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
                 sa.set_ticks(contours)

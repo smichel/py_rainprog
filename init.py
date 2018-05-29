@@ -388,7 +388,7 @@ def findRadarSite(HHGlat, HHGlon, BOO):
 def getFiles(filelist, time):
     files = []
     for i, file in enumerate(filelist):
-        if (np.abs(int(file[41:43])- time) <= 1):
+        if (np.abs(int(file[41:43])- time) <= 0):
             files.append(file)
     return files
 
@@ -439,17 +439,16 @@ class DWDData:
 
         latDeg = 110540  # one degree equals 110540 m
         lonDeg = 113200  # one degree * cos(lat*pi/180) equals 113200 m
-        aziCos = np.cos(np.radians(self.azi))
-        aziSin = np.sin(np.radians(self.azi))
+        aziCos = np.cos(np.radians(self.azi+90))
+        aziSin = np.sin(np.radians(self.azi+90))
         xPolar = np.outer(self.r, aziCos)
         xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
         yPolar = np.outer(self.r, aziSin)
         yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
         points = np.concatenate((xPolar, yPolar), axis=1)
 
-
-        xCar = np.arange(-150000, 150000 + 1, booresolution).squeeze()
-        yCar = np.arange(-150000, 150000 + 1, booresolution).squeeze()
+        xCar = np.arange(-50000, 50000 + 1, booresolution).squeeze()
+        yCar = np.arange(-100000, 0 + 1, booresolution).squeeze()
         self.d_s = len(xCar)
 
         [XCar, YCar] = np.meshgrid(xCar, yCar)
