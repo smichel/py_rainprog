@@ -12,7 +12,7 @@ from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from init import Square, totalField, get_metangle, interp_weights, interpolate, importance_sampling, DWDData, z2rainrate, findRadarSite, getFiles
 
-
+plt.rcParams['image.cmap'] = 'gist_ncar'
 # Define model function to be used to fit to the data above:
 def gauss(x, *p):
     A, mu, sigma = p
@@ -35,10 +35,10 @@ booResolution = 500
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 60
+prog = 70
 trainTime = 8
 numMaxes = 20
-progTime = 60
+progTime = 50
 useRealData = 1
 prognosis = 1
 statistics = 1
@@ -130,7 +130,9 @@ for i in range(boo.R.shape[0]):
         im = plt.imshow(boo.R[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         plt.gca().invert_yaxis()
         s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+        s.set_clim(0, np.max(nestedData))
         s.set_ticks(contours)
+        s.draw_all()
         radarCircle = mpatches.Circle((HHGposition[1], HHGposition[0]), 20000 / 500, color='w', linewidth=1, fill=0)
         ax.add_patch(radarCircle)
         plt.show(block=False)
@@ -200,8 +202,9 @@ for t in range(prog):
             o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
             n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
             s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+            s.set_clim(0,np.max(nestedData))
             s.set_ticks(contours)
-            s.set_clim(np.min(nestedData),np.max(nestedData))
+            s.draw_all()
             #s.set_ticklabels(contourLabels)
         else:
             im.set_data(nestedData[t, :, :])

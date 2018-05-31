@@ -202,13 +202,13 @@ class totalField:
 
         status=list(status)
 
-        for i, field in enumerate(self.activeFields):
-            if field.lifeTime > 1:
-                if (field.maxima[0, 1:3] == field.histMaxima[-1][0, 1:3]).all():
-                    try:
-                        status.remove(i)
-                    except ValueError:
-                        pass
+        # for i, field in enumerate(self.activeFields):
+        #     if field.lifeTime > 1:
+        #         if (field.maxima[0, 1:3] == field.histMaxima[-1][0, 1:3]).all():
+        #             try:
+        #                 status.remove(i)
+        #             except ValueError:
+        #                 pass
 
         for i in reversed(range(len(self.activeFields))):
             if i not in status:
@@ -264,39 +264,8 @@ class totalField:
             else:
                 fieldNums = fieldNums + 1
 
-        angleFilter = list(range(fieldNums))
-        lengthFilter = list(range(fieldNums))
-
-        for t in range(self.trainTime):
-            shiftX = np.empty([len(self.activeFields)])
-            shiftY = np.empty([len(self.activeFields)])
-            status = np.arange(len(self.activeFields))
-
-            for i in range(len(self.activeFields)):
-                shiftX[i] = self.activeFields[i].histX[-t-1]
-                shiftY[i] = self.activeFields[i].histY[-t-1]
-
-            lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * self.res
-
-            shiftXex = shiftX[lengths <= 1000]
-            shiftYex = shiftY[lengths <= 1000]
-            lengthFilter.extend(status[lengths <= 1000])
-
-            status = status[lengths <= 1000]
-
-            meanXex = np.empty([len(shiftXex)])
-            meanYex = np.empty([len(shiftYex)])
-
-            for i in range(len(meanXex)):
-                meanXex[i] = np.mean(np.delete(shiftXex, i))
-                meanYex[i] = np.mean(np.delete(shiftYex, i))
-
-            angleEx = get_metangle(meanXex, meanYex)
-            angle = get_metangle(shiftXex, shiftYex)
-            a = 180 - np.abs(np.abs(angle - angleEx) - 180)
-
-            status = status[a<45]
-            angleFilter.extend(list(status))
+        shiftXex, shiftYex, status, lengthFilter = self.lengthtest(fieldNums)
+        angleFilter = self.angletest(fieldNums,shiftXex,shiftYex,status)
 
         lengthUnique, lengthCounts = np.unique(np.array(lengthFilter), return_counts=True)
         angleUnique, angleCounts = np.unique(np.array(angleFilter), return_counts=True)
@@ -315,6 +284,50 @@ class totalField:
                 field.get_id(self.inactiveIds)
                 self.activeIds.append(self.inactiveIds[-1])
                 del self.inactiveIds[-1]
+
+    def lengthtest(self, fieldNums):
+
+        lengthFilter = list(range(fieldNums))
+
+        for t in range(self.trainTime):
+            shiftX = np.empty([len(self.activeFields)])
+            shiftY = np.empty([len(self.activeFields)])
+            status = np.arange(len(self.activeFields))
+
+            for i in range(len(self.activeFields)):
+                shiftX[i] = self.activeFields[i].histX[-t - 1]
+                shiftY[i] = self.activeFields[i].histY[-t - 1]
+
+            lengths = np.sqrt(np.square(shiftX) + np.square(shiftY)) * self.res
+
+            shiftXex = shiftX[lengths <= 1000]
+            shiftYex = shiftY[lengths <= 1000]
+            lengthFilter.extend(status[lengths <= 1000])
+
+            status = status[lengths <= 1000]
+
+        return shiftXex,shiftYex,status, lengthFilter
+
+    def angletest(self,fieldNums,shiftXex,shiftYex,status):
+
+        angleFilter = list(range(fieldNums))
+
+        meanXex = np.empty([len(shiftXex)])
+        meanYex = np.empty([len(shiftYex)])
+
+        for i in range(len(meanXex)):
+            meanXex[i] = np.mean(np.delete(shiftXex, i))
+            meanYex[i] = np.mean(np.delete(shiftYex, i))
+
+        angleEx = get_metangle(meanXex, meanYex)
+        angle = get_metangle(shiftXex, shiftYex)
+        a = 180 - np.abs(np.abs(angle - angleEx) - 180)
+
+        status = status[a < 45]
+        angleFilter.extend(list(status))
+
+        return angleFilter
+
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
