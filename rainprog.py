@@ -4,7 +4,6 @@ import os
 from datetime import datetime
 import matplotlib
 matplotlib.use('TkAgg')
-from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from createblob import createblob
@@ -21,6 +20,8 @@ def gauss(x, *p):
 
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
+startTime = datetime.now()
+
 rTime = 14
 fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime-2) + '0000.nc'
 directoryPath = '/scratch/local1/BOO/2016/06/07/'
@@ -30,7 +31,7 @@ fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-201606
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
-res = 200
+res = 100
 booResolution = 500
 smallVal = 2
 rainThreshold = 0.1
@@ -84,7 +85,7 @@ R = np.empty([timeSteps,d_s,d_s])
 
 rPolar = z2rainrate(z)
 
-nestedData = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
+nested_data = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
 vtx, wts = interp_weights(points, target)
 if useRealData:
     for t in range(timeSteps):
@@ -92,19 +93,18 @@ if useRealData:
         rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
         R[t, :, :] = np.reshape(interpolate(rPolarT.flatten(), vtx, wts), (d_s, d_s))
         R[t, (dist >= np.max(r))] = 0
-        nestedData[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
+        nested_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
 else:
     R = createblob(d_s, res, timeSteps)
     R[:, (dist > 20000)] = 0
-    nestedData[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
+    nested_data[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
 
-startTime = datetime.now()
 boo=DWDData()
 boo.read_dwd_file(directoryPath + selectedFiles[0])
 selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
-nestedData=np.rot90(nestedData,3,(1,2))
+nested_data=np.rot90(nested_data, 3, (1, 2))
 R = np.rot90(R, 3, (1,2))
 
 
@@ -121,29 +121,26 @@ boo.R=np.rot90(boo.R,3,(1,2))
 HHGposition = findRadarSite(lat, lon, boo)
 
 boo.R[:, (boo.dist > boo.r.max())] = 0
-time_elapsed = datetime.now() - startTime
-print(time_elapsed)
 fig,ax = plt.subplots(figsize=(8,8))
+if livePlot:
+    for i in range(boo.R.shape[0]):
+        if (i == 0):
+            im = plt.imshow(boo.R[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            plt.gca().invert_yaxis()
+            s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+            s.set_clim(0, np.max(nested_data))
+            s.set_ticks(contours)
+            s.draw_all()
+            radarCircle = mpatches.Circle((HHGposition[1], HHGposition[0]), 20000 / 500, color='w', linewidth=1, fill=0)
+            ax.add_patch(radarCircle)
+            plt.show(block=False)
+        plt.pause(0.1)
+        im.set_data(boo.R[i, :, :])
 
-for i in range(boo.R.shape[0]):
-    if (i == 0):
-        im = plt.imshow(boo.R[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        plt.gca().invert_yaxis()
-        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-        s.set_clim(0, np.max(nestedData))
-        s.set_ticks(contours)
-        s.draw_all()
-        radarCircle = mpatches.Circle((HHGposition[1], HHGposition[0]), 20000 / 500, color='w', linewidth=1, fill=0)
-        ax.add_patch(radarCircle)
-        plt.show(block=False)
-    plt.pause(0.1)
-    im.set_data(boo.R[i, :, :])
-
-nestedData = np.nan_to_num(nestedData)
+nested_data = np.nan_to_num(nested_data)
 R = np.nan_to_num(R)
 
 
-startTime = datetime.now()
 allFields = totalField(findmaxima([], R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, res, cRange, trainTime)
 for field in allFields.activeFields:
     if field.status:
@@ -163,15 +160,15 @@ for t in range(prog):
         for field in allFields.activeFields:
             field.maxima[0, 1:3] = field.maxima[0, 1:3] + cRange * 2
 
-        print('looked for new maxima')
+        #print('looked for new maxima')
 
     #fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res, cRange)
-    allFields.test_maxima(nestedData[t, :, :])
+    allFields.test_maxima(nested_data[t, :, :])
     for field in allFields.activeFields:
 
-        corrArea = nestedData[t, (int(field.maxima[0, 1]) - cRange):(int(field.maxima[0, 1]) + cRange),
+        corrArea = nested_data[t, (int(field.maxima[0, 1]) - cRange):(int(field.maxima[0, 1]) + cRange),
                    (int(field.maxima[0, 2]) - cRange):(int(field.maxima[0, 2]) + cRange)]
-        dataArea = nestedData[t+1, (int(field.maxima[0, 1]) - cRange * 2):(int(field.maxima[0, 1]) + cRange * 2),
+        dataArea = nested_data[t + 1, (int(field.maxima[0, 1]) - cRange * 2):(int(field.maxima[0, 1]) + cRange * 2),
                    (int(field.maxima[0, 2]) - cRange * 2):(int(field.maxima[0, 2]) + cRange * 2)]
         c = leastsquarecorr(dataArea, corrArea)
         cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
@@ -186,15 +183,15 @@ for t in range(prog):
         field.add_angle(field.angle)
         field.add_maximum(np.copy(field.maxima))
         field.add_shift(field.shiftX, field.shiftY)
-        field.maxima[0, 0] = nestedData[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
-                                        int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
+        field.maxima[0, 0] = nested_data[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
+                                         int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
         field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
         field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
 
     if livePlot:
         if t == 0:
             plt.figure(figsize=(8, 8))
-            im = plt.imshow(nestedData[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            im = plt.imshow(nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
             plt.gca().invert_yaxis()
             plt.gca().invert_xaxis()
 
@@ -202,12 +199,12 @@ for t in range(prog):
             o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
             n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
             s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-            s.set_clim(0,np.max(nestedData))
+            s.set_clim(0, np.max(nested_data))
             s.set_ticks(contours)
             s.draw_all()
             #s.set_ticklabels(contourLabels)
         else:
-            im.set_data(nestedData[t, :, :])
+            im.set_data(nested_data[t, :, :])
             o.set_data(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]))
             n.set_data(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]))
         plt.pause(0.01)
@@ -221,24 +218,34 @@ col = np.concatenate([np.zeros([1,np.max(allFields.activeIds)]), np.random.rand(
 
 if statistics:
     plt.figure(figsize=(8, 8))
+    ax = plt.axes()
     for i, field in enumerate(allFields.activeFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
     for i, field in enumerate(allFields.inactiveFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
+    ax.set_ylim(0, d_s+4*cRange)
+    ax.set_xlim(0, d_s+4*cRange)
+    plt.gca().invert_yaxis()
+    plt.gca().invert_xaxis()
     plt.show(block=False)
 
 allFields.test_angles()
 
 if statistics:
     plt.figure(figsize=(8, 8))
+    ax = plt.axes()
     for i, field in enumerate(allFields.activeFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
-        for i, field in enumerate(allFields.inactiveFields):
-            for t in field.histMaxima:
-                plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
+    for i, field in enumerate(allFields.inactiveFields):
+        for t in field.histMaxima:
+            plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
+    ax.set_ylim(0, d_s)
+    ax.set_xlim(0, d_s)
+    plt.gca().invert_yaxis()
+    plt.gca().invert_xaxis()
     plt.show(block=False)
 
 
@@ -286,8 +293,8 @@ if statistics:
 
     plt.show(block=False)
 
-allFieldsMeanX = np.nanmean(allFields.return_fieldMeanX())
-allFieldsMeanY = np.nanmean(allFields.return_fieldMeanY())
+allFieldsMeanX = np.nanmean(allFields.return_fieldHistX())
+allFieldsMeanY = np.nanmean(allFields.return_fieldHistY())
 allFieldsStdX = np.nanstd(allFields.return_fieldMeanX())
 allFieldsStdY = np.nanstd(allFields.return_fieldMeanY())
 
@@ -302,6 +309,9 @@ allFieldsStdAngle = get_metangle(allFieldsStdX, allFieldsStdY)
 
 displacementX = np.nanmean(allFields.return_fieldHistX())*res
 displacementY = np.nanmean(allFields.return_fieldHistY())*res
+
+allFieldsNorm = allFieldsNorm[~np.isnan(allFieldsAngle)]
+allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
 
 covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm))
 gaussMeans = [allFieldsMeanX, allFieldsMeanY]
@@ -325,7 +335,7 @@ if prognosis:
         #progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
                                      #(XCar - displacementY * t, YCar - displacementX * t), method='nearest')
         if t == 0:
-            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(nestedData[prog, :, :], gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange)
+            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(nested_data[prog, :, :], gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange)
         else:
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(prog_data[t-1, :, :], gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange)
 
@@ -333,25 +343,29 @@ if prognosis:
             if t == 0:
                 plt.figure(figsize=(8, 8))
                 imP = plt.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                imR = plt.contour(nestedData[prog + t, :, :],
+                imR = plt.contour(nested_data[prog + t, :, :],
                                   contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.gca().invert_yaxis()
                 plt.gca().invert_xaxis()
                 plt.show(block=False)
-                sa = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
-                sa.set_ticks(contours)
-                sa.set_clim(0.0, 20.0)
+                s = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
+                s.set_clim(0, np.max(prog_data))
+                s.set_ticks(contours)
+                s.draw_all()
             else:
                 imP.set_data(prog_data[t, :, :])
                 for tp in imR.collections:
                     tp.remove()
-                imR = plt.contour(nestedData[prog + t, :, :], contours,
+                imR = plt.contour(nested_data[prog + t, :, :], contours,
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
-time_elapsed = datetime.now() - startTime
 
+
+
+time_elapsed = datetime.now()- startTime
 print(time_elapsed)
+
 #fig, ax = plt.subplots()
 #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
 #ax.bar(bin_edges[:-1]+0.1, histY, color='r', width = 0.2)
