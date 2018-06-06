@@ -22,8 +22,8 @@ def gauss(x, *p):
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
 
-rTime = 14
-fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime-2) + '0000.nc'
+rTime = 15-2
+fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
@@ -31,18 +31,19 @@ fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-201606
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
-res = 100
+res = 200
 booResolution = 500
+resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 70
+prog = 20
 trainTime = 8
 numMaxes = 20
-progTime = 50
+progTime = 20
 useRealData = 1
 prognosis = 1
-statistics = 1
+statistics = 0
 livePlot = 1
 samples = 12
 timeSteps = prog + progTime
@@ -53,6 +54,7 @@ data = nc.variables['dbz_ac1'][:][:][:]
 z = data
 azi = nc.variables['azi'][:]
 r = nc.variables['range'][:]
+time = nc.variables['time'][:]
 lat = 9.973997  # location of the hamburg radar
 lon = 53.56833
 zsl = 100  # altitude of the hamburg radar
@@ -113,7 +115,7 @@ for i, file in enumerate(selectedFiles):
     buf.read_dwd_file(directoryPath + selectedFiles[i])
     buf.gridding(boo.vtx, boo.wts, boo.d_s)
     boo.addTimestep(buf.R)
-
+    boo.time = int(selectedFiles[i][43:45])
 
 boo.R = np.swapaxes(boo.R, 0, 2)
 boo.R=np.rot90(boo.R,3,(1,2))
@@ -131,7 +133,7 @@ if livePlot:
             s.set_clim(0, np.max(nested_data))
             s.set_ticks(contours)
             s.draw_all()
-            radarCircle = mpatches.Circle((HHGposition[1], HHGposition[0]), 20000 / 500, color='w', linewidth=1, fill=0)
+            radarCircle = mpatches.Circle((HHGposition[0], HHGposition[1]), 20000 / 500, color='w', linewidth=1, fill=0)
             ax.add_patch(radarCircle)
             plt.show(block=False)
         plt.pause(0.1)
@@ -192,7 +194,6 @@ for t in range(prog):
         if t == 0:
             plt.figure(figsize=(8, 8))
             im = plt.imshow(nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            plt.gca().invert_yaxis()
             plt.gca().invert_xaxis()
 
             plt.show(block=False)
@@ -320,31 +321,51 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 #use covNormAngle for covariance matrix
 #x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
 
-#print(allFieldsMeanX)
-#print(allFieldsMeanY)
-#print(allFieldsStdX)
-#print(allFieldsStdY)
+boo.nested_data = np.zeros([1, boo.d_s + 4*cRange, boo.d_s + 4*cRange])
+boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[int(prog / 10),:,:]
 
-prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
-x = np.arange(2 * cRange, 2 * cRange + d_s)
-y = np.arange(2 * cRange, 2 * cRange + d_s)
-yx, xy = np.meshgrid(x, y)
 
 if prognosis:
     for t in range(progTime):
         #progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
                                      #(XCar - displacementY * t, YCar - displacementX * t), method='nearest')
+
         if t == 0:
+            prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
+            yx, xy = np.meshgrid(np.arange(2 * cRange, 2 * cRange + d_s), np.arange(2 * cRange, 2 * cRange + d_s))
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(nested_data[prog, :, :], gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange)
+
+            boo.prog_data = np.zeros([progTime, boo.d_s + 4 * cRange, d_s + 4 * cRange])
+            boo.yx, boo.xy = np.meshgrid(np.arange(2 * cRange, 2 * cRange + boo.d_s), np.arange(2 * cRange, 2 * cRange + boo.d_s))
+            boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = importance_sampling(boo.nested_data[0,:,:], np.asarray(gaussMeans)*resScale, covNormAngle, xy, yx, samples, boo.d_s, cRange)
         else:
-            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(prog_data[t-1, :, :], gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange)
+            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(prog_data[t-1, :, :], np.asarray(gaussMeans)*resScale, covNormAngle, xy, yx, samples, d_s, cRange)
+            boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = importance_sampling(boo.prog_data[t-1,:,:], gaussMeans, covNormAngle, xy, yx, samples, boo.d_s, cRange)
 
         if livePlot:
+            # if t == 0:
+            #     plt.figure(figsize=(8, 8))
+            #     imP = plt.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            #     imR = plt.contour(nested_data[prog + t, :, :],
+            #                       contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            #     plt.gca().invert_yaxis()
+            #     plt.gca().invert_xaxis()
+            #     plt.show(block=False)
+            #     s = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
+            #     s.set_clim(0, np.max(prog_data))
+            #     s.set_ticks(contours)
+            #     s.draw_all()
+            # else:
+            #     imP.set_data(prog_data[t, :, :])
+            #     for tp in imR.collections:
+            #         tp.remove()
+            #     imR = plt.contour(nested_data[prog + t, :, :], contours,
+            #                       norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            #     plt.pause(0.1)
+
             if t == 0:
                 plt.figure(figsize=(8, 8))
-                imP = plt.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                imR = plt.contour(nested_data[prog + t, :, :],
-                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                imP = plt.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.gca().invert_yaxis()
                 plt.gca().invert_xaxis()
                 plt.show(block=False)
@@ -353,11 +374,7 @@ if prognosis:
                 s.set_ticks(contours)
                 s.draw_all()
             else:
-                imP.set_data(prog_data[t, :, :])
-                for tp in imR.collections:
-                    tp.remove()
-                imR = plt.contour(nested_data[prog + t, :, :], contours,
-                                  norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                imP.set_data(boo.prog_data[t, :, :])
                 plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 

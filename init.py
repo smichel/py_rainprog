@@ -202,14 +202,6 @@ class totalField:
 
         status=list(status)
 
-        # for i, field in enumerate(self.activeFields):
-        #     if field.lifeTime > 1:
-        #         if (field.maxima[0, 1:3] == field.histMaxima[-1][0, 1:3]).all():
-        #             try:
-        #                 status.remove(i)
-        #             except ValueError:
-        #                 pass
-
         for i in reversed(range(len(self.activeFields))):
             if i not in status:
                 self.inactiveFields.append(self.activeFields[i])
@@ -264,8 +256,8 @@ class totalField:
             else:
                 fieldNums = fieldNums + 1
 
-        angleFilter = angleFilter = list(range(fieldNums))
-        lengthFilter = []
+        angleFilter = list(range(fieldNums))
+        lengthFilter = list(range(fieldNums))
 
         for t in range(self.trainTime):
             shiftX = np.empty([len(self.activeFields)])
@@ -307,7 +299,7 @@ class totalField:
 
         lengthUnique, lengthCounts = np.unique(np.array(lengthFilter), return_counts=True)
         angleUnique, angleCounts = np.unique(np.array(angleFilter), return_counts=True)
-        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) >= 4 # angleFilter
+        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) > 4 # angleFilter
         lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) > 1 # lengthFilter
 
         for i in reversed(range(len(self.activeFields))):
@@ -442,6 +434,8 @@ class DWDData:
             offset = boo.get('dataset1/data1/what').attrs['offset']
             refl = boo.get('dataset1/data1/data')
             self.refl = refl*gain + offset
+            self.time = []
+
     def getGrid(self, booresolution):
 
         latDeg = 110540  # one degree equals 110540 m
