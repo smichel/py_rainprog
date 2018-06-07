@@ -9,7 +9,7 @@ import matplotlib.patches as mpatches
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
-from init import Square, totalField, get_metangle, interp_weights, interpolate, importance_sampling, DWDData, z2rainrate, findRadarSite, getFiles
+from init import Square, totalField, get_metangle, interp_weights, interpolate, create_sample, importance_sampling, DWDData, z2rainrate, findRadarSite, getFiles
 
 plt.rcParams['image.cmap'] = 'gist_ncar'
 # Define model function to be used to fit to the data above:
@@ -22,7 +22,7 @@ def gauss(x, *p):
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
 
-rTime = 15-2
+rTime = 14-2
 fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
@@ -37,15 +37,15 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 20
+prog = 50
 trainTime = 8
 numMaxes = 20
-progTime = 20
+progTime = 40
 useRealData = 1
 prognosis = 1
 statistics = 0
 livePlot = 1
-samples = 12
+samples = 64
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
@@ -333,48 +333,60 @@ if prognosis:
         if t == 0:
             prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
             yx, xy = np.meshgrid(np.arange(2 * cRange, 2 * cRange + d_s), np.arange(2 * cRange, 2 * cRange + d_s))
-            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(nested_data[prog, :, :], gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange)
+            xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
 
-            boo.prog_data = np.zeros([progTime, boo.d_s + 4 * cRange, d_s + 4 * cRange])
+            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
+                importance_sampling(nested_data[prog, :, :], xy, yx, xSample, ySample, d_s, cRange)
+
+            boo.prog_data = np.zeros([progTime, boo.d_s + 4 * cRange, boo.d_s + 4 * cRange])
             boo.yx, boo.xy = np.meshgrid(np.arange(2 * cRange, 2 * cRange + boo.d_s), np.arange(2 * cRange, 2 * cRange + boo.d_s))
-            boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = importance_sampling(boo.nested_data[0,:,:], np.asarray(gaussMeans)*resScale, covNormAngle, xy, yx, samples, boo.d_s, cRange)
+            boo.xSample, boo.ySample = create_sample(np.asarray(gaussMeans) / resScale, covNormAngle, samples)
+
+            boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = \
+                importance_sampling(boo.nested_data[0,:,:], boo.xy, boo.yx, boo.xSample, boo.ySample, boo.d_s, cRange)
         else:
-            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = importance_sampling(prog_data[t-1, :, :], np.asarray(gaussMeans)*resScale, covNormAngle, xy, yx, samples, d_s, cRange)
-            boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = importance_sampling(boo.prog_data[t-1,:,:], gaussMeans, covNormAngle, xy, yx, samples, boo.d_s, cRange)
+            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
+                importance_sampling(prog_data[t-1, :, :], xy, yx, xSample, ySample, d_s, cRange)
+
+            boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = \
+                importance_sampling(boo.prog_data[t-1,:,:], boo.xy, boo.yx, boo.xSample, boo.ySample, boo.d_s, cRange)
 
         if livePlot:
-            # if t == 0:
-            #     plt.figure(figsize=(8, 8))
-            #     imP = plt.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            #     imR = plt.contour(nested_data[prog + t, :, :],
-            #                       contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            #     plt.gca().invert_yaxis()
-            #     plt.gca().invert_xaxis()
-            #     plt.show(block=False)
-            #     s = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
-            #     s.set_clim(0, np.max(prog_data))
-            #     s.set_ticks(contours)
-            #     s.draw_all()
-            # else:
-            #     imP.set_data(prog_data[t, :, :])
-            #     for tp in imR.collections:
-            #         tp.remove()
-            #     imR = plt.contour(nested_data[prog + t, :, :], contours,
-            #                       norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            #     plt.pause(0.1)
+            if t == 0:
+                hhgFig,ax1 = plt.subplots(1)
+                imP = ax1.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                imR = ax1.contour(nested_data[prog + t, :, :],
+                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                ax1.invert_xaxis()
+                plt.show(block=False)
+                s1 = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
+                s1.set_clim(0, np.max(prog_data))
+                s1.set_ticks(contours)
+                s1.draw_all()
+            else:
+                imP.set_data(prog_data[t, :, :])
+                for tp in imR.collections:
+                    tp.remove()
+                imR = plt.contour(nested_data[prog + t, :, :], contours,
+                                  norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                plt.pause(0.1)
+
+if prognosis:
+
+    for t in range(progTime):
+        if livePlot:
 
             if t == 0:
-                plt.figure(figsize=(8, 8))
-                imP = plt.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                plt.gca().invert_yaxis()
-                plt.gca().invert_xaxis()
+                booFig,ax2 = plt.subplots(1)
+                booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                ax2.invert_xaxis()
                 plt.show(block=False)
-                s = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
-                s.set_clim(0, np.max(prog_data))
-                s.set_ticks(contours)
-                s.draw_all()
+                s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
+                s2.set_clim(0, np.max(prog_data))
+                s2.set_ticks(contours)
+                s2.draw_all()
             else:
-                imP.set_data(boo.prog_data[t, :, :])
+                booIm.set_data(boo.prog_data[t, :, :])
                 plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 

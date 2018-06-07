@@ -357,14 +357,16 @@ def interpolate(values, vtx, wts, fill_value=np.nan):
     ret[np.any(wts < -1e5, axis=1)] = fill_value
     return ret
 
-def importance_sampling(nested_data, gaussMeans, covNormAngle, xy, yx, samples, d_s, cRange):
-    prog_data = np.reshape(get_values(gaussMeans, covNormAngle, xy.flatten(), yx.flatten(), nested_data, samples),[d_s,d_s])
+def importance_sampling(nested_data, xy, yx, xSample, ySample, d_s, cRange):
+    prog_data = np.reshape(get_values(xSample, ySample, xy.flatten(), yx.flatten(), nested_data),[d_s,d_s])
     return prog_data
 
-def get_values(gaussMeans, covNormAngle, x, y, nested_data, samples):  # nested_data should be 2d
-    xSample, ySample = np.random.multivariate_normal(gaussMeans, covNormAngle, samples).T
-    x = np.full((samples, len(x)), x).T
-    y = np.full((samples, len(y)), y).T
+def create_sample(gaussMeans, covNormAngle, samples):
+    return np.random.multivariate_normal(gaussMeans, covNormAngle, samples).T
+
+def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
+    x = np.full((len(xSample), len(x)), x).T
+    y = np.full((len(ySample), len(y)), y).T
     x_= x - xSample
     y_= y - ySample
     vals = np.nanmean(interp2d(nested_data, x_, y_),axis=1)
