@@ -11,7 +11,10 @@ from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
 from init import Square, totalField, get_metangle, interp_weights, interpolate, create_sample, importance_sampling, DWDData, z2rainrate, findRadarSite, getFiles
 
-plt.rcParams['image.cmap'] = 'gist_ncar'
+#plt.rcParams['image.cmap'] = 'gist_ncar'
+cmap = plt.get_cmap('viridis')
+cmap.colors[0] = [0.5, 0.5, 0.5]
+
 # Define model function to be used to fit to the data above:
 def gauss(x, *p):
     A, mu, sigma = p
@@ -31,7 +34,7 @@ fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-201606
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
-res = 200
+res = 100
 booResolution = 500
 resScale = booResolution / res
 smallVal = 2
@@ -45,7 +48,7 @@ useRealData = 1
 prognosis = 1
 statistics = 0
 livePlot = 1
-samples = 64
+samples = 16
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
@@ -127,7 +130,7 @@ fig,ax = plt.subplots(figsize=(8,8))
 if livePlot:
     for i in range(boo.R.shape[0]):
         if (i == 0):
-            im = plt.imshow(boo.R[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            im = plt.imshow(boo.R[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
             plt.gca().invert_yaxis()
             s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
             s.set_clim(0, np.max(nested_data))
@@ -193,7 +196,7 @@ for t in range(prog):
     if livePlot:
         if t == 0:
             plt.figure(figsize=(8, 8))
-            im = plt.imshow(nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            im = plt.imshow(nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
             plt.gca().invert_xaxis()
 
             plt.show(block=False)
@@ -324,7 +327,6 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 boo.nested_data = np.zeros([1, boo.d_s + 4*cRange, boo.d_s + 4*cRange])
 boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[int(prog / 10),:,:]
 
-
 if prognosis:
     for t in range(progTime):
         #progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
@@ -354,7 +356,7 @@ if prognosis:
         if livePlot:
             if t == 0:
                 hhgFig,ax1 = plt.subplots(1)
-                imP = ax1.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                imP = ax1.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
                 imR = ax1.contour(nested_data[prog + t, :, :],
                                   contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 ax1.invert_xaxis()
@@ -372,13 +374,12 @@ if prognosis:
                 plt.pause(0.1)
 
 if prognosis:
-
     for t in range(progTime):
         if livePlot:
 
             if t == 0:
                 booFig,ax2 = plt.subplots(1)
-                booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
                 ax2.invert_xaxis()
                 plt.show(block=False)
                 s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
