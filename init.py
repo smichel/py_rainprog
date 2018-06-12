@@ -454,14 +454,16 @@ class DWDData:
         yCar = np.arange(-100000, 0 + 1, booresolution).squeeze()
         self.d_s = len(xCar)
 
-        [XCar, YCar] = np.meshgrid(xCar, yCar)
-        self.dist = np.sqrt(np.square(xCar) + np.square(YCar))
-        self.lat = self.sitecoords[0] + XCar / latDeg
-        self.lon = self.sitecoords[1] + YCar / (lonDeg * (np.cos(self.lat * np.pi / 180)))
-        target = np.zeros([XCar.shape[0] * XCar.shape[1], 2])
-        target[:, 0] = XCar.flatten()
-        target[:, 1] = YCar.flatten()
+        [self.XCar, self.YCar] = np.meshgrid(xCar, yCar)
+        self.dist = np.sqrt(np.square(self.XCar) + np.square(self.YCar))
+        self.lat = self.sitecoords[0] + self.XCar / latDeg
+        self.lon = self.sitecoords[1] + self.YCar / (lonDeg * (np.cos(self.lat * np.pi / 180)))
+        target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
+        target[:, 0] = self.XCar.flatten()
+        target[:, 1] = self.YCar.flatten()
 
+        self.cart_points = np.concatenate((np.reshape(self.XCar, (self.d_s * self.d_s, 1)),
+                                          np.reshape(self.YCar, (self.d_s * self.d_s, 1))), axis=1)
         self.vtx, self.wts = interp_weights(points, target)
 
     def gridding(self, vtx, wts, d_s):

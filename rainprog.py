@@ -6,6 +6,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from scipy.interpolate import griddata
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
@@ -34,21 +35,21 @@ fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-201606
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
-res = 100
+res = 200
 booResolution = 500
 resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 50
+prog = 60
 trainTime = 8
 numMaxes = 20
-progTime = 40
+progTime = 60
 useRealData = 1
 prognosis = 1
 statistics = 0
 livePlot = 1
-samples = 16
+samples = 64
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
@@ -319,7 +320,6 @@ allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
 
 covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm))
 gaussMeans = [allFieldsMeanX, allFieldsMeanY]
-#gaussMeans = [allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)]
 #use allFieldsMeanNorm & np.sin(allFieldsMeanAngle*allFieldsMeanNorm for means
 #use covNormAngle for covariance matrix
 #x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
@@ -340,25 +340,27 @@ if prognosis:
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
                 importance_sampling(nested_data[prog, :, :], xy, yx, xSample, ySample, d_s, cRange)
 
-            boo.prog_data = np.zeros([progTime, boo.d_s + 4 * cRange, boo.d_s + 4 * cRange])
-            boo.yx, boo.xy = np.meshgrid(np.arange(2 * cRange, 2 * cRange + boo.d_s), np.arange(2 * cRange, 2 * cRange + boo.d_s))
-            boo.xSample, boo.ySample = create_sample(np.asarray(gaussMeans) / resScale, covNormAngle, samples)
+            boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
 
-            boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = \
-                importance_sampling(boo.nested_data[0,:,:], boo.xy, boo.yx, boo.xSample, boo.ySample, boo.d_s, cRange)
+            #boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = \
+            #    importance_sampling(boo.nested_data[0,:,:], boo.xy, boo.yx, boo.xSample, boo.ySample, boo.d_s, cRange)
+
+            boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.nested_data[0, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s].flatten(),
+                    (boo.XCar - displacementY * t * resScale, boo.YCar - displacementX * t * resScale), method='linear')
+
         else:
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
                 importance_sampling(prog_data[t-1, :, :], xy, yx, xSample, ySample, d_s, cRange)
 
-            boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = \
-                importance_sampling(boo.prog_data[t-1,:,:], boo.xy, boo.yx, boo.xSample, boo.ySample, boo.d_s, cRange)
-
+            boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t-1, :, :].flatten(),
+                    (boo.XCar - displacementY * t, boo.YCar - displacementX * t), method='linear')
         if livePlot:
             if t == 0:
                 hhgFig,ax1 = plt.subplots(1)
                 imP = ax1.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
                 imR = ax1.contour(nested_data[prog + t, :, :],
                                   contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                ax1.invert_yaxis()
                 ax1.invert_xaxis()
                 plt.show(block=False)
                 s1 = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
@@ -380,6 +382,7 @@ if prognosis:
             if t == 0:
                 booFig,ax2 = plt.subplots(1)
                 booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+                ax2.invert_yaxis()
                 ax2.invert_xaxis()
                 plt.show(block=False)
                 s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
