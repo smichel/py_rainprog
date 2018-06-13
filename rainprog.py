@@ -10,7 +10,8 @@ from scipy.interpolate import griddata
 from createblob import createblob
 from findmaxima import findmaxima
 from leastsquarecorr import leastsquarecorr
-from init import Square, totalField, get_metangle, interp_weights, interpolate, create_sample, importance_sampling, DWDData, z2rainrate, findRadarSite, getFiles
+from init import Square, totalField, get_metangle, interp_weights, interpolate, create_sample, importance_sampling, \
+    DWDData, z2rainrate, findRadarSite, getFiles, nesting
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
 cmap = plt.get_cmap('viridis')
@@ -59,6 +60,7 @@ z = data
 azi = nc.variables['azi'][:]
 r = nc.variables['range'][:]
 time = nc.variables['time'][:]
+cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
 lat = 9.973997  # location of the hamburg radar
 lon = 53.56833
 zsl = 100  # altitude of the hamburg radar
@@ -80,11 +82,22 @@ Lat = lat + XCar / latDeg
 Lon = lon + YCar / (lonDeg * (np.cos(Lat * np.pi / 180)))
 dist = np.sqrt(np.square(xCar)+np.square(YCar))
 
+xCar_nested = np.arange(-20000 - cRange * 2 * res, 20000 + cRange * 2 * res + 1, res).squeeze()
+yCar_nested = xCar_nested
+
+[XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
+nested_dist = np.sqrt(np.square(xCar_nested)+np.square(YCar_nested))
+
+target_nested = np.zeros([XCar_nested.shape[0]*XCar_nested.shape[1],2])
+target_nested[:, 0] = XCar_nested.flatten()
+target_nested[:, 1] = YCar_nested.flatten()
+
+
 target = np.zeros([XCar.shape[0]*XCar.shape[1],2])
 target[:, 0] = XCar.flatten()
 target[:, 1] = YCar.flatten()
 
-cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
+
 d_s = len(XCar)
 
 R = np.empty([timeSteps,d_s,d_s])
@@ -125,6 +138,13 @@ boo.R = np.swapaxes(boo.R, 0, 2)
 boo.R=np.rot90(boo.R,3,(1,2))
 
 HHGposition = findRadarSite(lat, lon, boo)
+boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[1] * booResolution) +
+                      np.square(boo.YCar - boo.YCar.min()- HHGposition[0] * booResolution))
+
+boo.HHG_cart_points = np.concatenate((np.reshape(boo.XCar - boo.XCar.min()- HHGposition[1] * booResolution,
+                                       (boo.d_s * boo.d_s,1)),
+                                     np.reshape(boo.YCar - boo.YCar.min()- HHGposition[0] * booResolution,
+                                      (boo.d_s * boo.d_s,1))), axis=1)
 
 boo.R[:, (boo.dist > boo.r.max())] = 0
 fig,ax = plt.subplots(figsize=(8,8))
@@ -329,9 +349,6 @@ boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRa
 
 if prognosis:
     for t in range(progTime):
-        #progData[t, :, :] = griddata(points, nestedData[prog, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s].flatten(),
-                                     #(XCar - displacementY * t, YCar - displacementX * t), method='nearest')
-
         if t == 0:
             prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
             yx, xy = np.meshgrid(np.arange(2 * cRange, 2 * cRange + d_s), np.arange(2 * cRange, 2 * cRange + d_s))
@@ -342,18 +359,23 @@ if prognosis:
 
             boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
 
-            #boo.prog_data[t, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s] = \
-            #    importance_sampling(boo.nested_data[0,:,:], boo.xy, boo.yx, boo.xSample, boo.ySample, boo.d_s, cRange)
-
-            boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.nested_data[0, 2 * cRange:2 * cRange + boo.d_s, 2 * cRange:2 * cRange + boo.d_s].flatten(),
-                    (boo.XCar - displacementY * t * resScale, boo.YCar - displacementX * t * resScale), method='linear')
+            boo.prog_data[t, :, :] = griddata(boo.cart_points,
+                                              boo.nested_data[0, 2 * cRange:2 * cRange + boo.d_s,
+                                                                2 * cRange:2 * cRange + boo.d_s].flatten(),
+                                              (boo.XCar - displacementY * t * resScale,
+                                               boo.YCar - displacementX * t * resScale), method='linear')
 
         else:
+            boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
+                                              (boo.XCar - displacementY * t, boo.YCar - displacementX * t),
+                                              method='linear')
+
+            prog_data[t-1, :, :] = nesting(nested_data, prog_data[t-1, :, :], nested_dist, target_nested, boo.prog_data[t-1,:,:], boo, displacementX, displacementY, rainThreshold)
+
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
                 importance_sampling(prog_data[t-1, :, :], xy, yx, xSample, ySample, d_s, cRange)
 
-            boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t-1, :, :].flatten(),
-                    (boo.XCar - displacementY * t, boo.YCar - displacementX * t), method='linear')
+
         if livePlot:
             if t == 0:
                 hhgFig,ax1 = plt.subplots(1)
