@@ -394,7 +394,7 @@ def getFiles(filelist, time):
             files.append(file)
     return files
 
-def nesting(nested_data, prog_data, nested_dist, nested_points, boo_prog_data, boo,displacementx, displacementy, rainthreshold):
+def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo,displacementx, displacementy, rainthreshold):
     boo_pixels = ((boo.HHGdist >= 20000) & (boo.HHGdist <= nested_dist.max()))
     hhg_pixels = ((nested_dist >= 20000) & (nested_dist <= nested_dist.max()))
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):

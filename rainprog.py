@@ -38,14 +38,14 @@ selectedFiles = getFiles(booFileList, rTime)
 
 res = 200
 booResolution = 500
-resScale = booResolution / res
+resScale = 10#booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 60
+prog = 50
 trainTime = 8
 numMaxes = 20
-progTime = 60
+progTime = 50
 useRealData = 1
 prognosis = 1
 statistics = 0
@@ -60,6 +60,8 @@ z = data
 azi = nc.variables['azi'][:]
 r = nc.variables['range'][:]
 time = nc.variables['time'][:]
+aziCorr = 4
+azi = np.mod(azi + aziCorr,360)
 cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
 lat = 9.973997  # location of the hamburg radar
 lon = 53.56833
@@ -123,8 +125,8 @@ boo.read_dwd_file(directoryPath + selectedFiles[0])
 selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
-nested_data=np.rot90(nested_data, 3, (1, 2))
-R = np.rot90(R, 3, (1,2))
+nested_data=np.rot90(nested_data, 1, (1, 2))
+R = np.rot90(R, 1, (1,2))
 
 
 for i, file in enumerate(selectedFiles):
@@ -135,15 +137,15 @@ for i, file in enumerate(selectedFiles):
     boo.time = int(selectedFiles[i][43:45])
 
 boo.R = np.swapaxes(boo.R, 0, 2)
-boo.R=np.rot90(boo.R,3,(1,2))
+boo.R=np.flip(np.rot90(boo.R,3,(1,2)),1)
 
 HHGposition = findRadarSite(lat, lon, boo)
-boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[1] * booResolution) +
-                      np.square(boo.YCar - boo.YCar.min()- HHGposition[0] * booResolution))
+boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution) +
+                      np.square(boo.YCar - boo.YCar.min()- HHGposition[1] * booResolution))
 
-boo.HHG_cart_points = np.concatenate((np.reshape(boo.XCar - boo.XCar.min()- HHGposition[1] * booResolution,
+boo.HHG_cart_points = np.concatenate((np.reshape(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution,
                                        (boo.d_s * boo.d_s,1)),
-                                     np.reshape(boo.YCar - boo.YCar.min()- HHGposition[0] * booResolution,
+                                     np.reshape(boo.YCar - boo.YCar.min()- HHGposition[1] * booResolution,
                                       (boo.d_s * boo.d_s,1))), axis=1)
 
 boo.R[:, (boo.dist > boo.r.max())] = 0
@@ -152,7 +154,6 @@ if livePlot:
     for i in range(boo.R.shape[0]):
         if (i == 0):
             im = plt.imshow(boo.R[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-            plt.gca().invert_yaxis()
             s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
             s.set_clim(0, np.max(nested_data))
             s.set_ticks(contours)
@@ -218,8 +219,6 @@ for t in range(prog):
         if t == 0:
             plt.figure(figsize=(8, 8))
             im = plt.imshow(nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-            plt.gca().invert_xaxis()
-
             plt.show(block=False)
             o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
             n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
@@ -252,8 +251,6 @@ if statistics:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
     ax.set_ylim(0, d_s+4*cRange)
     ax.set_xlim(0, d_s+4*cRange)
-    plt.gca().invert_yaxis()
-    plt.gca().invert_xaxis()
     plt.show(block=False)
 
 allFields.test_angles()
@@ -269,8 +266,6 @@ if statistics:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
     ax.set_ylim(0, d_s)
     ax.set_xlim(0, d_s)
-    plt.gca().invert_yaxis()
-    plt.gca().invert_xaxis()
     plt.show(block=False)
 
 
@@ -362,15 +357,17 @@ if prognosis:
             boo.prog_data[t, :, :] = griddata(boo.cart_points,
                                               boo.nested_data[0, 2 * cRange:2 * cRange + boo.d_s,
                                                                 2 * cRange:2 * cRange + boo.d_s].flatten(),
-                                              (boo.XCar - displacementY * t * resScale,
-                                               boo.YCar - displacementX * t * resScale), method='linear')
+                                              (boo.XCar - displacementY * t / resScale,
+                                               boo.YCar - displacementX * t / resScale), method='linear')
 
+            prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested,
+                                         boo.prog_data[t, :, :], boo, displacementX, displacementY, rainThreshold)
         else:
             boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
-                                              (boo.XCar - displacementY * t, boo.YCar - displacementX * t),
-                                              method='linear')
+                                              (boo.XCar - displacementY * t / resScale,
+                                               boo.YCar - displacementX * t / resScale), method='linear')
 
-            prog_data[t-1, :, :] = nesting(nested_data, prog_data[t-1, :, :], nested_dist, target_nested, boo.prog_data[t-1,:,:], boo, displacementX, displacementY, rainThreshold)
+            prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t,:,:], boo, displacementX, displacementY, rainThreshold)
 
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
                 importance_sampling(prog_data[t-1, :, :], xy, yx, xSample, ySample, d_s, cRange)
@@ -382,30 +379,33 @@ if prognosis:
                 imP = ax1.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
                 imR = ax1.contour(nested_data[prog + t, :, :],
                                   contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                ax1.invert_yaxis()
-                ax1.invert_xaxis()
+                radarCircle2 = mpatches.Circle(
+                    (int(prog_data[t, :, :].shape[0] / 2), int(prog_data[t, :, :].shape[1] / 2)),
+                    20000 / res, color='w', linewidth=1, fill=0)
+                ax1.add_patch(radarCircle2)
                 plt.show(block=False)
                 s1 = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
-                s1.set_clim(0, np.max(prog_data))
+                s1.set_clim(0, np.nanmax(prog_data))
                 s1.set_ticks(contours)
                 s1.draw_all()
             else:
                 imP.set_data(prog_data[t, :, :])
                 for tp in imR.collections:
                     tp.remove()
-                imR = plt.contour(nested_data[prog + t, :, :], contours,
+                imR = ax1.contour(nested_data[prog + t, :, :], contours,
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.pause(0.1)
 
-if prognosis:
+if 0:
     for t in range(progTime):
         if livePlot:
 
             if t == 0:
                 booFig,ax2 = plt.subplots(1)
                 booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+                booImR = ax2.contour(boo.R[int(prog / 10)-1, :, :],
+                                 contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 ax2.invert_yaxis()
-                ax2.invert_xaxis()
                 plt.show(block=False)
                 s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
                 s2.set_clim(0, np.max(prog_data))
@@ -413,6 +413,11 @@ if prognosis:
                 s2.draw_all()
             else:
                 booIm.set_data(boo.prog_data[t, :, :])
+                if np.mod(t,10) == 0:
+                    for tp in booImR.collections:
+                        tp.remove()
+                    booImR = ax2.contour(boo.R[int(prog+10 / 10)-1, :, :],
+                                 contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 
