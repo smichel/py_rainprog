@@ -6,12 +6,12 @@ def createblob(d_s, res, timeSteps):
     y = np.arange(d_s)
     [x, y] = np.meshgrid(x, y)
     u = 1
-    v = 2.4
-    x0 = 150
-    x1 = 150
-    y0 = 150
+    v = 0
+    x0 = 100
+    x1 = 100
+    y0 = 100
     amp = 10
-    sigma = 30
+    sigma = 10
 
     def f(x, x0, y, y0, amp, sigma):
         return amp*np.exp(-(np.square(x-x0)/(2*sigma**2)+(np.square(y-y0)/(2*sigma**2))))

@@ -15,7 +15,7 @@ from init import Square, totalField, get_metangle, interp_weights, interpolate, 
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
 cmap = plt.get_cmap('viridis')
-cmap.colors[0] = [0.5, 0.5, 0.5]
+cmap.colors[0] = [0.75, 0.75, 0.75]
 
 # Define model function to be used to fit to the data above:
 def gauss(x, *p):
@@ -46,11 +46,11 @@ prog = 50
 trainTime = 8
 numMaxes = 20
 progTime = 50
-useRealData = 1
+useRealData = 0
 prognosis = 1
 statistics = 0
 livePlot = 1
-samples = 64
+samples = 1
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
@@ -115,18 +115,21 @@ if useRealData:
         R[t, :, :] = np.reshape(interpolate(rPolarT.flatten(), vtx, wts), (d_s, d_s))
         R[t, (dist >= np.max(r))] = 0
         nested_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
+    nested_data = np.rot90(nested_data, 1, (1, 2))
+    R = np.rot90(R, 1, (1, 2))
 else:
     R = createblob(d_s, res, timeSteps)
-    R[:, (dist > 20000)] = 0
+    R[:, (dist >= np.max(r))] = 0
     nested_data[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
+    nested_data = np.rot90(nested_data, 1, (1, 2))
+    R = np.rot90(R, 1, (1, 2))
 
 boo=DWDData()
 boo.read_dwd_file(directoryPath + selectedFiles[0])
 selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
-nested_data=np.rot90(nested_data, 1, (1, 2))
-R = np.rot90(R, 1, (1,2))
+
 
 
 for i, file in enumerate(selectedFiles):
