@@ -374,10 +374,10 @@ def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
     return vals
 
 def interp2d(nested_data, x, y):  # nested_data in 2d
-    vals = nested_data[np.int_(x), np.int_(y)] * ((np.mod(x, 1)) * (1 - np.mod(y, 1))) + \
-        nested_data[np.int_(x), np.int_(y)+1] * (np.mod(x, 1)) * (np.mod(y, 1)) + \
-        nested_data[np.int_(x)+1, np.int_(y)+1] * ((1 - np.mod(x, 1)) * np.mod(y, 1)) + \
-        nested_data[np.int_(x)+1, np.int_(y)] * ((1 - np.mod(x, 1)) * (1- np.mod(y, 1)))
+    vals = nested_data[np.int_(x), np.int_(y)] * ((1 - np.mod(x, 1)) * (1 - np.mod(y, 1))) + \
+        nested_data[np.int_(x), np.int_(y)+1] * (np.mod(x, 1)) * (1 - np.mod(y, 1)) + \
+        nested_data[np.int_(x)+1, np.int_(y)+1] * ((np.mod(x, 1)) * np.mod(y, 1)) + \
+        nested_data[np.int_(x)+1, np.int_(y)] * ((1 - np.mod(x, 1)) * (np.mod(y, 1)))
     return vals
 
 def findRadarSite(HHGlat, HHGlon, BOO):

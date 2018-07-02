@@ -131,7 +131,6 @@ boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
 
 
-
 for i, file in enumerate(selectedFiles):
     buf = DWDData()
     buf.read_dwd_file(directoryPath + selectedFiles[i])
@@ -140,7 +139,12 @@ for i, file in enumerate(selectedFiles):
     boo.time = int(selectedFiles[i][43:45])
 
 boo.R = np.swapaxes(boo.R, 0, 2)
+
+if ~useRealData:
+    boo.R = createblob(boo.d_s, booResolution, 12, u = -3, v = 0, x0 = 155, x1= 155, y0=100, amp = 25, sigma = 4)
+
 boo.R=np.flip(np.rot90(boo.R,3,(1,2)),1)
+
 
 HHGposition = findRadarSite(lat, lon, boo)
 boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution) +
