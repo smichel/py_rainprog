@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.ma as ma
 import scipy.spatial.qhull as qhull
-from scipy.interpolate import griddata
+from scipy.interpolate import griddata, RegularGridInterpolator
 from datetime import datetime
 import h5py
 import matplotlib.pyplot as plt
@@ -65,13 +65,15 @@ class Square:
 
 class totalField:
 
-    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, res, cRange, trainTime):
+    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, R, res, cRange, trainTime):
         self.activeFields = fields
         self.inactiveFields = []
         self.rainThreshold = rainThreshold  # minimal rainthreshold
         self.distThreshold = distThreshold  # distance threshold to radarboundary
         self.dist = dist  # global distancefield
         self.numMaxes = numMaxes  # number of maxima
+        self.nested_data = nested_data
+        self.R = R
         self.shiftX = []
         self.shiftY = []
         self.meanX = []
@@ -208,6 +210,31 @@ class totalField:
                 self.inactiveFields.append(self.activeFields[i])
                 self.inactiveFields[-1].lifeTime = -1
                 del self.activeFields[i]
+
+    def prog_step(self,t):
+
+        for field in self.activeFields:
+            corrArea = self.nested_data[t, (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
+                       (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
+            dataArea = self.nested_data[t + 1, (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+                       (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+            # maybe consider using "from skimage.feature import match_template" template matching
+            # http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_template.html
+            c = leastsquarecorr(dataArea, corrArea)
+            cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
+            field.shiftX = int(cIdx[0] - 0.5 * len(c))
+            field.shiftY = int(cIdx[1] - 0.5 * len(c))
+            field.norm = np.linalg.norm([field.shiftX, field.shiftY])
+            field.angle = get_metangle(field.shiftX, field.shiftY)
+            field.angle = field.angle.filled()
+            field.add_norm(field.norm)
+            field.add_angle(field.angle)
+            field.add_maximum(np.copy(field.maxima))
+            field.add_shift(field.shiftX, field.shiftY)
+            field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
+                                             int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
+            field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
+            field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
 
     def update_fields(self):
 
@@ -375,9 +402,9 @@ def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
 
 def interp2d(nested_data, x, y):  # nested_data in 2d
     vals = nested_data[np.int_(x), np.int_(y)] * ((1 - np.mod(x, 1)) * (1 - np.mod(y, 1))) + \
-        nested_data[np.int_(x), np.int_(y)+1] * (np.mod(x, 1)) * (1 - np.mod(y, 1)) + \
+        nested_data[np.int_(x), np.int_(y)+1] * (1- np.mod(x, 1)) * (np.mod(y, 1)) + \
         nested_data[np.int_(x)+1, np.int_(y)+1] * ((np.mod(x, 1)) * np.mod(y, 1)) + \
-        nested_data[np.int_(x)+1, np.int_(y)] * ((1 - np.mod(x, 1)) * (np.mod(y, 1)))
+        nested_data[np.int_(x)+1, np.int_(y)] * ((np.mod(x, 1)) * (1 - np.mod(y, 1)))
     return vals
 
 def findRadarSite(HHGlat, HHGlon, BOO):
@@ -395,11 +422,29 @@ def getFiles(filelist, time):
     return files
 
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo,displacementx, displacementy, rainthreshold):
-    boo_pixels = ((boo.HHGdist >= 20000) & (boo.HHGdist <= nested_dist.max()))
-    hhg_pixels = ((nested_dist >= 20000) & (nested_dist <= nested_dist.max()))
+    boo_pixels = (boo.HHGdist >= 20000) #& (boo.HHGdist <= nested_dist.max()))
+    hhg_pixels = (nested_dist >= 20000) #& (nested_dist <= nested_dist.max()))
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
         prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='linear')
     return  prog_data
+
+def leastsquarecorr(dataArea, corrArea):
+        # %Calculates a leastsquare correlation between 2 matrices c and d
+
+    cLen = len(corrArea)
+    c_d = np.zeros([cLen, cLen])
+
+    k = 0
+    m = 0
+    for i in range(cLen):
+        for j in range(cLen):
+            c_d[k, m] = np.sum(np.sum(np.square(dataArea[i:i + cLen, j:j + cLen] - corrArea)))
+            m += 1
+        m = 0
+        k += 1
+
+    return c_d
+
 class DWDData:
 
     def read_dwd_file(self, filepath):
@@ -457,11 +502,11 @@ class DWDData:
         yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
         points = np.concatenate((xPolar, yPolar), axis=1)
 
-        xCar = np.arange(-50000, 50000 + 1, booresolution).squeeze()
-        yCar = np.arange(-100000, 0 + 1, booresolution).squeeze()
-        self.d_s = len(xCar)
+        self.xCar = np.arange(-50000, 50000 + 1, booresolution).squeeze()
+        self.yCar = np.arange(-100000, 0 + 1, booresolution).squeeze()
+        self.d_s = len(self.xCar)
 
-        [self.XCar, self.YCar] = np.meshgrid(xCar, yCar)
+        [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
         self.dist = np.sqrt(np.square(self.XCar) + np.square(self.YCar))
         self.lat = self.sitecoords[0] + self.XCar / latDeg
         self.lon = self.sitecoords[1] + self.YCar / (lonDeg * (np.cos(self.lat * np.pi / 180)))
@@ -484,3 +529,12 @@ class DWDData:
 
     def addTimestep(self, R):
         self.R = np.dstack((self.R, R))
+
+    def timeInterpolation(self,timeSteps):
+        x = np.arange(self.d_s)
+        y = np.arange(self.d_s)
+        z = np.arange(self.R.shape[2])
+        interpolating_function = RegularGridInterpolator((x,y,z),self.R)
+        z_ = np.linspace(0,z[-1],timeSteps)
+        pts = np.array(np.meshgrid(x, y, z_)).reshape(3,self.d_s*self.d_s*timeSteps).transpose()
+        self.R = interpolating_function(pts).reshape(self.d_s,self.d_s,timeSteps)

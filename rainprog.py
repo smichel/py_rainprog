@@ -6,10 +6,9 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from scipy.interpolate import griddata
+from scipy.interpolate import griddata, RegularGridInterpolator
 from createblob import createblob
 from findmaxima import findmaxima
-from leastsquarecorr import leastsquarecorr
 from init import Square, totalField, get_metangle, interp_weights, interpolate, create_sample, importance_sampling, \
     DWDData, z2rainrate, findRadarSite, getFiles, nesting
 
@@ -27,7 +26,7 @@ def gauss(x, *p):
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
 
-rTime = 14-2
+rTime = 17-2
 fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
@@ -36,21 +35,21 @@ fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-201606
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
-res = 200
+res = 100
 booResolution = 500
-resScale = 10#booResolution / res
+resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 50
+prog = 52
 trainTime = 8
 numMaxes = 20
-progTime = 50
+progTime = 60
 useRealData = 0
 prognosis = 1
 statistics = 0
 livePlot = 1
-samples = 1
+samples = 16
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
@@ -138,10 +137,11 @@ for i, file in enumerate(selectedFiles):
     boo.addTimestep(buf.R)
     boo.time = int(selectedFiles[i][43:45])
 
+boo.timeInterpolation(timeSteps)
 boo.R = np.swapaxes(boo.R, 0, 2)
 
-if ~useRealData:
-    boo.R = createblob(boo.d_s, booResolution, 12, u = -3, v = 0, x0 = 155, x1= 155, y0=100, amp = 25, sigma = 4)
+if not useRealData:
+    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -1/(resScale), v = -1/(resScale), x0 = 150, x1= 150, y0=100, amp = 25, sigma = 4)
 
 boo.R=np.flip(np.rot90(boo.R,3,(1,2)),1)
 
@@ -168,14 +168,14 @@ if livePlot:
             radarCircle = mpatches.Circle((HHGposition[0], HHGposition[1]), 20000 / 500, color='w', linewidth=1, fill=0)
             ax.add_patch(radarCircle)
             plt.show(block=False)
-        plt.pause(0.1)
+        plt.pause(0.01)
         im.set_data(boo.R[i, :, :])
 
 nested_data = np.nan_to_num(nested_data)
 R = np.nan_to_num(R)
 
 
-allFields = totalField(findmaxima([], R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, res, cRange, trainTime)
+allFields = totalField(findmaxima([], R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, R, res, cRange, trainTime)
 for field in allFields.activeFields:
     if field.status:
         field.maxima[:, 1:3] = field.maxima[:, 1:3] + cRange * 2
@@ -198,29 +198,7 @@ for t in range(prog):
 
     #fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res, cRange)
     allFields.test_maxima(nested_data[t, :, :])
-    for field in allFields.activeFields:
-
-        corrArea = nested_data[t, (int(field.maxima[0, 1]) - cRange):(int(field.maxima[0, 1]) + cRange),
-                   (int(field.maxima[0, 2]) - cRange):(int(field.maxima[0, 2]) + cRange)]
-        dataArea = nested_data[t + 1, (int(field.maxima[0, 1]) - cRange * 2):(int(field.maxima[0, 1]) + cRange * 2),
-                   (int(field.maxima[0, 2]) - cRange * 2):(int(field.maxima[0, 2]) + cRange * 2)]
-        c = leastsquarecorr(dataArea, corrArea)
-        cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
-        # maybe consider using "from skimage.feature import match_template" template matching
-        # http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_template.html
-        field.shiftX = int(cIdx[0] - 0.5 * len(c))
-        field.shiftY = int(cIdx[1] - 0.5 * len(c))
-        field.norm = np.linalg.norm([field.shiftX, field.shiftY])
-        field.angle = get_metangle(field.shiftX, field.shiftY)
-        field.angle = field.angle.filled()
-        field.add_norm(field.norm)
-        field.add_angle(field.angle)
-        field.add_maximum(np.copy(field.maxima))
-        field.add_shift(field.shiftX, field.shiftY)
-        field.maxima[0, 0] = nested_data[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
-                                         int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
-        field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
-        field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
+    allFields.prog_step(t)
 
     if livePlot:
         if t == 0:
@@ -347,7 +325,7 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 #x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
 
 boo.nested_data = np.zeros([1, boo.d_s + 4*cRange, boo.d_s + 4*cRange])
-boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[int(prog / 10),:,:]
+boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
 
 if prognosis:
     for t in range(progTime):
@@ -357,27 +335,28 @@ if prognosis:
             xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
 
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
-                importance_sampling(nested_data[prog, :, :], xy, yx, xSample, ySample, d_s, cRange)
+                importance_sampling(nested_data[prog, :,:], xy, yx, xSample, ySample, d_s, cRange)
+                #importance_sampling(nested_data[prog, (nested_dist < np.max(r))], xy, yx, xSample, ySample, d_s, cRange)
 
             boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
 
             boo.prog_data[t, :, :] = griddata(boo.cart_points,
                                               boo.nested_data[0, 2 * cRange:2 * cRange + boo.d_s,
                                                                 2 * cRange:2 * cRange + boo.d_s].flatten(),
-                                              (boo.XCar - displacementY * t / resScale,
-                                               boo.YCar - displacementX * t / resScale), method='linear')
+                                              (boo.XCar - displacementY * t / (resScale),
+                                               boo.YCar - displacementX * t / (resScale)), method='linear')
 
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested,
                                          boo.prog_data[t, :, :], boo, displacementX, displacementY, rainThreshold)
         else:
             boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
-                                              (boo.XCar - displacementY * t / resScale,
-                                               boo.YCar - displacementX * t / resScale), method='linear')
+                                              (boo.XCar - displacementY * t / (resScale),
+                                               boo.YCar - displacementX * t / (resScale)), method='linear')
 
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t,:,:], boo, displacementX, displacementY, rainThreshold)
 
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
-                importance_sampling(prog_data[t-1, :, :], xy, yx, xSample, ySample, d_s, cRange)
+                importance_sampling(prog_data[t-1, :,:], xy, yx, xSample, ySample, d_s, cRange)
 
 
         if livePlot:
@@ -403,28 +382,27 @@ if prognosis:
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.pause(0.1)
 
-if 0:
+if 1:
     for t in range(progTime):
         if livePlot:
 
             if t == 0:
                 booFig,ax2 = plt.subplots(1)
                 booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                booImR = ax2.contour(boo.R[int(prog / 10)-1, :, :],
+                booImR = ax2.contour(boo.R[prog+t, :, :],
                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 ax2.invert_yaxis()
                 plt.show(block=False)
                 s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
-                s2.set_clim(0, np.max(prog_data))
+                s2.set_clim(0, np.nanmax(boo.prog_data))
                 s2.set_ticks(contours)
                 s2.draw_all()
             else:
                 booIm.set_data(boo.prog_data[t, :, :])
-                if np.mod(t,10) == 0:
-                    for tp in booImR.collections:
-                        tp.remove()
-                    booImR = ax2.contour(boo.R[int(prog+10 / 10)-1, :, :],
-                                 contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                for tp in booImR.collections:
+                    tp.remove()
+                booImR = ax2.contour(boo.R[prog+t, :, :],
+                             contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 
