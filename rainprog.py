@@ -141,7 +141,7 @@ boo.timeInterpolation(timeSteps)
 boo.R = np.swapaxes(boo.R, 0, 2)
 
 if not useRealData:
-    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -1/(resScale), v = -1/(resScale), x0 = 150, x1= 150, y0=100, amp = 25, sigma = 4)
+    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -1/(resScale), v = -0, x0 = 150, x1= 150, y0=100, amp = 25, sigma = 4)
 
 boo.R=np.flip(np.rot90(boo.R,3,(1,2)),1)
 
@@ -331,11 +331,13 @@ if prognosis:
     for t in range(progTime):
         if t == 0:
             prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
-            yx, xy = np.meshgrid(np.arange(2 * cRange, 2 * cRange + d_s), np.arange(2 * cRange, 2 * cRange + d_s))
+            yx, xy = np.meshgrid(np.arange(0, 4 * cRange + d_s), np.arange(0, 4 * cRange + d_s))
+            yx = yx[nested_dist < np.max(r)]
+            xy = xy[nested_dist < np.max(r)]
             xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
 
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
-                importance_sampling(nested_data[prog, :,:], xy, yx, xSample, ySample, d_s, cRange)
+                importance_sampling(nested_data[prog, :,:], nested_dist, xy, yx, xSample, ySample, d_s, cRange)
                 #importance_sampling(nested_data[prog, (nested_dist < np.max(r))], xy, yx, xSample, ySample, d_s, cRange)
 
             boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
@@ -343,20 +345,20 @@ if prognosis:
             boo.prog_data[t, :, :] = griddata(boo.cart_points,
                                               boo.nested_data[0, 2 * cRange:2 * cRange + boo.d_s,
                                                                 2 * cRange:2 * cRange + boo.d_s].flatten(),
-                                              (boo.XCar - displacementY * t / (resScale),
-                                               boo.YCar - displacementX * t / (resScale)), method='linear')
+                                              (boo.XCar - displacementY * t / resScale,
+                                               boo.YCar - displacementX * t / resScale), method='linear')
 
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested,
                                          boo.prog_data[t, :, :], boo, displacementX, displacementY, rainThreshold)
         else:
             boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
-                                              (boo.XCar - displacementY * t / (resScale),
-                                               boo.YCar - displacementX * t / (resScale)), method='linear')
+                                              (boo.XCar - displacementY * t / resScale,
+                                               boo.YCar - displacementX * t / resScale), method='linear')
 
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t,:,:], boo, displacementX, displacementY, rainThreshold)
 
             prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
-                importance_sampling(prog_data[t-1, :,:], xy, yx, xSample, ySample, d_s, cRange)
+                importance_sampling(prog_data[t-1, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
 
 
         if livePlot:

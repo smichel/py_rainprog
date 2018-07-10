@@ -1,6 +1,6 @@
 import numpy as np
 
-def createblob(d_s, res, timeSteps,u=-1, v=-1, x0=100, x1=100,y0=100,amp=10, sigma=20):
+def createblob(d_s, res, timeSteps,u=-1, v=0, x0=150, x1=150,y0=100,amp=10, sigma=15):
     gaussBlob = np.zeros([timeSteps, d_s, d_s])
     x = np.arange(d_s)
     y = np.arange(d_s)

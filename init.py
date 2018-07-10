@@ -385,8 +385,10 @@ def interpolate(values, vtx, wts, fill_value=np.nan):
     ret[np.any(wts < -1e5, axis=1)] = fill_value
     return ret
 
-def importance_sampling(nested_data, xy, yx, xSample, ySample, d_s, cRange):
-    prog_data = np.reshape(get_values(xSample, ySample, xy.flatten(), yx.flatten(), nested_data),[d_s,d_s])
+def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample, d_s, cRange):
+    prog_data = get_values(xSample, ySample, xy.flatten(), yx.flatten(), nested_data)
+    nested_data_ = nested_data[nested_dist<rMax]
+    prog_data
     return prog_data
 
 def create_sample(gaussMeans, covNormAngle, samples):
@@ -531,6 +533,7 @@ class DWDData:
         self.R = np.dstack((self.R, R))
 
     def timeInterpolation(self,timeSteps):
+        #https://docs.scipy.org/doc/scipy-0.16.1/reference/generated/scipy.interpolate.RegularGridInterpolator.html
         x = np.arange(self.d_s)
         y = np.arange(self.d_s)
         z = np.arange(self.R.shape[2])
