@@ -332,12 +332,10 @@ if prognosis:
         if t == 0:
             prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
             yx, xy = np.meshgrid(np.arange(0, 4 * cRange + d_s), np.arange(0, 4 * cRange + d_s))
-            yx = yx[nested_dist < np.max(r)]
-            xy = xy[nested_dist < np.max(r)]
             xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
 
-            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
-                importance_sampling(nested_data[prog, :,:], nested_dist, xy, yx, xSample, ySample, d_s, cRange)
+            prog_data[t, :, :] = \
+                importance_sampling(nested_data[prog, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
                 #importance_sampling(nested_data[prog, (nested_dist < np.max(r))], xy, yx, xSample, ySample, d_s, cRange)
 
             boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
@@ -357,7 +355,7 @@ if prognosis:
 
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t,:,:], boo, displacementX, displacementY, rainThreshold)
 
-            prog_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = \
+            prog_data[t, :, :] = \
                 importance_sampling(prog_data[t-1, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
 
 
