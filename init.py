@@ -389,8 +389,8 @@ def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample
     nested_data_ = ma.array(nested_data, mask=nested_dist >= rMax, dtype=float,fill_value=np.nan)
     xy = ma.array(xy, mask=nested_dist >= rMax, dtype=int,fill_value=-999999)
     yx = ma.array(yx, mask=nested_dist >= rMax, dtype=int,fill_value=-999999)
-    prog_data_ = get_values(xSample, ySample, xy[~xy.mask].flatten(), yx[~yx.mask].flatten(), nested_data_)
-    nested_data.flatten()[~nested_data_.mask.flatten()] = prog_data_
+    prog_data_ = get_values(xSample, ySample, xy.flatten()[~xy.mask.flatten()], yx.flatten()[~yx.mask.flatten()].flatten(), nested_data_)
+    nested_data.squeeze()[~nested_data_.mask.squeeze()] = prog_data_
     prog_data = np.reshape(nested_data,[d_s+4*cRange,d_s+4*cRange])
     return prog_data
 
