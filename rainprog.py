@@ -35,16 +35,16 @@ fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-201606
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
-res = 100
+res = 200
 booResolution = 500
 resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 52
+prog = 10
 trainTime = 8
 numMaxes = 20
-progTime = 60
+progTime = 10
 useRealData = 0
 prognosis = 1
 statistics = 0
@@ -140,13 +140,15 @@ for i, file in enumerate(selectedFiles):
 boo.timeInterpolation(timeSteps)
 boo.R = np.swapaxes(boo.R, 0, 2)
 
+HHGposition = findRadarSite(lat, lon, boo)
+
+
 if not useRealData:
-    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -1/(resScale), v = -0, x0 = 150, x1= 150, y0=100, amp = 25, sigma = 4)
+    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -1/(resScale), v = -0, x0 = HHGposition[0]+60, x1= HHGposition[0]+60, y0=HHGposition[1], amp = 25, sigma = 4)
 
 boo.R=np.flip(np.rot90(boo.R,3,(1,2)),1)
 
 
-HHGposition = findRadarSite(lat, lon, boo)
 boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution) +
                       np.square(boo.YCar - boo.YCar.min()- HHGposition[1] * booResolution))
 
@@ -324,8 +326,10 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 #use covNormAngle for covariance matrix
 #x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
 
-boo.nested_data = np.zeros([1, boo.d_s + 4*cRange, boo.d_s + 4*cRange])
-boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
+boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
+#boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
+boo.nested_data[0, :, :] =boo.R[prog,:,:]
+
 
 if prognosis:
     for t in range(progTime):
@@ -341,23 +345,21 @@ if prognosis:
             boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
 
             boo.prog_data[t, :, :] = griddata(boo.cart_points,
-                                              boo.nested_data[0, 2 * cRange:2 * cRange + boo.d_s,
-                                                                2 * cRange:2 * cRange + boo.d_s].flatten(),
-                                              (boo.XCar - displacementY * t / resScale,
-                                               boo.YCar - displacementX * t / resScale), method='linear')
+                                              boo.nested_data[0, :, :].flatten(),
+                                              (boo.XCar - displacementY * t,
+                                               boo.YCar - displacementX * t), method='linear')
 
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested,
                                          boo.prog_data[t, :, :], boo, displacementX, displacementY, rainThreshold)
         else:
             boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
-                                              (boo.XCar - displacementY * t / resScale,
-                                               boo.YCar - displacementX * t / resScale), method='linear')
-
-            prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t,:,:], boo, displacementX, displacementY, rainThreshold)
-
+                                              (boo.XCar - displacementY * t,
+                                               boo.YCar - displacementX * t), method='linear')
             prog_data[t, :, :] = \
                 importance_sampling(prog_data[t-1, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
 
+            prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t, :, :], boo,
+                                         displacementX, displacementY, rainThreshold)
 
         if livePlot:
             if t == 0:
