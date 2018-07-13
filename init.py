@@ -427,8 +427,8 @@ def getFiles(filelist, time):
     return files
 
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo,displacementx, displacementy, rainthreshold):
-    boo_pixels = (boo.HHGdist >= 20000) #& (boo.HHGdist <= nested_dist.max()))
-    hhg_pixels = (nested_dist >= 20000) #& (nested_dist <= nested_dist.max()))
+    boo_pixels = ((boo.HHGdist >= 20000) & (boo.HHGdist <= nested_dist.max()))
+    hhg_pixels = ((nested_dist >= 20000) & (nested_dist <= nested_dist.max()))
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
         prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='linear')
     return  prog_data

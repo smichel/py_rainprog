@@ -44,7 +44,7 @@ distThreshold = 19500
 prog = 10
 trainTime = 8
 numMaxes = 20
-progTime = 10
+progTime = 20
 useRealData = 0
 prognosis = 1
 statistics = 0
@@ -144,7 +144,7 @@ HHGposition = findRadarSite(lat, lon, boo)
 
 
 if not useRealData:
-    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -1/(resScale), v = -0, x0 = HHGposition[0]+60, x1= HHGposition[0]+60, y0=HHGposition[1], amp = 25, sigma = 4)
+    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -1, v = -0, x0 = HHGposition[0]+60, x1= HHGposition[0]+60, y0=HHGposition[1], amp = 25, sigma = 4)
 
 boo.R=np.flip(np.rot90(boo.R,3,(1,2)),1)
 
@@ -175,7 +175,6 @@ if livePlot:
 
 nested_data = np.nan_to_num(nested_data)
 R = np.nan_to_num(R)
-
 
 allFields = totalField(findmaxima([], R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, R, res, cRange, trainTime)
 for field in allFields.activeFields:
@@ -334,32 +333,39 @@ boo.nested_data[0, :, :] =boo.R[prog,:,:]
 if prognosis:
     for t in range(progTime):
         if t == 0:
-            prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
-            yx, xy = np.meshgrid(np.arange(0, 4 * cRange + d_s), np.arange(0, 4 * cRange + d_s))
-            xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
-
-            prog_data[t, :, :] = \
-                importance_sampling(nested_data[prog, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
-                #importance_sampling(nested_data[prog, (nested_dist < np.max(r))], xy, yx, xSample, ySample, d_s, cRange)
-
             boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
 
             boo.prog_data[t, :, :] = griddata(boo.cart_points,
                                               boo.nested_data[0, :, :].flatten(),
-                                              (boo.XCar - displacementY * t,
-                                               boo.YCar - displacementX * t), method='linear')
+                                              (boo.XCar - displacementY * resScale,
+                                               boo.YCar - displacementX * resScale), method='linear')
 
-            prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested,
+            prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
+            yx, xy = np.meshgrid(np.arange(0, 4 * cRange + d_s), np.arange(0, 4 * cRange + d_s))
+            xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
+
+            prog_data[t, :, :] = nesting(nested_data[prog, :, :], nested_dist, target_nested,
                                          boo.prog_data[t, :, :], boo, displacementX, displacementY, rainThreshold)
+
+            prog_data[t, :, :] = \
+                importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
+                #importance_sampling(nested_data[prog, (nested_dist < np.max(r))], xy, yx, xSample, ySample, d_s, cRange)
+
+
+
+
         else:
             boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
-                                              (boo.XCar - displacementY * t,
-                                               boo.YCar - displacementX * t), method='linear')
-            prog_data[t, :, :] = \
-                importance_sampling(prog_data[t-1, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
+                                              (boo.XCar - displacementY * resScale,
+                                               boo.YCar - displacementX * resScale), method='linear')
 
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t, :, :], boo,
                                          displacementX, displacementY, rainThreshold)
+
+            prog_data[t, :, :] = \
+                importance_sampling(prog_data[t-1, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
+
+
 
         if livePlot:
             if t == 0:
