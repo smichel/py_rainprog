@@ -35,7 +35,7 @@ fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-201606
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
-res = 200
+res = 100
 booResolution = 500
 resScale = booResolution / res
 smallVal = 2
@@ -44,8 +44,8 @@ distThreshold = 19500
 prog = 10
 trainTime = 8
 numMaxes = 20
-progTime = 20
-useRealData = 0
+progTime = 50
+useRealData = 1
 prognosis = 1
 statistics = 0
 livePlot = 1
@@ -59,7 +59,7 @@ z = data
 azi = nc.variables['azi'][:]
 r = nc.variables['range'][:]
 time = nc.variables['time'][:]
-aziCorr = 4
+aziCorr = -4
 azi = np.mod(azi + aziCorr,360)
 cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
 lat = 9.973997  # location of the hamburg radar
@@ -125,7 +125,7 @@ else:
 
 boo=DWDData()
 boo.read_dwd_file(directoryPath + selectedFiles[0])
-selectedFiles.pop(0)
+#selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
 
@@ -144,10 +144,9 @@ HHGposition = findRadarSite(lat, lon, boo)
 
 
 if not useRealData:
-    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -1, v = -0, x0 = HHGposition[0]+60, x1= HHGposition[0]+60, y0=HHGposition[1], amp = 25, sigma = 4)
+    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -0, v = -1/resScale, x0 = HHGposition[0], x1= HHGposition[0], y0=HHGposition[1]+30, amp = 25, sigma = 4)
 
-boo.R=np.flip(np.rot90(boo.R,3,(1,2)),1)
-
+boo.R=np.rot90(boo.R,2,(1,2))
 
 boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution) +
                       np.square(boo.YCar - boo.YCar.min()- HHGposition[1] * booResolution))
@@ -328,7 +327,8 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
 #boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
 boo.nested_data[0, :, :] =boo.R[prog,:,:]
-
+if useRealData:
+    resScale=1
 
 if prognosis:
     for t in range(progTime):
@@ -345,7 +345,7 @@ if prognosis:
             xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
 
             prog_data[t, :, :] = nesting(nested_data[prog, :, :], nested_dist, target_nested,
-                                         boo.prog_data[t, :, :], boo, displacementX, displacementY, rainThreshold)
+                                         boo.prog_data[t, :, :], boo, r[-1], rainThreshold)
 
             prog_data[t, :, :] = \
                 importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
@@ -359,11 +359,13 @@ if prognosis:
                                               (boo.XCar - displacementY * resScale,
                                                boo.YCar - displacementX * resScale), method='linear')
 
+            prog_data[t, :, :] = prog_data[t-1,: ,:]
+
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t, :, :], boo,
-                                         displacementX, displacementY, rainThreshold)
+                                         r[-1], rainThreshold)
 
             prog_data[t, :, :] = \
-                importance_sampling(prog_data[t-1, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
+                importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
 
 
 

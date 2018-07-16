@@ -386,10 +386,10 @@ def interpolate(values, vtx, wts, fill_value=np.nan):
     return ret
 
 def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample, d_s, cRange):
-    nested_data_ = ma.array(nested_data, mask=nested_dist >= 20000, dtype=float,fill_value=np.nan)
-    xy = ma.array(xy, mask=nested_dist >= 20000, dtype=int,fill_value=-999999)
-    yx = ma.array(yx, mask=nested_dist >= 20000, dtype=int,fill_value=-999999)
-    prog_data_ = get_values(xSample, ySample, xy.flatten()[~xy.mask.flatten()], yx.flatten()[~yx.mask.flatten()].flatten(), nested_data_)
+    nested_data_ = ma.array(nested_data, mask=nested_dist >= rMax, dtype=float,fill_value=np.nan)
+    xy = ma.array(xy, mask=nested_dist >= rMax, dtype=int,fill_value=-999999)
+    yx = ma.array(yx, mask=nested_dist >= rMax, dtype=int,fill_value=-999999)
+    prog_data_ = get_values(xSample, ySample, xy.flatten()[~xy.mask.flatten()], yx.flatten()[~yx.mask.flatten()].flatten(), nested_data)
     nested_data.squeeze()[~nested_data_.mask.squeeze()] = prog_data_
     prog_data = np.reshape(nested_data,[d_s+4*cRange,d_s+4*cRange])
     return prog_data
@@ -426,11 +426,11 @@ def getFiles(filelist, time):
             files.append(file)
     return files
 
-def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo,displacementx, displacementy, rainthreshold):
-    boo_pixels = ((boo.HHGdist >= 20000) & (boo.HHGdist <= nested_dist.max()))
-    hhg_pixels = ((nested_dist >= 20000) & (nested_dist <= nested_dist.max()))
+def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold):
+    boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
+    hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='linear')
+        prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
 def leastsquarecorr(dataArea, corrArea):
