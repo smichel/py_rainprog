@@ -507,8 +507,8 @@ class DWDData:
         yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
         points = np.concatenate((xPolar, yPolar), axis=1)
 
-        self.xCar = np.arange(-50000, 50000 + 1, booresolution).squeeze()
-        self.yCar = np.arange(-100000, 0 + 1, booresolution).squeeze()
+        self.xCar = np.arange(-60000, 60000 + 1, booresolution).squeeze()
+        self.yCar = np.arange(-110000, 10000 + 1, booresolution).squeeze()
         self.d_s = len(self.xCar)
 
         [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)

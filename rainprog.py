@@ -26,12 +26,13 @@ def gauss(x, *p):
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
 
-rTime = 17-2
-fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
-directoryPath = '/scratch/local1/BOO/2016/06/07/'
+rTime = 9-2
+#fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
+#directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
-
-fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
+directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02'
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/2016/06/HHGlawr201606020'+ str(rTime) + '_111_L1.nc'
+#fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
@@ -41,7 +42,7 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 10
+prog = 35
 trainTime = 8
 numMaxes = 20
 progTime = 50
@@ -54,11 +55,19 @@ timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
 nc = netCDF4.Dataset(fp)
-data = nc.variables['dbz_ac1'][:][:][:]
-z = data
-azi = nc.variables['azi'][:]
-r = nc.variables['range'][:]
-time = nc.variables['time'][:]
+try:
+    data = nc.variables['dbz_ac1'][:][:][:]
+    z = data
+    azi = nc.variables['azi'][:]
+    r = nc.variables['range'][:]
+    time = nc.variables['time'][:]
+except:
+    data = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
+    z = data
+    azi = nc.variables['Azimuth'][:]
+    r = nc.variables['Distance'][:]
+    time = nc.variables['Time'][:]
+
 aziCorr = -4
 azi = np.mod(azi + aziCorr,360)
 cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
@@ -124,7 +133,7 @@ else:
     R = np.rot90(R, 1, (1, 2))
 
 boo=DWDData()
-boo.read_dwd_file(directoryPath + selectedFiles[0])
+boo.read_dwd_file(directoryPath + '/' + selectedFiles[0])
 #selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
@@ -132,7 +141,7 @@ boo.gridding(boo.vtx, boo.wts, boo.d_s)
 
 for i, file in enumerate(selectedFiles):
     buf = DWDData()
-    buf.read_dwd_file(directoryPath + selectedFiles[i])
+    buf.read_dwd_file(directoryPath + '/' + selectedFiles[i])
     buf.gridding(boo.vtx, boo.wts, boo.d_s)
     boo.addTimestep(buf.R)
     boo.time = int(selectedFiles[i][43:45])
@@ -217,6 +226,7 @@ for t in range(prog):
             o.set_data(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]))
             n.set_data(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]))
         plt.pause(0.01)
+        #plt.savefig('/scratch/local1/plots/analysis_timestep_' + str(t) + '.png')
 
     allFields.update_fields()
 
@@ -234,6 +244,7 @@ if statistics:
     for i, field in enumerate(allFields.inactiveFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
+    plt.gca().invert_yaxis()
     ax.set_ylim(0, d_s+4*cRange)
     ax.set_xlim(0, d_s+4*cRange)
     plt.show(block=False)
@@ -249,6 +260,7 @@ if statistics:
     for i, field in enumerate(allFields.inactiveFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
+    plt.gca().invert_yaxis()
     ax.set_ylim(0, d_s)
     ax.set_xlim(0, d_s)
     plt.show(block=False)
@@ -391,30 +403,29 @@ if prognosis:
                 imR = ax1.contour(nested_data[prog + t, :, :], contours,
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 plt.pause(0.1)
+            #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
 
-if 1:
+if livePlot:
     for t in range(progTime):
-        if livePlot:
-
-            if t == 0:
-                booFig,ax2 = plt.subplots(1)
-                booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                booImR = ax2.contour(boo.R[prog+t, :, :],
+        if t == 0:
+            booFig,ax2 = plt.subplots(1)
+            booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+            booImR = ax2.contour(boo.R[prog+t, :, :],
                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                ax2.invert_yaxis()
-                plt.show(block=False)
-                s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
-                s2.set_clim(0, np.nanmax(boo.prog_data))
-                s2.set_ticks(contours)
-                s2.draw_all()
-            else:
-                booIm.set_data(boo.prog_data[t, :, :])
-                for tp in booImR.collections:
-                    tp.remove()
-                booImR = ax2.contour(boo.R[prog+t, :, :],
-                             contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                plt.pause(0.1)
-            #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
+            ax2.invert_yaxis()
+            plt.show(block=False)
+            s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
+            s2.set_clim(0, np.nanmax(boo.prog_data))
+            s2.set_ticks(contours)
+            s2.draw_all()
+        else:
+            booIm.set_data(boo.prog_data[t, :, :])
+            for tp in booImR.collections:
+                tp.remove()
+            booImR = ax2.contour(boo.R[prog+t, :, :],
+                                 contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            plt.pause(0.1)
+        #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 
 
 
