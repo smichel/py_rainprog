@@ -433,6 +433,13 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rai
         prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
+def full_nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold):
+    #boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
+    #hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
+    #if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
+    prog_data = griddata(boo.HHG_cart_points, boo_prog_data.flatten(), nested_points, method='cubic')
+    return  prog_data
+
 def leastsquarecorr(dataArea, corrArea):
         # %Calculates a leastsquare correlation between 2 matrices c and d
 

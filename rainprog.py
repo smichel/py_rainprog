@@ -42,10 +42,10 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 35
+prog = 80
 trainTime = 8
 numMaxes = 20
-progTime = 50
+progTime = 35
 useRealData = 1
 prognosis = 1
 statistics = 0
@@ -68,7 +68,7 @@ except:
     r = nc.variables['Distance'][:]
     time = nc.variables['Time'][:]
 
-aziCorr = -4
+aziCorr = -5
 azi = np.mod(azi + aziCorr,360)
 cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
 lat = 9.973997  # location of the hamburg radar
