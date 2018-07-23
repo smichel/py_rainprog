@@ -26,12 +26,12 @@ def gauss(x, *p):
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
 
-rTime = 9-2
+rTime = 12-2
 #fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 #directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02'
-fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/2016/06/HHGlawr201606020'+ str(rTime) + '_111_L1.nc'
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/2016/06/HHGlawr20160602'+ str(rTime) + '_111_L1.nc'
 #fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
@@ -42,14 +42,14 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 80
+prog = 40
 trainTime = 8
 numMaxes = 20
 progTime = 35
 useRealData = 1
 prognosis = 1
 statistics = 0
-livePlot = 1
+livePlot = 0
 samples = 16
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
@@ -68,7 +68,7 @@ except:
     r = nc.variables['Distance'][:]
     time = nc.variables['Time'][:]
 
-aziCorr = -5
+aziCorr = -4
 azi = np.mod(azi + aziCorr,360)
 cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
 lat = 9.973997  # location of the hamburg radar
@@ -96,6 +96,9 @@ xCar_nested = np.arange(-20000 - cRange * 2 * res, 20000 + cRange * 2 * res + 1,
 yCar_nested = xCar_nested
 
 [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
+
+Lat_nested = lat + XCar_nested / latDeg
+Lon_nested = lon + XCar_nested / (lonDeg * (np.cos(Lat_nested * np.pi / 180)))
 nested_dist = np.sqrt(np.square(xCar_nested)+np.square(YCar_nested))
 
 target_nested = np.zeros([XCar_nested.shape[0]*XCar_nested.shape[1],2])
@@ -338,7 +341,7 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 
 boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
 #boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
-boo.nested_data[0, :, :] =boo.R[prog,:,:]
+boo.nested_data[0, :, :] =boo.R[prog+5,:,:]
 if useRealData:
     resScale=1
 
@@ -357,7 +360,7 @@ if prognosis:
             xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
 
             prog_data[t, :, :] = nesting(nested_data[prog, :, :], nested_dist, target_nested,
-                                         boo.prog_data[t, :, :], boo, r[-1], rainThreshold)
+                                         boo.prog_data[t, :, :], boo, r[-1], rainThreshold, Lat_nested, Lon_nested)
 
             prog_data[t, :, :] = \
                 importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
@@ -371,10 +374,10 @@ if prognosis:
                                               (boo.XCar - displacementY * resScale,
                                                boo.YCar - displacementX * resScale), method='linear')
 
-            prog_data[t, :, :] = prog_data[t-1,: ,:]
+            prog_data[t, :, :] = prog_data[t-1, :, :]
 
             prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t, :, :], boo,
-                                         r[-1], rainThreshold)
+                                         r[-1], rainThreshold, Lat_nested, Lon_nested)
 
             prog_data[t, :, :] = \
                 importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)

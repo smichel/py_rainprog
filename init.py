@@ -426,10 +426,28 @@ def getFiles(filelist, time):
             files.append(file)
     return files
 
-def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold):
+def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold, HHGlat, HHGlon):
     boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
     hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
+    lat1 = boo.lat - HHGlat.min()
+    lat2 = boo.lat - HHGlat.max()
+    latstart = lat1[lat1 < 0].argmax()
+    latend= lat2[lat2 < 0].argmax()
+
+    HHGLatInBOO = (HHGlat[:, :] - boo.lat[0, latstart]) / (
+            boo.lat[0, latend] - boo.lat[0, latstart]) * (latend - latstart) + latstart
+
+    lon1 = boo.lon - HHGlon.min()
+    lon2 = boo.lon - HHGlon.max()
+    lonstart = np.unravel_index(lon1[lon1 < 0].argmax(), boo.lat.shape)
+    lonend = np.unravel_index(lon2[lon2 < 0].argmax(), boo.lat.shape)
+
+    HHGLonInBOO = np.rot90((HHGlon[:, :] - boo.lon[lonstart]) / (
+            boo.lon[lonend] - boo.lon[lonstart]) * (lonend[0] - lonstart[0]) + lonstart[0],1,(0,1))
+
+
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
+        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels])
         prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
