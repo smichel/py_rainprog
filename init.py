@@ -442,21 +442,21 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rai
     lonstart = np.unravel_index(lon1[lon1 < 0].argmax(), boo.lat.shape)
     lonend = np.unravel_index(lon2[lon2 < 0].argmax(), boo.lat.shape)
 
-    HHGLonInBOO = np.rot90((HHGlon[:, :] - boo.lon[lonstart]) / (
-            boo.lon[lonend] - boo.lon[lonstart]) * (lonend[0] - lonstart[0]) + lonstart[0],1,(0,1))
+    HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - boo.lon[lonstart]) / (
+            boo.lon[lonend] - boo.lon[lonstart]) * (lonend[0] - lonstart[0]) + lonstart[0],1,(0,1)))
 
 
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels])
-        prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
+        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
+        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
-def full_nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold):
-    #boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
-    #hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
-    #if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-    prog_data = griddata(boo.HHG_cart_points, boo_prog_data.flatten(), nested_points, method='cubic')
-    return  prog_data
+def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
+    x = np.arange(0, boo.d_s)
+    y = np.arange(0, boo.d_s)
+    [Y, X] = np.meshgrid(x,y)
+
+    return boo_prog_data
 
 def leastsquarecorr(dataArea, corrArea):
         # %Calculates a leastsquare correlation between 2 matrices c and d
