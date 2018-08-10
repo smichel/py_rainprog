@@ -452,10 +452,19 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rai
     return  prog_data
 
 def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
-    x = np.arange(0, boo.d_s)
-    y = np.arange(0, boo.d_s)
-    [Y, X] = np.meshgrid(x,y)
+    paddingNaNs = int(1500/boo.resolution)
 
+    x = np.arange(paddingNaNs, boo.d_s + paddingNaNs) + displacementX/boo.resolution
+    y = np.arange(paddingNaNs, boo.d_s + paddingNaNs) + displacementY/boo.resolution
+
+    [X, Y] = np.meshgrid(x,y)
+    # padding boo data with nans to prevent errors, this should equal a distance of 1500m with a resolution of 500m. This
+    # is far over the possible maximum movespeed of clouds (1500m in 30s equals 180 km/h)
+
+    boo_data = np.empty([boo.d_s + paddingNaNs*2, boo.d_s + paddingNaNs*2])
+    boo_data.fill(np.nan)
+    boo_data[paddingNaNs : boo.d_s+ paddingNaNs, paddingNaNs : boo.d_s + paddingNaNs] = boo_prog_data
+    boo_prog_data = interp2d(boo_data, Y, X)
     return boo_prog_data
 
 def leastsquarecorr(dataArea, corrArea):
@@ -532,8 +541,9 @@ class DWDData:
         yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
         points = np.concatenate((xPolar, yPolar), axis=1)
 
-        self.xCar = np.arange(-60000, 60000 + 1, booresolution).squeeze()
-        self.yCar = np.arange(-110000, 10000 + 1, booresolution).squeeze()
+        self.resolution = booresolution
+        self.xCar = np.arange(-60000, 60000 + 1, self.resolution).squeeze()
+        self.yCar = np.arange(-110000, 10000 + 1, self.resolution).squeeze()
         self.d_s = len(self.xCar)
 
         [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)

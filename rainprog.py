@@ -10,7 +10,7 @@ from scipy.interpolate import griddata, RegularGridInterpolator
 from createblob import createblob
 from findmaxima import findmaxima
 from init import Square, totalField, get_metangle, interp_weights, interpolate, create_sample, importance_sampling, \
-    DWDData, z2rainrate, findRadarSite, getFiles, nesting
+    DWDData, z2rainrate, findRadarSite, getFiles, nesting, booDisplacement
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
 cmap = plt.get_cmap('viridis')
@@ -26,12 +26,16 @@ def gauss(x, *p):
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
 
-rTime = 10-2
+rTime = 11-2
 #fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 #directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02'
-fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/2016/06/HHGlawr201606020'+ str(rTime) + '_111_L1.nc'
+strTime = str(rTime)
+if len(strTime) == 1:
+    strTime = '0' + strTime
+
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/2016/06/HHGlawr20160602'+ strTime + '_111_L1.nc'
 #fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
@@ -345,15 +349,19 @@ boo.nested_data[0, :, :] =boo.R[prog+5,:,:]
 if useRealData:
     resScale=1
 
+startTime = datetime.now()
+
 if prognosis:
     for t in range(progTime):
         if t == 0:
             boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
 
-            boo.prog_data[t, :, :] = griddata(boo.cart_points,
-                                              boo.nested_data[0, :, :].flatten(),
-                                              (boo.XCar - displacementY * resScale,
-                                               boo.YCar - displacementX * resScale), method='linear')
+            #boo.prog_data[t, :, :] = griddata(boo.cart_points,
+            #                                  boo.nested_data[0, :, :].flatten(),
+            #                                  (boo.XCar - displacementY * resScale,
+            #                                   boo.YCar - displacementX * resScale), method='linear')
+
+            boo.prog_data[t, :, :] = booDisplacement(boo, boo.nested_data[0,:,:], displacementX * resScale, displacementY * resScale)
 
             prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
             yx, xy = np.meshgrid(np.arange(0, 4 * cRange + d_s), np.arange(0, 4 * cRange + d_s))
@@ -365,14 +373,11 @@ if prognosis:
             prog_data[t, :, :] = \
                 importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
                 #importance_sampling(nested_data[prog, (nested_dist < np.max(r))], xy, yx, xSample, ySample, d_s, cRange)
-
-
-
-
         else:
-            boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
-                                              (boo.XCar - displacementY * resScale,
-                                               boo.YCar - displacementX * resScale), method='linear')
+            #boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
+            #                                  (boo.XCar - displacementY * resScale,
+            #                                   boo.YCar - displacementX * resScale), method='linear')
+            boo.prog_data[t,:,:] = booDisplacement(boo, boo.prog_data[t-1,:,:], displacementX * resScale, displacementY * resScale)
 
             prog_data[t, :, :] = prog_data[t-1, :, :]
 
@@ -408,6 +413,9 @@ if prognosis:
                 plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
 
+time_elapsed = datetime.now()- startTime
+print(time_elapsed)
+
 if livePlot:
     for t in range(progTime):
         if t == 0:
@@ -432,8 +440,7 @@ if livePlot:
 
 
 
-time_elapsed = datetime.now()- startTime
-print(time_elapsed)
+
 
 #fig, ax = plt.subplots()
 #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
