@@ -25,17 +25,22 @@ def gauss(x, *p):
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
-
-rTime = 11-2
+day=str(2)
+rTime = 10-2
 #fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 #directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
-directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02'
 strTime = str(rTime)
 if len(strTime) == 1:
     strTime = '0' + strTime
 
-fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/2016/06/HHGlawr20160602'+ strTime + '_111_L1.nc'
+if len(day) == 1:
+    day = '0' + day
+
+directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/'+day
+
+
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/2016/06/HHGlawr201606'+day+ strTime + '_111_L1.nc'
 #fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
@@ -66,8 +71,12 @@ try:
     r = nc.variables['range'][:]
     time = nc.variables['time'][:]
 except:
-    data = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
-    z = data
+    data = nc.variables['Att_Corr_Cband_Reflectivity'][:][:][:]
+    if np.ma.is_masked(data):
+        data.fill_value = -32.5
+        z = data.filled()
+    else:
+        z = data
     azi = nc.variables['Azimuth'][:]
     r = nc.variables['Distance'][:]
     time = nc.variables['Time'][:]
