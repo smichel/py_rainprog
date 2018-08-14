@@ -51,14 +51,14 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19500
-prog = 40
+prog = 30
 trainTime = 8
 numMaxes = 20
-progTime = 35
+progTime = 60
 useRealData = 1
 prognosis = 1
 statistics = 0
-livePlot = 1
+livePlot = 0
 samples = 16
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
@@ -71,7 +71,7 @@ try:
     r = nc.variables['range'][:]
     time = nc.variables['time'][:]
 except:
-    data = nc.variables['Att_Corr_Cband_Reflectivity'][:][:][:]
+    data = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
     if np.ma.is_masked(data):
         data.fill_value = -32.5
         z = data.filled()
@@ -81,7 +81,7 @@ except:
     r = nc.variables['Distance'][:]
     time = nc.variables['Time'][:]
 
-aziCorr = 5
+aziCorr = 6
 azi = np.mod(azi + aziCorr,360)
 cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
 lat = 9.973997  # location of the hamburg radar
@@ -260,9 +260,9 @@ if statistics:
     for i, field in enumerate(allFields.inactiveFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-    plt.gca().invert_yaxis()
     ax.set_ylim(0, d_s+4*cRange)
     ax.set_xlim(0, d_s+4*cRange)
+    plt.gca().invert_yaxis()
     plt.show(block=False)
 
 allFields.test_angles()
@@ -276,9 +276,9 @@ if statistics:
     for i, field in enumerate(allFields.inactiveFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-    plt.gca().invert_yaxis()
     ax.set_ylim(0, d_s)
     ax.set_xlim(0, d_s)
+    plt.gca().invert_yaxis()
     plt.show(block=False)
 
 
@@ -402,8 +402,8 @@ if prognosis:
             if t == 0:
                 hhgFig,ax1 = plt.subplots(1)
                 imP = ax1.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                imR = ax1.contour(nested_data[prog + t, :, :],
-                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                #imR = ax1.contour(nested_data[prog + t, :, :],
+                #                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 radarCircle2 = mpatches.Circle(
                     (int(prog_data[t, :, :].shape[0] / 2), int(prog_data[t, :, :].shape[1] / 2)),
                     20000 / res, color='w', linewidth=1, fill=0)
@@ -415,11 +415,11 @@ if prognosis:
                 s1.draw_all()
             else:
                 imP.set_data(prog_data[t, :, :])
-                for tp in imR.collections:
-                    tp.remove()
-                imR = ax1.contour(nested_data[prog + t, :, :], contours,
-                                  norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                plt.pause(0.1)
+                #for tp in imR.collections:
+                #    tp.remove()
+                #imR = ax1.contour(nested_data[prog + t, :, :], contours,
+                #                  norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
 
 time_elapsed = datetime.now()- startTime
