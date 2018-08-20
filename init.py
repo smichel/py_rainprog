@@ -454,17 +454,17 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rai
 def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
     paddingNaNs = int(1500/boo.resolution)
 
-    x = np.arange(paddingNaNs, boo.d_s + paddingNaNs) + displacementX/boo.resolution
-    y = np.arange(paddingNaNs, boo.d_s + paddingNaNs) + displacementY/boo.resolution
+    x = np.arange(paddingNaNs, boo.d_s + paddingNaNs) - displacementX/boo.resolution
+    y = np.arange(paddingNaNs, boo.d_s + paddingNaNs) - displacementY/boo.resolution
 
-    [X, Y] = np.meshgrid(x,y)
+    [Y, X] = np.meshgrid(y,x)
     # padding boo data with nans to prevent errors, this should equal a distance of 1500m with a resolution of 500m. This
     # is far over the possible maximum movespeed of clouds (1500m in 30s equals 180 km/h)
 
     boo_data = np.empty([boo.d_s + paddingNaNs*2, boo.d_s + paddingNaNs*2])
     boo_data.fill(np.nan)
     boo_data[paddingNaNs : boo.d_s+ paddingNaNs, paddingNaNs : boo.d_s + paddingNaNs] = boo_prog_data
-    boo_prog_data = interp2d(boo_data, Y, X)
+    boo_prog_data = interp2d(boo_data, X, Y)
     return boo_prog_data
 
 def leastsquarecorr(dataArea, corrArea):

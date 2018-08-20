@@ -25,41 +25,46 @@ def gauss(x, *p):
 #fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
-day=str(2)
-rTime = 10-2
+year = str(2016)
+mon=str(6)
+day=str(18)
+rTime = 21-2
 #fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 #directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 strTime = str(rTime)
 if len(strTime) == 1:
     strTime = '0' + strTime
-
+if len(mon) == 1:
+    mon = '0' + mon
 if len(day) == 1:
     day = '0' + day
 
-directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/'+day
+directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+mon+'/'+day
 
 
-fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/2016/06/HHGlawr201606'+day+ strTime + '_111_L1.nc'
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+year+'/'+ mon +'/HHGlawr2016'+mon+day+ strTime + '_111_L1.nc'
 #fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
 res = 100
-booResolution = 500
+booResolution = 200
 resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
-distThreshold = 19500
-prog = 30
+distThreshold = 19000
+prog = 10
 trainTime = 8
 numMaxes = 20
-progTime = 60
+progTime = 10
 useRealData = 1
 prognosis = 1
-statistics = 0
-livePlot = 0
+statistics = 1
+livePlot = 1
 samples = 16
+blobDisplacementX = -3
+blobDisplacementY = -1
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
@@ -71,7 +76,8 @@ try:
     r = nc.variables['range'][:]
     time = nc.variables['time'][:]
 except:
-    data = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
+    #data = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
+    data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
     if np.ma.is_masked(data):
         data.fill_value = -32.5
         z = data.filled()
@@ -142,11 +148,11 @@ if useRealData:
     nested_data = np.rot90(nested_data, 1, (1, 2))
     R = np.rot90(R, 1, (1, 2))
 else:
-    R = createblob(d_s, res, timeSteps)
+    R = createblob(d_s, res, timeSteps, u = blobDisplacementX, v = blobDisplacementY)
     R[:, (dist >= np.max(r))] = 0
     nested_data[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
-    nested_data = np.rot90(nested_data, 1, (1, 2))
-    R = np.rot90(R, 1, (1, 2))
+    #nested_data = np.rot90(nested_data, 1, (1, 2))
+    #R = np.rot90(R, 1, (1, 2))
 
 boo=DWDData()
 boo.read_dwd_file(directoryPath + '/' + selectedFiles[0])
@@ -169,9 +175,10 @@ HHGposition = findRadarSite(lat, lon, boo)
 
 
 if not useRealData:
-    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = -0, v = -1/resScale, x0 = HHGposition[0], x1= HHGposition[0], y0=HHGposition[1]+30, amp = 25, sigma = 4)
+    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = blobDisplacementX/resScale, v = blobDisplacementY/resScale, x0 = HHGposition[0], x1= HHGposition[0], y0=HHGposition[1]+200, amp = 25, sigma = 4)
 
-boo.R=np.rot90(boo.R,2,(1,2))
+if useRealData:
+    boo.R=np.rot90(boo.R,2,(1,2))
 
 boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution) +
                       np.square(boo.YCar - boo.YCar.min()- HHGposition[1] * booResolution))
@@ -191,7 +198,7 @@ if livePlot:
             s.set_clim(0, np.max(nested_data))
             s.set_ticks(contours)
             s.draw_all()
-            radarCircle = mpatches.Circle((HHGposition[0], HHGposition[1]), 20000 / 500, color='w', linewidth=1, fill=0)
+            radarCircle = mpatches.Circle((HHGposition[0], HHGposition[1]), 20000 / booResolution, color='w', linewidth=1, fill=0)
             ax.add_patch(radarCircle)
             plt.show(block=False)
         plt.pause(0.01)
@@ -354,7 +361,7 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 
 boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
 #boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
-boo.nested_data[0, :, :] =boo.R[prog+5,:,:]
+boo.nested_data[0, :, :] =boo.R[prog,:,:]
 if useRealData:
     resScale=1
 
@@ -402,8 +409,8 @@ if prognosis:
             if t == 0:
                 hhgFig,ax1 = plt.subplots(1)
                 imP = ax1.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                #imR = ax1.contour(nested_data[prog + t, :, :],
-                #                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                imR = ax1.contour(nested_data[prog + t, :, :],
+                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 radarCircle2 = mpatches.Circle(
                     (int(prog_data[t, :, :].shape[0] / 2), int(prog_data[t, :, :].shape[1] / 2)),
                     20000 / res, color='w', linewidth=1, fill=0)
@@ -415,10 +422,10 @@ if prognosis:
                 s1.draw_all()
             else:
                 imP.set_data(prog_data[t, :, :])
-                #for tp in imR.collections:
-                #    tp.remove()
-                #imR = ax1.contour(nested_data[prog + t, :, :], contours,
-                #                  norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                for tp in imR.collections:
+                    tp.remove()
+                imR = ax1.contour(nested_data[prog + t, :, :], contours,
+                                  norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
             plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
 
@@ -432,7 +439,6 @@ if livePlot:
             booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
             booImR = ax2.contour(boo.R[prog+t, :, :],
                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            ax2.invert_yaxis()
             plt.show(block=False)
             s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
             s2.set_clim(0, np.nanmax(boo.prog_data))
