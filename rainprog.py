@@ -27,8 +27,8 @@ def gauss(x, *p):
 startTime = datetime.now()
 year = str(2016)
 mon=str(6)
-day=str(18)
-rTime = 21-2
+day=str(13)
+rTime = 20-2
 #fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 #directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
@@ -57,7 +57,7 @@ distThreshold = 19000
 prog = 10
 trainTime = 8
 numMaxes = 20
-progTime = 10
+progTime = 50
 useRealData = 1
 prognosis = 1
 statistics = 1
@@ -133,7 +133,6 @@ target[:, 1] = YCar.flatten()
 d_s = len(XCar)
 
 R = np.empty([timeSteps,d_s,d_s])
-
 rPolar = z2rainrate(z)
 
 nested_data = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
@@ -153,6 +152,7 @@ else:
     nested_data[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
     #nested_data = np.rot90(nested_data, 1, (1, 2))
     #R = np.rot90(R, 1, (1, 2))
+startTime2=datetime.now()
 
 boo=DWDData()
 boo.read_dwd_file(directoryPath + '/' + selectedFiles[0])
@@ -168,7 +168,11 @@ for i, file in enumerate(selectedFiles):
     boo.addTimestep(buf.R)
     boo.time = int(selectedFiles[i][43:45])
 
+print(datetime.now()-startTime2)
+
+startTime2=datetime.now()
 boo.timeInterpolation(timeSteps)
+print(datetime.now()-startTime2)
 boo.R = np.swapaxes(boo.R, 0, 2)
 
 HHGposition = findRadarSite(lat, lon, boo)
@@ -362,7 +366,7 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
 #boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
 boo.nested_data[0, :, :] =boo.R[prog,:,:]
-if useRealData:
+if not useRealData:
     resScale=1
 
 startTime = datetime.now()
