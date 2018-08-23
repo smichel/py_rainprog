@@ -174,7 +174,7 @@ print(datetime.now()-startTime2)
 startTime2=datetime.now()
 boo.timeInterpolation(120)
 print(datetime.now()-startTime2)
-boo.R = np.swapaxes(boo.R, 0, 2)
+boo.R = np.flip(np.rot90(np.swapaxes(boo.R, 0, 2),1,(1,2)),2)
 
 HHGposition = findRadarSite(lat, lon, boo)
 
@@ -182,8 +182,6 @@ HHGposition = findRadarSite(lat, lon, boo)
 if not useRealData:
     boo.R = createblob(boo.d_s, booResolution, timeSteps, u = blobDisplacementX/resScale, v = blobDisplacementY/resScale, x0 = HHGposition[0], x1= HHGposition[0], y0=HHGposition[1]+200, amp = 25, sigma = 4)
 
-if useRealData:
-    boo.R=np.rot90(boo.R,2,(1,2))
 
 boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution) +
                       np.square(boo.YCar - boo.YCar.min()- HHGposition[1] * booResolution))
