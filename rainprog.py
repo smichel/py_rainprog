@@ -22,13 +22,12 @@ def gauss(x, *p):
     return A*np.exp(-(x-mu)**2/2.*sigma**2)
 
 
-#fp = 'E:/Rainprog/data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 startTime = datetime.now()
 year = str(2016)
 mon=str(6)
-day=str(13)
-rTime = 20-2
+day=str(7)
+rTime = 17-2
 #fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
 #directoryPath = '/scratch/local1/BOO/2016/06/07/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
@@ -40,10 +39,12 @@ if len(mon) == 1:
 if len(day) == 1:
     day = '0' + day
 
-directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+mon+'/'+day
+#directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+mon+'/'+day
 
+fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
+directoryPath = 'G:/Rainprog/boo/'
 
-fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+year+'/'+ mon +'/HHGlawr2016'+mon+day+ strTime + '_111_L1.nc'
+#fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+year+'/'+ mon +'/HHGlawr2016'+mon+day+ strTime + '_111_L1.nc'
 #fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
@@ -156,7 +157,7 @@ startTime2=datetime.now()
 
 boo=DWDData()
 boo.read_dwd_file(directoryPath + '/' + selectedFiles[0])
-#selectedFiles.pop(0)
+selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
 
@@ -171,7 +172,7 @@ for i, file in enumerate(selectedFiles):
 print(datetime.now()-startTime2)
 
 startTime2=datetime.now()
-boo.timeInterpolation(timeSteps)
+boo.timeInterpolation(120)
 print(datetime.now()-startTime2)
 boo.R = np.swapaxes(boo.R, 0, 2)
 

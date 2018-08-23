@@ -572,12 +572,20 @@ class DWDData:
     def addTimestep(self, R):
         self.R = np.dstack((self.R, R))
 
-    def timeInterpolation(self,timeSteps):
-        #https://docs.scipy.org/doc/scipy-0.16.1/reference/generated/scipy.interpolate.RegularGridInterpolator.html
-        x = np.arange(self.d_s)
-        y = np.arange(self.d_s)
+    def timeInterpolation(self, timeSteps):
+        # faster implementation of the timeInterpolation
         z = np.arange(self.R.shape[2])
-        interpolating_function = RegularGridInterpolator((x,y,z),self.R)
-        z_ = np.linspace(0,z[-1],timeSteps)
-        pts = np.array(np.meshgrid(x, y, z_)).reshape(3,self.d_s*self.d_s*timeSteps).transpose()
-        self.R = interpolating_function(pts).reshape(self.d_s,self.d_s,timeSteps)
+        interpolating_function = RegularGridInterpolator((z,), self.R.transpose())
+        z_ = np.linspace(0, z[-1], timeSteps)
+        self.R = interpolating_function(z_).transpose()
+
+    # def timeInterpolation3(self,timeSteps):
+    #     #https://docs.scipy.org/doc/scipy-0.16.1/reference/generated/scipy.interpolate.RegularGridInterpolator.html
+    #     x = np.arange(self.d_s)
+    #     y = np.arange(self.d_s)
+    #     z = np.arange(self.R.shape[2])
+    #     interpolating_function = RegularGridInterpolator((x,y,z),self.R)
+    #     z_ = np.linspace(0,z[-1],timeSteps)
+    #     pts = np.array(np.meshgrid(x, y, z_)).reshape(3,self.d_s*self.d_s*timeSteps).transpose()
+    #     self.R = interpolating_function(pts).reshape(self.d_s,self.d_s,timeSteps)
+
