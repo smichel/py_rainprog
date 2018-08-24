@@ -26,10 +26,8 @@ def gauss(x, *p):
 startTime = datetime.now()
 year = str(2016)
 mon=str(6)
-day=str(7)
-rTime = 17-2
-#fp = '/scratch/local1/HHG/2016/m4t_HHG_wrx00_l2_dbz_v00_20160607'+ str(rTime) + '0000.nc'
-#directoryPath = '/scratch/local1/BOO/2016/06/07/'
+day=str(2)
+rTime = 10-2
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 strTime = str(rTime)
 if len(strTime) == 1:
@@ -39,13 +37,14 @@ if len(mon) == 1:
 if len(day) == 1:
     day = '0' + day
 
-#directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+mon+'/'+day
 
-fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
-directoryPath = 'G:/Rainprog/boo/'
 
-#fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+year+'/'+ mon +'/HHGlawr2016'+mon+day+ strTime + '_111_L1.nc'
-#fp_boo = '/scratch/local1/BOO/2016/06/07/ras07-pcpng01_sweeph5allm_any_00-2016060714003300-boo-10132-hd5'
+#fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
+#directoryPath = 'G:/Rainprog/boo/'
+
+directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+mon+'/'+day
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+year+'/'+ mon +'/HHGlawr2016'+mon+day+ strTime + '_111_L1.nc'
+
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
 
@@ -55,14 +54,14 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 10
+prog = 40
 trainTime = 8
 numMaxes = 20
-progTime = 50
+progTime = 60
 useRealData = 1
 prognosis = 1
 statistics = 1
-livePlot = 1
+# livePlot = 1
 samples = 16
 blobDisplacementX = -3
 blobDisplacementY = -1
@@ -79,11 +78,20 @@ try:
 except:
     #data = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
     data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
+    #data_Xband = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
+    #data_Cband = nc.variables['Att_Corr_Cband_Reflectivity'][:][:][:]
     if np.ma.is_masked(data):
         data.fill_value = -32.5
         z = data.filled()
     else:
         z = data
+
+    #if np.ma.is_masked(data_Cband):
+    #    data_Cband.fill_value = -32.5
+    #    z_Cband = data_Cband.filled()
+    #else:
+    #    z_Cband = data_Cband
+
     azi = nc.variables['Azimuth'][:]
     r = nc.variables['Distance'][:]
     time = nc.variables['Time'][:]
@@ -365,8 +373,8 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
 #boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
 boo.nested_data[0, :, :] =boo.R[prog,:,:]
-if not useRealData:
-    resScale=1
+#if not useRealData:
+resScale=1
 
 startTime = datetime.now()
 
@@ -396,7 +404,7 @@ if prognosis:
             #boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
             #                                  (boo.XCar - displacementY * resScale,
             #                                   boo.YCar - displacementX * resScale), method='linear')
-            boo.prog_data[t,:,:] = booDisplacement(boo, boo.prog_data[t-1,:,:], displacementX * resScale, displacementY * resScale)
+            boo.prog_data[t, :, :] = booDisplacement(boo, boo.prog_data[t-1,:,:], displacementX * resScale, displacementY * resScale)
 
             prog_data[t, :, :] = prog_data[t-1, :, :]
 
