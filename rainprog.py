@@ -10,7 +10,7 @@ from scipy.interpolate import griddata, RegularGridInterpolator
 from createblob import createblob
 from findmaxima import findmaxima
 from init import Square, totalField, get_metangle, interp_weights, interpolate, create_sample, importance_sampling, \
-    DWDData, z2rainrate, findRadarSite, getFiles, nesting, booDisplacement
+    DWDData, z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
 cmap = plt.get_cmap('viridis')
@@ -27,7 +27,7 @@ startTime = datetime.now()
 year = str(2016)
 mon=str(6)
 day=str(2)
-rTime = 10-2
+rTime = 9-2
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 strTime = str(rTime)
 if len(strTime) == 1:
@@ -54,14 +54,14 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 40
+prog = 30
 trainTime = 8
 numMaxes = 20
 progTime = 60
 useRealData = 1
 prognosis = 1
 statistics = 1
-# livePlot = 1
+livePlot = 1
 samples = 16
 blobDisplacementX = -3
 blobDisplacementY = -1
@@ -96,7 +96,7 @@ except:
     r = nc.variables['Distance'][:]
     time = nc.variables['Time'][:]
 
-aziCorr = 6
+aziCorr = -5
 azi = np.mod(azi + aziCorr,360)
 cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
 lat = 9.973997  # location of the hamburg radar
@@ -180,7 +180,8 @@ for i, file in enumerate(selectedFiles):
 print(datetime.now()-startTime2)
 
 startTime2=datetime.now()
-boo.timeInterpolation(120)
+boo.timeInterpolation(121)
+boo.R = boo.R[:,:,:120]
 print(datetime.now()-startTime2)
 boo.R = np.flip(np.rot90(np.swapaxes(boo.R, 0, 2),1,(1,2)),2)
 
@@ -372,7 +373,7 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 
 boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
 #boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
-boo.nested_data[0, :, :] =boo.R[prog,:,:]
+boo.nested_data[0, :, :] =boo.R[prog+5,:,:]
 #if not useRealData:
 resScale=1
 
@@ -442,7 +443,7 @@ if prognosis:
 
 time_elapsed = datetime.now()- startTime
 print(time_elapsed)
-
+hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, nested_data[prog:,:,:])
 if livePlot:
     for t in range(progTime):
         if t == 0:
