@@ -3,7 +3,9 @@ import numpy.ma as ma
 import scipy.spatial.qhull as qhull
 from scipy.interpolate import griddata, RegularGridInterpolator, interp1d
 from scipy.ndimage import map_coordinates
-
+from sklearn.feature_extraction import image
+from numba import jit
+import numba
 from datetime import datetime
 import h5py
 import matplotlib.pyplot as plt
@@ -407,11 +409,16 @@ def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
     vals = np.nanmean(interp2d(nested_data, x_, y_),axis=1)
     return vals
 
+#@jit(parallel=True)
 def interp2d(nested_data, x, y):  # nested_data in 2d
-    vals = nested_data[np.int_(x), np.int_(y)] * ((1 - np.mod(x, 1)) * (1 - np.mod(y, 1))) + \
-        nested_data[np.int_(x), np.int_(y)+1] * (1- np.mod(x, 1)) * (np.mod(y, 1)) + \
-        nested_data[np.int_(x)+1, np.int_(y)+1] * ((np.mod(x, 1)) * np.mod(y, 1)) + \
-        nested_data[np.int_(x)+1, np.int_(y)] * ((np.mod(x, 1)) * (1 - np.mod(y, 1)))
+    x_int = np.int16(x)
+    y_int = np.int16(y)
+    x_mod = np.mod(x,1)
+    y_mod = np.mod(y,1)
+    vals = nested_data[x_int, y_int] * ((1 - x_mod) * (1 - y_mod)) + \
+        nested_data[x_int, y_int+1] * (1 - x_mod) * (y_mod) + \
+        nested_data[x_int+1, y_int+1] * ((x_mod) * y_mod) + \
+        nested_data[x_int+1, y_int] * ((x_mod) * (1 - y_mod))
     return vals
 
 def findRadarSite(HHGlat, HHGlon, BOO):
@@ -475,18 +482,19 @@ def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
 def leastsquarecorr(dataArea, corrArea):
         # %Calculates a leastsquare correlation between 2 matrices c and d
 
-    cLen = len(corrArea)
-    c_d = np.zeros([cLen, cLen])
+    # cLen = len(dataArea)-len(corrArea)+1
+    # c_d = np.zeros([cLen, cLen])
+    #
+    # k = 0
+    # m = 0
+    # for i in range(cLen):
+    #     for j in range(cLen):
+    #         c_d[k, m] = np.sum(np.square(dataArea[i:i + cLen-1, j:j + cLen-1] - corrArea))
+    #         m += 1
+    #     m = 0
+    #     k += 1
 
-    k = 0
-    m = 0
-    for i in range(cLen):
-        for j in range(cLen):
-            c_d[k, m] = np.sum(np.sum(np.square(dataArea[i:i + cLen, j:j + cLen] - corrArea)))
-            m += 1
-        m = 0
-        k += 1
-
+    c_d = np.sum((image.extract_patches_2d(dataArea, corrArea.shape) - corrArea) ** 2, axis=(1, 2)).reshape(np.array(dataArea.shape) - corrArea.shape + 1)
     return c_d
 
 def verification(prog_data, real_data):

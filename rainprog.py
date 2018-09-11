@@ -60,8 +60,8 @@ numMaxes = 20
 progTime = 60
 useRealData = 1
 prognosis = 1
-statistics = 1
-livePlot = 1
+statistics = 0
+livePlot = 0
 samples = 16
 blobDisplacementX = -3
 blobDisplacementY = -1
@@ -184,7 +184,6 @@ boo.timeInterpolation(121)
 boo.R = boo.R[:,:,:120]
 print(datetime.now()-startTime2)
 boo.R = np.flip(np.rot90(np.swapaxes(boo.R, 0, 2),1,(1,2)),2)
-
 HHGposition = findRadarSite(lat, lon, boo)
 
 
@@ -442,7 +441,7 @@ if prognosis:
             #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
 
 time_elapsed = datetime.now()- startTime
-print(time_elapsed)
+print('prognosis'+str(time_elapsed))
 hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, nested_data[prog:,:,:])
 if livePlot:
     for t in range(progTime):
