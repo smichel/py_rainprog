@@ -409,16 +409,20 @@ def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
     vals = np.nanmean(interp2d(nested_data, x_, y_),axis=1)
     return vals
 
-#@jit(parallel=True)
+@jit(nopython=True)
 def interp2d(nested_data, x, y):  # nested_data in 2d
-    x_int = np.int16(x)
-    y_int = np.int16(y)
-    x_mod = np.mod(x,1)
-    y_mod = np.mod(y,1)
-    vals = nested_data[x_int, y_int] * ((1 - x_mod) * (1 - y_mod)) + \
-        nested_data[x_int, y_int+1] * (1 - x_mod) * (y_mod) + \
-        nested_data[x_int+1, y_int+1] * ((x_mod) * y_mod) + \
-        nested_data[x_int+1, y_int] * ((x_mod) * (1 - y_mod))
+    vals = np.empty_like(x)
+    for idx, xx in np.ndenumerate(x):
+        xi = int(xx)
+        xmod = xx % 1
+        yy = y[idx]
+        yi = int(yy)
+        ymod = yy % 1
+
+        vals[idx] = nested_data[xi, yi] * ((1 - xmod) * (1 - ymod)) + \
+             nested_data[xi, yi+1] * (1- xmod) * (ymod) + \
+             nested_data[xi+1, yi+1] * ((xmod) * ymod) + \
+             nested_data[xi+1, yi] * ((xmod) * (1 - ymod))
     return vals
 
 def findRadarSite(HHGlat, HHGlon, BOO):
