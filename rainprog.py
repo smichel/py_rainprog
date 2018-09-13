@@ -21,15 +21,15 @@ def gauss(x, *p):
     A, mu, sigma = p
     return A*np.exp(-(x-mu)**2/2.*sigma**2)
 
+startTime = datetime.now()
 
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-startTime = datetime.now()
 year = str(2016)
 mon=str(6)
-day=str(7)
-rTime = 17-2
-fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
-directoryPath = 'G:/Rainprog/boo/'
+day=str(2)
+rTime = 9-2
+#fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
+#directoryPath = 'G:/Rainprog/boo/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 strTime = str(rTime)
 if len(strTime) == 1:
@@ -44,8 +44,8 @@ if len(day) == 1:
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 
-#directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+mon+'/'+day
-#fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+year+'/'+ mon +'/HHGlawr2016'+mon+day+ strTime + '_111_L1.nc'
+directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+mon+'/'+day
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+year+'/'+ mon +'/HHGlawr2016'+mon+day+ strTime + '_111_L1.nc'
 
 booFileList = sorted(os.listdir(directoryPath))
 selectedFiles = getFiles(booFileList, rTime)
@@ -59,7 +59,7 @@ distThreshold = 19000
 prog = 30
 trainTime = 8
 numMaxes = 20
-progTime = 60
+progTime = 90
 useRealData = 1
 prognosis = 1
 statistics = 0
@@ -378,7 +378,6 @@ boo.nested_data[0, :, :] =boo.R[prog+5,:,:]
 #if not useRealData:
 resScale=1
 
-startTime = datetime.now()
 
 if prognosis:
     for t in range(progTime):
@@ -442,8 +441,7 @@ if prognosis:
             plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
 
-time_elapsed = datetime.now()- startTime
-print('prognosis'+str(time_elapsed))
+
 hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, nested_data[prog:,:,:])
 if livePlot:
     for t in range(progTime):
@@ -466,7 +464,8 @@ if livePlot:
             plt.pause(0.1)
         #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 
-
+time_elapsed = datetime.now()- startTime
+print('Total time: '+str(time_elapsed))
 
 
 
