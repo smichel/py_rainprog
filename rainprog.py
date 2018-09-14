@@ -9,7 +9,7 @@ import matplotlib.patches as mpatches
 from scipy.interpolate import griddata, RegularGridInterpolator
 from createblob import createblob
 from findmaxima import findmaxima
-from init import Square, totalField, get_metangle, interp_weights, interpolate, create_sample, importance_sampling, \
+from init import Square, totalField, lawrData, radarData, get_metangle, create_sample, importance_sampling, \
     DWDData, z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
@@ -56,14 +56,14 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 30
+prog = 45
 trainTime = 8
 numMaxes = 20
-progTime = 90
+progTime = 60
 useRealData = 1
 prognosis = 1
 statistics = 0
-livePlot = 0
+livePlot = 1
 samples = 16
 blobDisplacementX = -3
 blobDisplacementY = -1
@@ -374,7 +374,7 @@ gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 
 boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
 #boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
-boo.nested_data[0, :, :] =boo.R[prog+5,:,:]
+boo.nested_data[0, :, :] =boo.R[prog,:,:]
 #if not useRealData:
 resScale=1
 

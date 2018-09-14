@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.ma as ma
+import netCDF4
 import scipy.spatial.qhull as qhull
 from scipy.interpolate import griddata, RegularGridInterpolator, interp1d
 from scipy.ndimage import map_coordinates
@@ -9,6 +10,39 @@ import numba
 from datetime import datetime
 import h5py
 import matplotlib.pyplot as plt
+
+class radarData:
+
+    def __init__(self, type, path):
+        self.type = type #dwd or lawr
+
+        if type == 'dwd':
+            self.resolution = 200  # horizontal resolution in m
+            self.boo = DWDData(path)
+            self.boo.getGrid(self.resolution)
+            self.boo.gridding(self.vtx, self.wts, self.d_s)
+
+        elif type == 'lawr':
+            self.resolution = 100  # horizontal resolution in m
+            self.hhg = lawrData(path)
+
+
+
+    def interpolate(self, values, vtx, wts, fill_value=np.nan):
+        ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
+        ret[np.any(wts < -1e5, axis=1)] = fill_value
+        return ret
+
+    def interp_weights(self, xy, uv, d=2):
+        #  from https://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
+        tri = qhull.Delaunay(xy)
+        simplex = tri.find_simplex(uv)
+        vertices = np.take(tri.simplices, simplex, axis=0)
+        temp = np.take(tri.transform, simplex, axis=0)
+        delta = uv - temp[:, d]
+        bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+        return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+
 class Square:
 
     def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist):
@@ -358,6 +392,13 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
+def findRadarSite(lawr, BOO):
+    lat = np.abs(BOO.lat - lawr.lat)
+    lon = np.abs(BOO.lon - lawr.lon)
+    latIdx = np.where(lat == lat.min())
+    lonIdx = np.where(lon == lon.min())
+    return latIdx[1][0], lonIdx[0][0]
+
 def get_metangle(x, y):
     '''Get meteorological angle of input vector.
 
@@ -374,20 +415,8 @@ def get_metangle(x, y):
                                   fill_value=np.nan)
     return met_ang
 
-def interp_weights(xy, uv, d=2):
-    #  from https://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
-    tri = qhull.Delaunay(xy)
-    simplex = tri.find_simplex(uv)
-    vertices = np.take(tri.simplices, simplex, axis=0)
-    temp = np.take(tri.transform, simplex, axis=0)
-    delta = uv - temp[:, d]
-    bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
-    return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
 
-def interpolate(values, vtx, wts, fill_value=np.nan):
-    ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
-    ret[np.any(wts < -1e5, axis=1)] = fill_value
-    return ret
+
 
 def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample, d_s, cRange):
     nested_data_ = ma.array(nested_data, mask=nested_dist >= rMax, dtype=float,fill_value=np.nan)
@@ -425,12 +454,6 @@ def interp2d(nested_data, x, y):  # nested_data in 2d
              nested_data[xi+1, yi] * ((xmod) * (1 - ymod))
     return vals
 
-def findRadarSite(HHGlat, HHGlon, BOO):
-    lat = np.abs(BOO.lat - HHGlat)
-    lon = np.abs(BOO.lon - HHGlon)
-    latIdx = np.where(lat == lat.min())
-    lonIdx = np.where(lon == lon.min())
-    return latIdx[1][0], lonIdx[0][0]
 
 def getFiles(filelist, time):
     files = []
@@ -543,9 +566,10 @@ def verification(prog_data, real_data):
 
 
     return  hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS
-class DWDData:
 
-    def read_dwd_file(self, filepath):
+class DWDData(radarData, totalField):
+
+    def __init__(self, filepath):
 
         '''Read in DWD radar data.
 
@@ -586,7 +610,7 @@ class DWDData:
             offset = boo.get('dataset1/data1/what').attrs['offset']
             refl = boo.get('dataset1/data1/data')
             self.refl = refl*gain + offset
-            self.time = []
+            self.time = boo.get('what').attrs['time']
 
     def getGrid(self, booresolution):
 
@@ -617,14 +641,14 @@ class DWDData:
                                           np.reshape(self.YCar, (self.d_s * self.d_s, 1))), axis=1)
 
 
-        self.vtx, self.wts = interp_weights(points, target)
+        self.vtx, self.wts = super().interp_weights(points, target)
 
     def gridding(self, vtx, wts, d_s):
 
         rPolar = z2rainrate(self.refl).T
         rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
 
-        self.R = np.reshape(interpolate(rPolar.flatten(), vtx, wts), (d_s, d_s))
+        self.R = np.reshape(super().interpolate(rPolar.flatten(), vtx, wts), (d_s, d_s))
 
     def addTimestep(self, R):
         self.R = np.dstack((self.R, R))
@@ -636,13 +660,95 @@ class DWDData:
         z_ = np.linspace(0, z[-1], timeSteps)
         self.R = interpolating_function(z_).transpose()
 
-    # def timeInterpolation3(self,timeSteps):
-    #     #https://docs.scipy.org/doc/scipy-0.16.1/reference/generated/scipy.interpolate.RegularGridInterpolator.html
-    #     x = np.arange(self.d_s)
-    #     y = np.arange(self.d_s)
-    #     z = np.arange(self.R.shape[2])
-    #     interpolating_function = RegularGridInterpolator((x,y,z),self.R)
-    #     z_ = np.linspace(0,z[-1],timeSteps)
-    #     pts = np.array(np.meshgrid(x, y, z_)).reshape(3,self.d_s*self.d_s*timeSteps).transpose()
-    #     self.R = interpolating_function(pts).reshape(self.d_s,self.d_s,timeSteps)
 
+class lawrData(radarData, totalField):
+
+    def __init__(self, filepath):
+
+        with netCDF4.Dataset(filepath) as nc:
+
+            try:
+                data = nc.variables['dbz_ac1'][:][:][:]
+                self.dbz = data
+                self.azi = nc.variables['azi'][:]
+                self.r = nc.variables['range'][:]
+                self.time = nc.variables['time'][:]
+
+            except:
+                data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
+                if np.ma.is_masked(data):
+                    data.fill_value = -32.5
+                    self.z = data.filled()
+                else:
+                    self.z = data
+
+                self.azi = nc.variables['Azimuth'][:]
+                self.r = nc.variables['Distance'][:]
+                self.time = nc.variables['Time'][:]
+
+            self.resolution = 100
+            self.timeSteps = len(self.time)
+            aziCorr = -5
+            self.azi = np.mod(self.azi + aziCorr, 360)
+            self.cRange = int(
+                800 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
+            self.lat = 9.973997  # location of the hamburg radar
+            self.lon = 53.56833
+            self.zsl = 100  # altitude of the hamburg radar
+            latDeg = 110540  # one degree equals 110540 m
+            lonDeg = 113200  # one degree * cos(lat*pi/180) equals 113200 m
+            aziCos = np.cos(np.radians(self.azi))
+            aziSin = np.sin(np.radians(self.azi))
+            xPolar = np.outer(self.r, aziCos)
+            xPolar = np.reshape(xPolar, (333 * 360, 1))
+            yPolar = np.outer(self.r, aziSin)
+            yPolar = np.reshape(yPolar, (333 * 360, 1))
+            self.points = np.concatenate((xPolar, yPolar), axis=1)
+
+            self.xCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
+            self.yCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
+
+            [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
+            Lat = self.lat + self.XCar / latDeg
+            Lon = self.lon + self.YCar / (lonDeg * (np.cos(Lat * np.pi / 180)))
+            self.dist = np.sqrt(np.square(self.xCar) + np.square(self.YCar))
+
+            xCar_nested = np.arange(-20000 - self.cRange * 2 * self.resolution,
+                                    20000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+            yCar_nested = xCar_nested
+
+            [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
+
+            Lat_nested = self.lat + XCar_nested / latDeg
+            Lon_nested = self.lon + XCar_nested / (lonDeg * (np.cos(Lat_nested * np.pi / 180)))
+            self.nested_dist = np.sqrt(np.square(xCar_nested) + np.square(YCar_nested))
+
+            target_nested = np.zeros([XCar_nested.shape[0] * XCar_nested.shape[1], 2])
+            target_nested[:, 0] = XCar_nested.flatten()
+            target_nested[:, 1] = YCar_nested.flatten()
+
+            self.target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
+            self.target[:, 0] = self.XCar.flatten()
+            self.target[:, 1] = self.YCar.flatten()
+
+            self.d_s = len(self.XCar)
+
+            self.R = np.empty([self.timeSteps, self.d_s, self.d_s])
+            self.rPolar = z2rainrate(self.z)
+
+            self.nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+            self.vtx, self.wts = self.interp_weights(self.points, self.target)
+
+            for t in range(self.timeSteps):
+                rPolarT = self.rPolar[t, :, :].T
+                rPolarT = np.reshape(rPolarT, (333 * 360, 1)).squeeze()
+                self.R[t, :, :] = np.reshape(self.interpolate(rPolarT.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
+                self.R[t, (self.dist >= np.max(self.r))] = 0
+                self.nested_data[t, 2 * self.cRange: 2 * self.cRange + self.d_s,
+                2 * self.cRange: 2 * self.cRange + self.d_s] = self.R[t, :, :]
+
+            self.nested_data = np.rot90(self.nested_data, 1, (1, 2))
+            self.R = np.rot90(self.R, 1, (1, 2))
+            self.nested_data = np.nan_to_num(self.nested_data)
+            self.R = np.nan_to_num(self.R)
+            
