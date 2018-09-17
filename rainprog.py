@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.interpolate import griddata, RegularGridInterpolator
 from createblob import createblob
-from findmaxima import findmaxima
 from init import Square, totalField, lawrData, radarData, get_metangle, create_sample, importance_sampling, \
     DWDData, z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification
 
@@ -145,14 +144,15 @@ d_s = len(XCar)
 
 R = np.empty([timeSteps,d_s,d_s])
 rPolar = z2rainrate(z)
+test2 = radarData('dwd', directoryPath + '/' + selectedFiles[0])
 
 nested_data = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
-vtx, wts = interp_weights(points, target)
+vtx, wts = radarData.interp_weights(points, target)
 if useRealData:
     for t in range(timeSteps):
         rPolarT = rPolar[t, :, :].T
         rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
-        R[t, :, :] = np.reshape(interpolate(rPolarT.flatten(), vtx, wts), (d_s, d_s))
+        R[t, :, :] = np.reshape(radarData.interpolate(rPolarT.flatten(), vtx, wts), (d_s, d_s))
         R[t, (dist >= np.max(r))] = 0
         nested_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
     nested_data = np.rot90(nested_data, 1, (1, 2))
@@ -220,25 +220,15 @@ if livePlot:
 nested_data = np.nan_to_num(nested_data)
 R = np.nan_to_num(R)
 
-allFields = totalField(findmaxima([], R[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, R, res, cRange, trainTime)
-for field in allFields.activeFields:
-    if field.status:
-        field.maxima[:, 1:3] = field.maxima[:, 1:3] + cRange * 2
-
-
+allFields = totalField(findmaxima([], nested_data[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime)
 
 
 for t in range(prog):
     #print(t)
     #maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
     if len(allFields.activeFields) < numMaxes:
-        for field in allFields.activeFields:
-            field.maxima[0, 1:3] = field.maxima[0, 1:3] - cRange * 2
-        allFields.activeFields = findmaxima(allFields.activeFields, R[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
+        allFields.activeFields = findmaxima(allFields.activeFields, nested_data[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
         allFields.assign_ids()
-        for field in allFields.activeFields:
-            field.maxima[0, 1:3] = field.maxima[0, 1:3] + cRange * 2
-
         #print('looked for new maxima')
 
     #fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res, cRange)

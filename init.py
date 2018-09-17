@@ -15,17 +15,34 @@ class radarData:
 
     def __init__(self, type, path):
         self.type = type #dwd or lawr
-
         if type == 'dwd':
             self.resolution = 200  # horizontal resolution in m
-            self.boo = DWDData(path)
-            self.boo.getGrid(self.resolution)
-            self.boo.gridding(self.vtx, self.wts, self.d_s)
+            self.trainTime = 5  # 5 Timesteps for training to find the displacement vector (equals 25 minutes)
+            self.numMaxima = 20 # number of tracked maxima
+            self.data = DWDData(path)
+            self.data.distThreshold = 40000
+            self.data.rainThreshold = 0.1
+            self.data.trainTime = 5
+            self.data.getGrid(self.resolution)
+            offset = self.data.cRange*2
+            self.data.nested_data[0, offset:offset+self.data.d_s, offset:offset+self.data.d_s] = DWDData.gridding(self.data)
+            #self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
+            self.initial_maxima()
 
         elif type == 'lawr':
             self.resolution = 100  # horizontal resolution in m
-            self.hhg = lawrData(path)
+            self.trainTime = 8  # 8 Timesteps for training to find the displacement vector (equals 4 minutes)
+            self.numMaxima = 20  # number of tracked maxima
+            self.data = lawrData(path)
 
+    def set_auxillary_geoData(self, dwd, lawr, HHGposition):
+        dwd.HHGdist = np.sqrt(np.square(dwd.XCar - dwd.XCar.min() - HHGposition[0] * dwd.resolution) +
+                              np.square(dwd.YCar - dwd.YCar.min() - HHGposition[1] * dwd.resolution))
+
+        dwd.HHG_cart_points = np.concatenate((np.reshape(dwd.XCar - dwd.XCar.min() - HHGposition[0] * dwd.resolution,
+                                                         (dwd.d_s * dwd.d_s, 1)),
+                                              np.reshape(dwd.YCar - dwd.YCar.min() - HHGposition[1] * dwd.resolution,
+                                                         (dwd.d_s * dwd.d_s, 1))), axis=1)
 
 
     def interpolate(self, values, vtx, wts, fill_value=np.nan):
@@ -43,6 +60,22 @@ class radarData:
         bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
         return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
 
+    def initial_maxima(self):
+        self.data.progField = totalField(
+            totalField.findmaxima([], self.data.nested_data[0, :, :], self.data.cRange, self.numMaxima,
+                                  self.data.rainThreshold, self.data.distThreshold, self.data.dist_nested),
+            self.data.rainThreshold, self.data.distThreshold, self.data.dist_nested, self.numMaxima, self.data.nested_data,
+            self.resolution, self.data.cRange, self.trainTime)
+
+    def add_timestep(self,filePath):
+        if self.type == 'dwd':
+            self.data.addTimestep(filePath)  #suitable filepath has to be passed to this function
+        elif self.type == 'lawr':
+            print('Not implemented yet')
+
+    def find_displacement(self):
+        for t in range(self.trainTime):
+            self.data.prog_step(t)
 class Square:
 
     def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist):
@@ -103,7 +136,7 @@ class Square:
 
 class totalField:
 
-    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, R, res, cRange, trainTime):
+    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime):
         self.activeFields = fields
         self.inactiveFields = []
         self.rainThreshold = rainThreshold  # minimal rainthreshold
@@ -111,7 +144,6 @@ class totalField:
         self.dist = dist  # global distancefield
         self.numMaxes = numMaxes  # number of maxima
         self.nested_data = nested_data
-        self.R = R
         self.shiftX = []
         self.shiftY = []
         self.meanX = []
@@ -381,6 +413,39 @@ class totalField:
                 self.activeIds.append(self.inactiveIds[-1])
                 del self.inactiveIds[-1]
 
+    def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshold, dist):
+        grid = len(nestedData[1])
+        dims = nestedData.shape
+        nestedData = nestedData.flatten()
+        distFlat = dist.flatten()
+        sorted = np.empty([grid * grid, 3])
+
+        sortedIdx = np.argsort(nestedData)
+        distFlat = distFlat[sortedIdx]
+        sorted[:, 0] = nestedData[sortedIdx]
+        sorted[:, 1:3] = np.transpose(np.unravel_index(sortedIdx, dims))
+        sorted = sorted[distFlat < distThreshold, :]
+
+        if not len(fields):
+            fields.append(Square(cRange, np.reshape(sorted[-1, :], (1, 3)), 1, rainThreshold, distThreshold, dist))
+
+        dummy = sorted
+        for i in range(numMaxes - len(fields)):
+            distance = np.zeros([len(dummy), len(fields)])
+            for j in range(0, len(fields)):
+                distance[:, j] = np.sqrt(
+                    np.square(fields[j].maxima[0, 1] - dummy[:, 1]) + np.square(fields[j].maxima[0, 2] - dummy[:, 2]))
+            potPoints = np.flatnonzero(np.prod(distance >= cRange * 3, axis=1))
+            if not len(potPoints):
+                return fields
+            if dummy[potPoints[-1], 0] > rainThreshold:
+                fields.append(
+                    Square(cRange, np.reshape(dummy[potPoints[-1], :], (1, 3)), 1, rainThreshold, distThreshold, dist))
+                dummy = dummy[potPoints, :]
+            else:
+                return fields
+        return fields
+
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
     b = np.full_like(z, 1.9, dtype=np.double)
@@ -393,8 +458,8 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
 def findRadarSite(lawr, BOO):
-    lat = np.abs(BOO.lat - lawr.lat)
-    lon = np.abs(BOO.lon - lawr.lon)
+    lat = np.abs(BOO.data.lat - lawr.data.lat)
+    lon = np.abs(BOO.data.lon - lawr.data.lon)
     latIdx = np.where(lat == lat.min())
     lonIdx = np.where(lon == lon.min())
     return latIdx[1][0], lonIdx[0][0]
@@ -569,7 +634,7 @@ def verification(prog_data, real_data):
 
 class DWDData(radarData, totalField):
 
-    def __init__(self, filepath):
+    def __init__(self, filePath):
 
         '''Read in DWD radar data.
 
@@ -583,7 +648,7 @@ class DWDData(radarData, totalField):
             filename (str): Name of radar data file.
 
         '''
-        with h5py.File(filepath, 'r') as boo:
+        with h5py.File(filePath, 'r') as boo:
             # radar site coordinates and elevation
             lon_site = boo.get('where').attrs['lon']
             lat_site = boo.get('where').attrs['lat']
@@ -625,14 +690,24 @@ class DWDData(radarData, totalField):
         points = np.concatenate((xPolar, yPolar), axis=1)
 
         self.resolution = booresolution
+        self.cRange = int(1000 / self.resolution)
         self.xCar = np.arange(-60000, 60000 + 1, self.resolution).squeeze()
+        self.xCar_nested = np.arange(-60000 - self.cRange * 2 * self.resolution,
+                                     60000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
         self.yCar = np.arange(-110000, 10000 + 1, self.resolution).squeeze()
+        self.yCar_nested = np.arange(-110000 - self.cRange * 2 * self.resolution,
+                                          10000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
         self.d_s = len(self.xCar)
 
         [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
+        [self.XCar_nested, self.YCar_nested] = np.meshgrid(self.xCar_nested, self.yCar_nested)
+
         self.dist = np.sqrt(np.square(self.XCar) + np.square(self.YCar))
+        self.dist_nested = np.sqrt(np.square(self.XCar_nested) + np.square(self.YCar_nested))
+
         self.lat = self.sitecoords[0] + self.XCar / latDeg
         self.lon = self.sitecoords[1] + self.YCar / (lonDeg * (np.cos(self.lat * np.pi / 180)))
+
         target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
         target[:, 0] = self.XCar.flatten()
         target[:, 1] = self.YCar.flatten()
@@ -642,17 +717,27 @@ class DWDData(radarData, totalField):
 
 
         self.vtx, self.wts = super().interp_weights(points, target)
+        self.nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
 
-    def gridding(self, vtx, wts, d_s):
+    def gridding(self):
 
         rPolar = z2rainrate(self.refl).T
         rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
 
-        self.R = np.reshape(super().interpolate(rPolar.flatten(), vtx, wts), (d_s, d_s))
+        return np.reshape(super().interpolate(rPolar.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
 
-    def addTimestep(self, R):
-        self.R = np.dstack((self.R, R))
-
+    def addTimestep(self, filePath):
+        with h5py.File(filePath, 'r') as boo:
+            gain = boo.get('dataset1/data1/what').attrs['gain']
+            offset = boo.get('dataset1/data1/what').attrs['offset']
+            refl = boo.get('dataset1/data1/data')
+            self.refl = refl * gain + offset
+            #time = boo.get('what').attrs['time'] # TODO change this to a str or some proper time format(currently in bytes)
+            nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+            nested_data[0, 2 * self.cRange: self.d_s + 2 * self.cRange,
+            2 * self.cRange: self.d_s + 2 * self.cRange] = DWDData.gridding(self)
+            self.nested_data = np.vstack((self.nested_data, nested_data))
+            # consider using int(test2.data.time) or "".join(map(chr, test2.data.time)) to get the time in to a good format
     def timeInterpolation(self, timeSteps):
         # faster implementation of the timeInterpolation
         z = np.arange(self.R.shape[2])
@@ -751,4 +836,3 @@ class lawrData(radarData, totalField):
             self.R = np.rot90(self.R, 1, (1, 2))
             self.nested_data = np.nan_to_num(self.nested_data)
             self.R = np.nan_to_num(self.R)
-            
