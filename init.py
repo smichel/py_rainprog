@@ -13,27 +13,8 @@ import matplotlib.pyplot as plt
 
 class radarData:
 
-    def __init__(self, type, path):
-        self.type = type #dwd or lawr
-        if type == 'dwd':
-            self.resolution = 200  # horizontal resolution in m
-            self.trainTime = 5  # 5 Timesteps for training to find the displacement vector (equals 25 minutes)
-            self.numMaxima = 20 # number of tracked maxima
-            self.data = DWDData(path)
-            self.data.distThreshold = 40000
-            self.data.rainThreshold = 0.1
-            self.data.trainTime = 5
-            self.data.getGrid(self.resolution)
-            offset = self.data.cRange*2
-            self.data.nested_data[0, offset:offset+self.data.d_s, offset:offset+self.data.d_s] = DWDData.gridding(self.data)
-            #self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
-            self.initial_maxima()
-
-        elif type == 'lawr':
-            self.resolution = 100  # horizontal resolution in m
-            self.trainTime = 8  # 8 Timesteps for training to find the displacement vector (equals 4 minutes)
-            self.numMaxima = 20  # number of tracked maxima
-            self.data = lawrData(path)
+    def __init__(self, path):
+        self.rainThreshold = 0.1
 
     def set_auxillary_geoData(self, dwd, lawr, HHGposition):
         dwd.HHGdist = np.sqrt(np.square(dwd.XCar - dwd.XCar.min() - HHGposition[0] * dwd.resolution) +
@@ -61,21 +42,23 @@ class radarData:
         return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
 
     def initial_maxima(self):
-        self.data.progField = totalField(
-            totalField.findmaxima([], self.data.nested_data[0, :, :], self.data.cRange, self.numMaxima,
-                                  self.data.rainThreshold, self.data.distThreshold, self.data.dist_nested),
-            self.data.rainThreshold, self.data.distThreshold, self.data.dist_nested, self.numMaxima, self.data.nested_data,
-            self.resolution, self.data.cRange, self.trainTime)
+        self.progField = totalField(
+            totalField.findmaxima([], self.nested_data[0, :, :], self.cRange, self.numMaxima,
+                                  self.rainThreshold, self.distThreshold, self.dist_nested),
+            self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
+            self.resolution, self.cRange, self.trainTime)
 
-    def add_timestep(self,filePath):
-        if self.type == 'dwd':
-            self.data.addTimestep(filePath)  #suitable filepath has to be passed to this function
-        elif self.type == 'lawr':
-            print('Not implemented yet')
 
     def find_displacement(self):
         for t in range(self.trainTime):
-            self.data.prog_step(t)
+            if len(self.progField.activeFields) < self.numMaxima:
+                self.progField.assign_ids()
+            self.progField.test_maxima(self.nested_data[t,:,:])
+            self.progField.prog_step(t)
+            self.progField.update_fields()
+        self.progField.test_angles()
+        self.meanXDisplacement = np.nanmean(self.progField.return_fieldHistX())
+        self.meanYDisplacement = np.nanmean(self.progField.return_fieldHistY())
 class Square:
 
     def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist):
@@ -375,11 +358,11 @@ class totalField:
             status = status[lengths != 0]
             lengths = lengths[lengths != 0]
 
-            shiftXex = shiftX[lengths <= 1000]
-            shiftYex = shiftY[lengths <= 1000]
-            lengthFilter.extend(status[lengths <= 1000])
+            shiftXex = shiftX[lengths <= self.cRange*self.res]
+            shiftYex = shiftY[lengths <= self.cRange*self.res]
+            lengthFilter.extend(status[lengths <= self.cRange*self.res])
 
-            status = status[lengths <= 1000]
+            status = status[lengths <= self.cRange*self.res]
 
             meanXex = np.empty([len(shiftXex)])
             meanYex = np.empty([len(shiftYex)])
@@ -525,8 +508,8 @@ def getFiles(filelist, time):
     for i, file in enumerate(filelist):
         if (np.abs(int(file[41:43])- time) <= 0):
             files.append(file)
-        if ((np.abs(int(file[41:43]) - (time + 1)) <= 0) & (int(file[43:45]) == 0)):
-            files.append(file)
+        #if ((np.abs(int(file[41:43]) - (time + 1)) <= 0) & (int(file[43:45]) == 0)):
+        #    files.append(file)
 
     return files
 
@@ -677,6 +660,18 @@ class DWDData(radarData, totalField):
             self.refl = refl*gain + offset
             self.time = boo.get('what').attrs['time']
 
+        super().__init__(filePath)
+        self.resolution = 200  # horizontal resolution in m
+        self.trainTime = 5  # 5 Timesteps for training to find the displacement vector (equals 25 minutes)
+        self.numMaxima = 20  # number of tracked maxima
+        self.distThreshold = 70000
+        self.trainTime = 5
+        self.getGrid(self.resolution)
+        offset = self.cRange * 2
+        self.nested_data[0, offset:offset + self.d_s, offset:offset + self.d_s] = self.gridding()
+        # self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
+        self.initial_maxima()
+
     def getGrid(self, booresolution):
 
         latDeg = 110540  # one degree equals 110540 m
@@ -690,7 +685,7 @@ class DWDData(radarData, totalField):
         points = np.concatenate((xPolar, yPolar), axis=1)
 
         self.resolution = booresolution
-        self.cRange = int(1000 / self.resolution)
+        self.cRange = int(4000 / self.resolution)
         self.xCar = np.arange(-60000, 60000 + 1, self.resolution).squeeze()
         self.xCar_nested = np.arange(-60000 - self.cRange * 2 * self.resolution,
                                      60000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
@@ -735,9 +730,10 @@ class DWDData(radarData, totalField):
             #time = boo.get('what').attrs['time'] # TODO change this to a str or some proper time format(currently in bytes)
             nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
             nested_data[0, 2 * self.cRange: self.d_s + 2 * self.cRange,
-            2 * self.cRange: self.d_s + 2 * self.cRange] = DWDData.gridding(self)
+            2 * self.cRange: self.d_s + 2 * self.cRange] = self.gridding()
             self.nested_data = np.vstack((self.nested_data, nested_data))
             # consider using int(test2.data.time) or "".join(map(chr, test2.data.time)) to get the time in to a good format
+
     def timeInterpolation(self, timeSteps):
         # faster implementation of the timeInterpolation
         z = np.arange(self.R.shape[2])
@@ -746,6 +742,11 @@ class DWDData(radarData, totalField):
         self.R = interpolating_function(z_).transpose()
 
 
+    def extrapolation(self, progTimeSteps):
+
+        self.prog_data = np.zeros([timeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
+        for t in range(timeSteps):
+            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[0,:,:], self.meanXDisplacement*self.resolution/10, self.meanYDisplacement*self.resolution/10)
 class lawrData(radarData, totalField):
 
     def __init__(self, filepath):
@@ -771,6 +772,9 @@ class lawrData(radarData, totalField):
                 self.r = nc.variables['Distance'][:]
                 self.time = nc.variables['Time'][:]
 
+            super().__init__(filepath)
+            self.trainTime = 8  # 8 Timesteps for training to find the displacement vector (equals 4 minutes)
+            self.numMaxima = 20  # number of tracked maxima
             self.resolution = 100
             self.timeSteps = len(self.time)
             aziCorr = -5

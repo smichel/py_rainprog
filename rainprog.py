@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.interpolate import griddata, RegularGridInterpolator
 from createblob import createblob
-from init import Square, totalField, lawrData, radarData, get_metangle, create_sample, importance_sampling, \
+from init import Square, totalField, lawrData, DWDData, radarData, get_metangle, create_sample, importance_sampling, \
     DWDData, z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
@@ -144,7 +144,52 @@ d_s = len(XCar)
 
 R = np.empty([timeSteps,d_s,d_s])
 rPolar = z2rainrate(z)
-test2 = radarData('dwd', directoryPath + '/' + selectedFiles[0])
+
+startTime=datetime.now()
+
+test2 = DWDData(directoryPath + '/' + selectedFiles[0])
+for i, file in enumerate(selectedFiles[1:]):
+    test2.addTimestep(directoryPath + '/' + file)
+    #print(file)
+print(datetime.now()-startTime)
+startTime=datetime.now()
+test2.initial_maxima()
+print(datetime.now()-startTime)
+startTime=datetime.now()
+test2.find_displacement()
+print(datetime.now()-startTime)
+
+for t in range(test2.trainTime):
+    if t == 0:
+        plt.figure(figsize=(8, 8))
+        im = plt.imshow(test2.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+        plt.show(block=False)
+        o, = plt.plot(*np.transpose(test2.progField.return_maxima(t)[:, 2:0:-1]), 'ko')
+        n, = plt.plot(*np.transpose(test2.progField.return_maxima(t-1)[:, 2:0:-1]), 'wo')
+        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+        s.set_clim(0, np.max(test2.nested_data))
+        s.set_ticks(contours)
+        s.draw_all()
+        # s.set_ticklabels(contourLabels)
+    else:
+        im.set_data(test2.nested_data[t, :, :])
+        o.set_data(*np.transpose(test2.progField.return_maxima(t)[:, 2:0:-1]))
+        n.set_data(*np.transpose(test2.progField.return_maxima(t-1)[:, 2:0:-1]))
+    plt.pause(1)
+
+col = np.concatenate([np.zeros([1,np.max(test2.progField.activeIds)]), np.random.rand(2,np.max(test2.progField.activeIds))])
+plt.figure(figsize=(8, 8))
+ax = plt.axes()
+for i, field in enumerate(test2.progField.activeFields):
+    for t in field.histMaxima:
+        plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:, field.id - 1], marker='o')
+for i, field in enumerate(test2.progField.inactiveFields):
+    for t in field.histMaxima:
+        plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
+ax.set_ylim(0, test2.d_s + 4 * cRange)
+ax.set_xlim(0, test2.d_s + 4 * cRange)
+plt.gca().invert_yaxis()
+plt.show(block=False)
 
 nested_data = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
 vtx, wts = radarData.interp_weights(points, target)
@@ -167,12 +212,11 @@ startTime2=datetime.now()
 
 boo=DWDData()
 boo.read_dwd_file(directoryPath + '/' + selectedFiles[0])
-selectedFiles.pop(0)
 boo.getGrid(booResolution)
 boo.gridding(boo.vtx, boo.wts, boo.d_s)
 
 
-for i, file in enumerate(selectedFiles):
+for i, file in enumerate(selectedFiles[1:], start = 1):
     buf = DWDData()
     buf.read_dwd_file(directoryPath + '/' + selectedFiles[i])
     buf.gridding(boo.vtx, boo.wts, boo.d_s)
@@ -220,14 +264,14 @@ if livePlot:
 nested_data = np.nan_to_num(nested_data)
 R = np.nan_to_num(R)
 
-allFields = totalField(findmaxima([], nested_data[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime)
+allFields = totalField(totalField.findmaxima([], nested_data[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime)
 
 
 for t in range(prog):
     #print(t)
     #maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
     if len(allFields.activeFields) < numMaxes:
-        allFields.activeFields = findmaxima(allFields.activeFields, nested_data[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
+        #allFields.activeFields = findmaxima(allFields.activeFields, nested_data[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
         allFields.assign_ids()
         #print('looked for new maxima')
 
