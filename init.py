@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import numpy.ma as ma
 import netCDF4
@@ -41,9 +42,9 @@ class radarData:
         bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
         return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
 
-    def initial_maxima(self):
-        self.progField = totalField(
-            totalField.findmaxima([], self.nested_data[0, :, :], self.cRange, self.numMaxima,
+    def initial_maxima(self,prog):
+        self.progField = Totalfield(
+            Totalfield.findmaxima([], self.nested_data[prog - self.progField.trainTime, :, :], self.cRange, self.numMaxima,
                                   self.rainThreshold, self.distThreshold, self.dist_nested),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
             self.resolution, self.cRange, self.trainTime)
@@ -117,7 +118,7 @@ class Square:
     def get_id(self, inactiveIds):
         self.id = inactiveIds[-1]
 
-class totalField:
+class Totalfield:
 
     def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime):
         self.activeFields = fields
@@ -335,7 +336,7 @@ class totalField:
             if field.lifeTime < self.trainTime:
                 self.activeFields.remove(field)
             else:
-                fieldNums = fieldNums + 1
+                fieldNums += 1
 
         angleFilter = list(range(fieldNums))
         lengthFilter = list(range(fieldNums))
@@ -380,7 +381,7 @@ class totalField:
 
         lengthUnique, lengthCounts = np.unique(np.array(lengthFilter), return_counts=True)
         angleUnique, angleCounts = np.unique(np.array(angleFilter), return_counts=True)
-        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) > 4 # angleFilter
+        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) > int(self.trainTime/2) # angleFilter
         lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) > 1 # lengthFilter
 
         for i in reversed(range(len(self.activeFields))):
@@ -428,194 +429,7 @@ class totalField:
             else:
                 return fields
         return fields
-
-def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
-    a = np.full_like(z, 77, dtype=np.double)
-    b = np.full_like(z, 1.9, dtype=np.double)
-    cond1 = z <= 44.0
-    a[cond1] = 200
-    b[cond1] = 1.6
-    cond2 = z <= 36.5
-    a[cond2] = 320
-    b[cond2] = 1.4
-    return ((10 ** (z / 10)) / a) ** (1. / b)
-
-def findRadarSite(lawr, BOO):
-    lat = np.abs(BOO.data.lat - lawr.data.lat)
-    lon = np.abs(BOO.data.lon - lawr.data.lon)
-    latIdx = np.where(lat == lat.min())
-    lonIdx = np.where(lon == lon.min())
-    return latIdx[1][0], lonIdx[0][0]
-
-def get_metangle(x, y):
-    '''Get meteorological angle of input vector.
-
-    Args:
-        x (numpy.ndarray): X-components of input vectors.
-        y (numpy.ndarray): Y-components of input vectors.
-
-    Returns:
-        (numpy.ma.core.MaskedArray): Meteorological angles.
-
-    '''
-    mask = np.logical_and(x == 0, y == 0)  # Vectors (0, 0) not valid.
-    met_ang = ma.masked_array((90 - np.degrees(np.arctan2(x, y)) + 360) % 360, mask=mask,
-                                  fill_value=np.nan)
-    return met_ang
-
-
-
-
-def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample, d_s, cRange):
-    nested_data_ = ma.array(nested_data, mask=nested_dist >= rMax, dtype=float,fill_value=np.nan)
-    xy = ma.array(xy, mask=nested_dist >= rMax, dtype=int,fill_value=-999999)
-    yx = ma.array(yx, mask=nested_dist >= rMax, dtype=int,fill_value=-999999)
-    prog_data_ = get_values(xSample, ySample, xy.flatten()[~xy.mask.flatten()], yx.flatten()[~yx.mask.flatten()].flatten(), nested_data)
-    nested_data.squeeze()[~nested_data_.mask.squeeze()] = prog_data_
-    prog_data = np.reshape(nested_data,[d_s+4*cRange,d_s+4*cRange])
-    return prog_data
-
-def create_sample(gaussMeans, covNormAngle, samples):
-    return np.random.multivariate_normal(gaussMeans, covNormAngle, samples).T
-
-def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
-    x = np.full((len(xSample), len(x)), x).T
-    y = np.full((len(ySample), len(y)), y).T
-    x_= x - xSample
-    y_= y - ySample
-    vals = np.nanmean(interp2d(nested_data, x_, y_),axis=1)
-    return vals
-
-@jit(nopython=True)
-def interp2d(nested_data, x, y):  # nested_data in 2d
-    vals = np.empty_like(x)
-    for idx, xx in np.ndenumerate(x):
-        xi = int(xx)
-        xmod = xx % 1
-        yy = y[idx]
-        yi = int(yy)
-        ymod = yy % 1
-
-        vals[idx] = nested_data[xi, yi] * ((1 - xmod) * (1 - ymod)) + \
-             nested_data[xi, yi+1] * (1- xmod) * (ymod) + \
-             nested_data[xi+1, yi+1] * ((xmod) * ymod) + \
-             nested_data[xi+1, yi] * ((xmod) * (1 - ymod))
-    return vals
-
-
-def getFiles(filelist, time):
-    files = []
-    for i, file in enumerate(filelist):
-        if (np.abs(int(file[41:43])- time) <= 0):
-            files.append(file)
-        #if ((np.abs(int(file[41:43]) - (time + 1)) <= 0) & (int(file[43:45]) == 0)):
-        #    files.append(file)
-
-    return files
-
-def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold, HHGlat, HHGlon):
-    boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
-    hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
-    lat1 = boo.lat - HHGlat.min()
-    lat2 = boo.lat - HHGlat.max()
-    latstart = lat1[lat1 < 0].argmax()
-    latend= lat2[lat2 < 0].argmax()
-
-    HHGLatInBOO = (HHGlat[:, :] - boo.lat[0, latstart]) / (
-            boo.lat[0, latend] - boo.lat[0, latstart]) * (latend - latstart) + latstart
-
-    lon1 = boo.lon - HHGlon.min()
-    lon2 = boo.lon - HHGlon.max()
-    lonstart = np.unravel_index(lon1[lon1 < 0].argmax(), boo.lat.shape)
-    lonend = np.unravel_index(lon2[lon2 < 0].argmax(), boo.lat.shape)
-
-    HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - boo.lon[lonstart]) / (
-            boo.lon[lonend] - boo.lon[lonstart]) * (lonend[0] - lonstart[0]) + lonstart[0],1,(0,1)))
-
-
-    if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
-        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
-    return  prog_data
-
-def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
-    paddingNaNs = int(1500/boo.resolution)
-
-    x = np.arange(paddingNaNs, boo.d_s + paddingNaNs) - displacementX/boo.resolution
-    y = np.arange(paddingNaNs, boo.d_s + paddingNaNs) - displacementY/boo.resolution
-
-    [Y, X] = np.meshgrid(y,x)
-    # padding boo data with nans to prevent errors, this should equal a distance of 1500m with a resolution of 500m. This
-    # is far over the possible maximum movespeed of clouds (1500m in 30s equals 180 km/h)
-
-    boo_data = np.empty([boo.d_s + paddingNaNs*2, boo.d_s + paddingNaNs*2])
-    boo_data.fill(np.nan)
-    boo_data[paddingNaNs : boo.d_s+ paddingNaNs, paddingNaNs : boo.d_s + paddingNaNs] = boo_prog_data
-    boo_prog_data = interp2d(boo_data, X, Y)
-    return boo_prog_data
-
-def leastsquarecorr(dataArea, corrArea):
-        # %Calculates a leastsquare correlation between 2 matrices c and d
-
-    # cLen = len(dataArea)-len(corrArea)+1
-    # c_d = np.zeros([cLen, cLen])
-    #
-    # k = 0
-    # m = 0
-    # for i in range(cLen):
-    #     for j in range(cLen):
-    #         c_d[k, m] = np.sum(np.square(dataArea[i:i + cLen-1, j:j + cLen-1] - corrArea))
-    #         m += 1
-    #     m = 0
-    #     k += 1
-
-    c_d = np.sum((image.extract_patches_2d(dataArea, corrArea.shape) - corrArea) ** 2, axis=(1, 2)).reshape(np.array(dataArea.shape) - corrArea.shape + 1)
-    return c_d
-
-def verification(prog_data, real_data):
-    #function [BIAS,CSI,FAR,ORSS,PC,POD,hit,miss,f_alert,corr_zero]=verification(prog_data,real_data)
-# %for documentation see master thesis: Niederschlags-Nowcasting fuer ein
-# %hochaufgeloestes X-Band Regenradar from Timur Eckmann
-    rain_thresholds=np.array([0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 30])
-
-    num_r= len(rain_thresholds)
-    time = prog_data.shape[0]
-
-    hit=np.zeros([time,num_r])
-    miss=np.zeros([time,num_r])
-    f_alert=np.zeros([time,num_r])
-    corr_zero=np.zeros([time,num_r])
-    total=np.zeros([time,num_r])
-    BIAS=np.zeros([time,num_r])
-    PC=np.zeros([time,num_r])
-    POD=np.zeros([time,num_r])
-    FAR=np.zeros([time,num_r])
-    CSI=np.zeros([time,num_r])
-    ORSS=np.zeros([time,num_r])
-#
-    for r in range(num_r):
-        p_dat=(prog_data>rain_thresholds[r])
-        r_dat=(real_data>rain_thresholds[r])
-        for i in range(time):
-            hit[i, r] = np.sum(r_dat[i, :, :] & p_dat[i, :, :])
-            miss[i, r] = np.sum(r_dat[i, :, :] & ~p_dat[i, :, :])
-            f_alert[i, r] = np.sum(~r_dat[i, :, :] & p_dat[i, :, :])
-            corr_zero[i, r] = np.sum(~r_dat[i, :, :] & ~p_dat[i, :, :])
-
-            total[i, r] = hit[i, r] + miss[i, r] + f_alert[i, r] + corr_zero[i, r]
-
-            BIAS[i, r] = (hit[i, r] + f_alert[i, r]) / (hit[i, r] + miss[i, r])
-            PC[i, r] = (hit[i, r] + corr_zero[i, r]) / (total[i, r])  # proportion correct
-            POD[i, r] = hit[i, r] / (hit[i, r] + miss[i, r])  # probability of detection
-            FAR[i, r] = f_alert[i, r] / (f_alert[i, r] + hit[i, r])  # false alarm ration
-            CSI[i, r] = hit[i, r] / (hit[i, r] + miss[i, r] + f_alert[i, r])  # critical success index
-            ORSS[i, r] = (hit[i, r] * corr_zero[i, r] - f_alert[i, r] * miss[i, r]) / (
-                        hit[i, r] * corr_zero[i, r] + f_alert[i, r] * miss[i, r])  # odds ratio skill score
-
-
-    return  hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS
-
-class DWDData(radarData, totalField):
+class DWDData(radarData, Totalfield):
 
     def __init__(self, filePath):
 
@@ -719,7 +533,9 @@ class DWDData(radarData, totalField):
         rPolar = z2rainrate(self.refl).T
         rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
 
-        return np.reshape(super().interpolate(rPolar.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
+        return np.rot90(np.reshape(super().interpolate(rPolar.flatten(), self.vtx, self.wts), (self.d_s, self.d_s)),2,(0,1))
+
+
 
     def addTimestep(self, filePath):
         with h5py.File(filePath, 'r') as boo:
@@ -744,10 +560,11 @@ class DWDData(radarData, totalField):
 
     def extrapolation(self, progTimeSteps):
 
-        self.prog_data = np.zeros([timeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
-        for t in range(timeSteps):
-            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[0,:,:], self.meanXDisplacement*self.resolution/10, self.meanYDisplacement*self.resolution/10)
-class lawrData(radarData, totalField):
+        self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
+        for t in range(progTimeSteps):
+            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[0,:,:], (self.meanXDisplacement*self.resolution/10)*t, (self.meanYDisplacement*self.resolution/10)*t)
+
+class LawrData(radarData, Totalfield):
 
     def __init__(self, filepath):
 
@@ -840,3 +657,200 @@ class lawrData(radarData, totalField):
             self.R = np.rot90(self.R, 1, (1, 2))
             self.nested_data = np.nan_to_num(self.nested_data)
             self.R = np.nan_to_num(self.R)
+
+def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
+    a = np.full_like(z, 77, dtype=np.double)
+    b = np.full_like(z, 1.9, dtype=np.double)
+    cond1 = z <= 44.0
+    a[cond1] = 200
+    b[cond1] = 1.6
+    cond2 = z <= 36.5
+    a[cond2] = 320
+    b[cond2] = 1.4
+    return ((10 ** (z / 10)) / a) ** (1. / b)
+
+def findRadarSite(lawr, BOO):
+    lat = np.abs(BOO.data.lat - lawr.data.lat)
+    lon = np.abs(BOO.data.lon - lawr.data.lon)
+    latIdx = np.where(lat == lat.min())
+    lonIdx = np.where(lon == lon.min())
+    return latIdx[1][0], lonIdx[0][0]
+
+def get_metangle(x, y):
+    '''Get meteorological angle of input vector.
+
+    Args:
+        x (numpy.ndarray): X-components of input vectors.
+        y (numpy.ndarray): Y-components of input vectors.
+
+    Returns:
+        (numpy.ma.core.MaskedArray): Meteorological angles.
+
+    '''
+    mask = np.logical_and(x == 0, y == 0)  # Vectors (0, 0) not valid.
+    met_ang = ma.masked_array((90 - np.degrees(np.arctan2(x, y)) + 360) % 360, mask=mask,
+                                  fill_value=np.nan)
+    return met_ang
+
+
+
+
+def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample, d_s, cRange):
+    nested_data_ = ma.array(nested_data, mask=nested_dist >= rMax, dtype=float,fill_value=np.nan)
+    xy = ma.array(xy, mask=nested_dist >= rMax, dtype=int,fill_value=-999999)
+    yx = ma.array(yx, mask=nested_dist >= rMax, dtype=int,fill_value=-999999)
+    prog_data_ = get_values(xSample, ySample, xy.flatten()[~xy.mask.flatten()], yx.flatten()[~yx.mask.flatten()].flatten(), nested_data)
+    nested_data.squeeze()[~nested_data_.mask.squeeze()] = prog_data_
+    prog_data = np.reshape(nested_data,[d_s+4*cRange,d_s+4*cRange])
+    return prog_data
+
+def create_sample(gaussMeans, covNormAngle, samples):
+    return np.random.multivariate_normal(gaussMeans, covNormAngle, samples).T
+
+def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
+    x = np.full((len(xSample), len(x)), x).T
+    y = np.full((len(ySample), len(y)), y).T
+    x_= x - xSample
+    y_= y - ySample
+    vals = np.nanmean(interp2d(nested_data, x_, y_),axis=1)
+    return vals
+
+@jit(nopython=True)
+def interp2d(nested_data, x, y):  # nested_data in 2d
+    vals = np.empty_like(x)
+    for idx, xx in np.ndenumerate(x):
+        xi = int(xx)
+        xmod = xx % 1
+        yy = y[idx]
+        yi = int(yy)
+        ymod = yy % 1
+
+        vals[idx] = nested_data[xi, yi] * ((1 - xmod) * (1 - ymod)) + \
+             nested_data[xi, yi+1] * (1- xmod) * (ymod) + \
+             nested_data[xi+1, yi+1] * ((xmod) * ymod) + \
+             nested_data[xi+1, yi] * ((xmod) * (1 - ymod))
+    return vals
+
+
+def getFiles(filelist, time):
+    files = []
+    for i, file in enumerate(filelist):
+        if (np.abs(int(file[41:43])- time) <= 0):
+            files.append(file)
+        #if ((np.abs(int(file[41:43]) - (time + 1)) <= 0) & (int(file[43:45]) == 0)):
+        #    files.append(file)
+
+    return files
+
+def fileSelector(directoryPath, time, trainTime = 5):
+    booFileList = sorted(os.listdir(directoryPath))
+    year = np.asarray([int(x[33:37]) for x in booFileList])
+    mon = np.asarray([int(x[37:39]) for x in booFileList])
+    day = np.asarray([int(x[39:41]) for x in booFileList])
+    hour = np.asarray([int(x[41:43]) for x in booFileList])
+    min = np.asarray([int(x[43:45]) for x in booFileList])
+    idx = np.where((time[2]==hour)&((time[3]/2)-(time[3]/2)%5==min))[0][0]
+    selectedFiles = booFileList[idx-trainTime:idx]
+    return selectedFiles
+def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold, HHGlat, HHGlon):
+    boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
+    hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
+    lat1 = boo.lat - HHGlat.min()
+    lat2 = boo.lat - HHGlat.max()
+    latstart = lat1[lat1 < 0].argmax()
+    latend= lat2[lat2 < 0].argmax()
+
+    HHGLatInBOO = (HHGlat[:, :] - boo.lat[0, latstart]) / (
+            boo.lat[0, latend] - boo.lat[0, latstart]) * (latend - latstart) + latstart
+
+    lon1 = boo.lon - HHGlon.min()
+    lon2 = boo.lon - HHGlon.max()
+    lonstart = np.unravel_index(lon1[lon1 < 0].argmax(), boo.lat.shape)
+    lonend = np.unravel_index(lon2[lon2 < 0].argmax(), boo.lat.shape)
+
+    HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - boo.lon[lonstart]) / (
+            boo.lon[lonend] - boo.lon[lonstart]) * (lonend[0] - lonstart[0]) + lonstart[0],1,(0,1)))
+
+
+    if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
+        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
+        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
+    return  prog_data
+
+def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
+    #paddingNaNs = int(1500/boo.resolution)
+
+    x = np.arange(boo_prog_data.shape[0]) - displacementX/boo.resolution
+    y = np.arange(boo_prog_data.shape[1]) - displacementY/boo.resolution
+
+    [Y, X] = np.meshgrid(y,x)
+    # padding boo data with nans to prevent errors, this should equal a distance of 1500m with a resolution of 500m. This
+    # is far over the possible maximum movespeed of clouds (1500m in 30s equals 180 km/h)
+
+    #boo_data = np.empty([boo.d_s + paddingNaNs*2, boo.d_s + paddingNaNs*2])
+    #boo_data.fill(np.nan)
+    #boo_data[paddingNaNs : boo.d_s+ paddingNaNs, paddingNaNs : boo.d_s + paddingNaNs] = boo_prog_data
+    boo_prog_data = interp2d(boo_prog_data, X, Y)
+    return boo_prog_data
+
+def leastsquarecorr(dataArea, corrArea):
+        # %Calculates a leastsquare correlation between 2 matrices c and d
+
+    # cLen = len(dataArea)-len(corrArea)+1
+    # c_d = np.zeros([cLen, cLen])
+    #
+    # k = 0
+    # m = 0
+    # for i in range(cLen):
+    #     for j in range(cLen):
+    #         c_d[k, m] = np.sum(np.square(dataArea[i:i + cLen-1, j:j + cLen-1] - corrArea))
+    #         m += 1
+    #     m = 0
+    #     k += 1
+
+    c_d = np.sum((image.extract_patches_2d(dataArea, corrArea.shape) - corrArea) ** 2, axis=(1, 2)).reshape(np.array(dataArea.shape) - corrArea.shape + 1)
+    return c_d
+
+def verification(prog_data, real_data):
+    #function [BIAS,CSI,FAR,ORSS,PC,POD,hit,miss,f_alert,corr_zero]=verification(prog_data,real_data)
+# %for documentation see master thesis: Niederschlags-Nowcasting fuer ein
+# %hochaufgeloestes X-Band Regenradar from Timur Eckmann
+    rain_thresholds=np.array([0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 30])
+
+    num_r= len(rain_thresholds)
+    time = prog_data.shape[0]
+
+    hit=np.zeros([time,num_r])
+    miss=np.zeros([time,num_r])
+    f_alert=np.zeros([time,num_r])
+    corr_zero=np.zeros([time,num_r])
+    total=np.zeros([time,num_r])
+    BIAS=np.zeros([time,num_r])
+    PC=np.zeros([time,num_r])
+    POD=np.zeros([time,num_r])
+    FAR=np.zeros([time,num_r])
+    CSI=np.zeros([time,num_r])
+    ORSS=np.zeros([time,num_r])
+#
+    for r in range(num_r):
+        p_dat=(prog_data>rain_thresholds[r])
+        r_dat=(real_data>rain_thresholds[r])
+        for i in range(time):
+            hit[i, r] = np.sum(r_dat[i, :, :] & p_dat[i, :, :])
+            miss[i, r] = np.sum(r_dat[i, :, :] & ~p_dat[i, :, :])
+            f_alert[i, r] = np.sum(~r_dat[i, :, :] & p_dat[i, :, :])
+            corr_zero[i, r] = np.sum(~r_dat[i, :, :] & ~p_dat[i, :, :])
+
+            total[i, r] = hit[i, r] + miss[i, r] + f_alert[i, r] + corr_zero[i, r]
+
+            BIAS[i, r] = (hit[i, r] + f_alert[i, r]) / (hit[i, r] + miss[i, r])
+            PC[i, r] = (hit[i, r] + corr_zero[i, r]) / (total[i, r])  # proportion correct
+            POD[i, r] = hit[i, r] / (hit[i, r] + miss[i, r])  # probability of detection
+            FAR[i, r] = f_alert[i, r] / (f_alert[i, r] + hit[i, r])  # false alarm ration
+            CSI[i, r] = hit[i, r] / (hit[i, r] + miss[i, r] + f_alert[i, r])  # critical success index
+            ORSS[i, r] = (hit[i, r] * corr_zero[i, r] - f_alert[i, r] * miss[i, r]) / (
+                        hit[i, r] * corr_zero[i, r] + f_alert[i, r] * miss[i, r])  # odds ratio skill score
+
+
+    return  hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS
+

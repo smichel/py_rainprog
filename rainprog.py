@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.interpolate import griddata, RegularGridInterpolator
 from createblob import createblob
-from init import Square, totalField, lawrData, DWDData, radarData, get_metangle, create_sample, importance_sampling, \
-    DWDData, z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification
+from init import Square, Totalfield, LawrData, DWDData, radarData, get_metangle, create_sample, importance_sampling, \
+    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,fileSelector
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
 cmap = plt.get_cmap('viridis')
@@ -23,31 +23,29 @@ def gauss(x, *p):
 startTime = datetime.now()
 
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-year = str(2016)
-mon=str(6)
-day=str(2)
-rTime = 9-2
+year = 2016
+mon= 6
+day= 2
+hour = 9-2
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
-strTime = str(rTime)
-if len(strTime) == 1:
-    strTime = '0' + strTime
-if len(mon) == 1:
-    mon = '0' + mon
-if len(day) == 1:
-    day = '0' + day
+
+if len(str(hour)) == 1:
+    strHour = '0' + str(hour)
+if len(str(mon)) == 1:
+    strMon = '0' + str(mon)
+if len(str(day)) == 1:
+    strDay = '0' + str(day)
 
 
 
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 
-directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+mon+'/'+day
-fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+year+'/'+ mon +'/HHGlawr2016'+mon+day+ strTime + '_111_L1.nc'
+directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+strMon+'/'+strDay
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
 
-booFileList = sorted(os.listdir(directoryPath))
-selectedFiles = getFiles(booFileList, rTime)
 
 res = 100
 booResolution = 200
@@ -68,173 +66,71 @@ blobDisplacementX = -3
 blobDisplacementY = -1
 timeSteps = prog + progTime
 contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
+booFileList = sorted(os.listdir(directoryPath))
+dwdTime = list((mon,day,hour,prog))
 
-nc = netCDF4.Dataset(fp)
-try:
-    data = nc.variables['dbz_ac1'][:][:][:]
-    z = data
-    azi = nc.variables['azi'][:]
-    r = nc.variables['range'][:]
-    time = nc.variables['time'][:]
-except:
-    #data = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
-    data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
-    #data_Xband = nc.variables['Att_Corr_Xband_Reflectivity'][:][:][:]
-    #data_Cband = nc.variables['Att_Corr_Cband_Reflectivity'][:][:][:]
-    if np.ma.is_masked(data):
-        data.fill_value = -32.5
-        z = data.filled()
-    else:
-        z = data
-
-    #if np.ma.is_masked(data_Cband):
-    #    data_Cband.fill_value = -32.5
-    #    z_Cband = data_Cband.filled()
-    #else:
-    #    z_Cband = data_Cband
-
-    azi = nc.variables['Azimuth'][:]
-    r = nc.variables['Distance'][:]
-    time = nc.variables['Time'][:]
-
-aziCorr = -5
-azi = np.mod(azi + aziCorr,360)
-cRange = int(800/res) # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
-lat = 9.973997  # location of the hamburg radar
-lon = 53.56833
-zsl = 100  # altitude of the hamburg radar
-latDeg = 110540  # one degree equals 110540 m
-lonDeg = 113200  # one degree * cos(lat*pi/180) equals 113200 m
-aziCos = np.cos(np.radians(azi))
-aziSin = np.sin(np.radians(azi))
-xPolar = np.outer(r, aziCos)
-xPolar = np.reshape(xPolar, (333*360, 1))
-yPolar = np.outer(r, aziSin)
-yPolar = np.reshape(yPolar, (333*360, 1))
-points = np.concatenate((xPolar, yPolar), axis = 1)
-
-xCar = np.arange(-20000, 20000+1, res).squeeze()
-yCar = np.arange(-20000, 20000+1, res).squeeze()
-
-[XCar, YCar] = np.meshgrid(xCar, yCar)
-Lat = lat + XCar / latDeg
-Lon = lon + YCar / (lonDeg * (np.cos(Lat * np.pi / 180)))
-dist = np.sqrt(np.square(xCar)+np.square(YCar))
-
-xCar_nested = np.arange(-20000 - cRange * 2 * res, 20000 + cRange * 2 * res + 1, res).squeeze()
-yCar_nested = xCar_nested
-
-[XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
-
-Lat_nested = lat + XCar_nested / latDeg
-Lon_nested = lon + XCar_nested / (lonDeg * (np.cos(Lat_nested * np.pi / 180)))
-nested_dist = np.sqrt(np.square(xCar_nested)+np.square(YCar_nested))
-
-target_nested = np.zeros([XCar_nested.shape[0]*XCar_nested.shape[1],2])
-target_nested[:, 0] = XCar_nested.flatten()
-target_nested[:, 1] = YCar_nested.flatten()
-
-
-target = np.zeros([XCar.shape[0]*XCar.shape[1],2])
-target[:, 0] = XCar.flatten()
-target[:, 1] = YCar.flatten()
-
-
-d_s = len(XCar)
-
-R = np.empty([timeSteps,d_s,d_s])
-rPolar = z2rainrate(z)
+selectedFiles = fileSelector(directoryPath, dwdTime, 5)
+selectedFiles = getFiles(booFileList, hour)
 
 startTime=datetime.now()
 
-test2 = DWDData(directoryPath + '/' + selectedFiles[0])
+dwd = DWDData(directoryPath + '/' + selectedFiles[0])
+
 for i, file in enumerate(selectedFiles[1:]):
-    test2.addTimestep(directoryPath + '/' + file)
+    dwd.addTimestep(directoryPath + '/' + file)
     #print(file)
 print(datetime.now()-startTime)
 startTime=datetime.now()
-test2.initial_maxima()
+dwd.initial_maxima(5)
 print(datetime.now()-startTime)
 startTime=datetime.now()
-test2.find_displacement()
+dwd.find_displacement()
+print(datetime.now()-startTime)
+startTime=datetime.now()
+dwd.extrapolation(progTime)
+print(datetime.now()-startTime)
+startTime=datetime.now()
+lawr = LawrData(fp)
 print(datetime.now()-startTime)
 
-for t in range(test2.trainTime):
-    if t == 0:
-        plt.figure(figsize=(8, 8))
-        im = plt.imshow(test2.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-        plt.show(block=False)
-        o, = plt.plot(*np.transpose(test2.progField.return_maxima(t)[:, 2:0:-1]), 'ko')
-        n, = plt.plot(*np.transpose(test2.progField.return_maxima(t-1)[:, 2:0:-1]), 'wo')
-        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-        s.set_clim(0, np.max(test2.nested_data))
-        s.set_ticks(contours)
-        s.draw_all()
-        # s.set_ticklabels(contourLabels)
-    else:
-        im.set_data(test2.nested_data[t, :, :])
-        o.set_data(*np.transpose(test2.progField.return_maxima(t)[:, 2:0:-1]))
-        n.set_data(*np.transpose(test2.progField.return_maxima(t-1)[:, 2:0:-1]))
-    plt.pause(1)
 
-col = np.concatenate([np.zeros([1,np.max(test2.progField.activeIds)]), np.random.rand(2,np.max(test2.progField.activeIds))])
-plt.figure(figsize=(8, 8))
-ax = plt.axes()
-for i, field in enumerate(test2.progField.activeFields):
-    for t in field.histMaxima:
-        plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:, field.id - 1], marker='o')
-for i, field in enumerate(test2.progField.inactiveFields):
-    for t in field.histMaxima:
-        plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-ax.set_ylim(0, test2.d_s + 4 * cRange)
-ax.set_xlim(0, test2.d_s + 4 * cRange)
-plt.gca().invert_yaxis()
-plt.show(block=False)
+# for t in range(test2.trainTime):
+#     if t == 0:
+#         plt.figure(figsize=(8, 8))
+#         im = plt.imshow(test2.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+#         plt.show(block=False)
+#         o, = plt.plot(*np.transpose(test2.progField.return_maxima(t)[:, 2:0:-1]), 'ko')
+#         n, = plt.plot(*np.transpose(test2.progField.return_maxima(t-1)[:, 2:0:-1]), 'wo')
+#         s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+#         s.set_clim(0, np.max(test2.nested_data))
+#         s.set_ticks(contours)
+#         s.draw_all()
+#         # s.set_ticklabels(contourLabels)
+#     else:
+#         im.set_data(test2.nested_data[t, :, :])
+#         o.set_data(*np.transpose(test2.progField.return_maxima(t)[:, 2:0:-1]))
+#         n.set_data(*np.transpose(test2.progField.return_maxima(t-1)[:, 2:0:-1]))
+#     plt.pause(1)
+#
+# col = np.concatenate([np.zeros([1,np.max(test2.progField.activeIds)]), np.random.rand(2,np.max(test2.progField.activeIds))])
+# plt.figure(figsize=(8, 8))
+# ax = plt.axes()
+# for i, field in enumerate(test2.progField.activeFields):
+#     for t in field.histMaxima:
+#         plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:, field.id - 1], marker='o')
+# for i, field in enumerate(test2.progField.inactiveFields):
+#     for t in field.histMaxima:
+#         plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
+# ax.set_ylim(0, test2.d_s + 4 * cRange)
+# ax.set_xlim(0, test2.d_s + 4 * cRange)
+# plt.gca().invert_yaxis()
+# plt.show(block=False)
+#
+# print(datetime.now()-startTime2)
 
-nested_data = np.zeros([timeSteps, d_s + 4 * cRange, d_s + 4 * cRange])
-vtx, wts = radarData.interp_weights(points, target)
-if useRealData:
-    for t in range(timeSteps):
-        rPolarT = rPolar[t, :, :].T
-        rPolarT = np.reshape(rPolarT, (333*360, 1)).squeeze()
-        R[t, :, :] = np.reshape(radarData.interpolate(rPolarT.flatten(), vtx, wts), (d_s, d_s))
-        R[t, (dist >= np.max(r))] = 0
-        nested_data[t, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R[t, :, :]
-    nested_data = np.rot90(nested_data, 1, (1, 2))
-    R = np.rot90(R, 1, (1, 2))
-else:
-    R = createblob(d_s, res, timeSteps, u = blobDisplacementX, v = blobDisplacementY)
-    R[:, (dist >= np.max(r))] = 0
-    nested_data[:, 2 * cRange: 2 * cRange + d_s, 2 * cRange: 2 * cRange + d_s] = R
-    #nested_data = np.rot90(nested_data, 1, (1, 2))
-    #R = np.rot90(R, 1, (1, 2))
-startTime2=datetime.now()
-
-boo=DWDData()
-boo.read_dwd_file(directoryPath + '/' + selectedFiles[0])
-boo.getGrid(booResolution)
-boo.gridding(boo.vtx, boo.wts, boo.d_s)
-
-
-for i, file in enumerate(selectedFiles[1:], start = 1):
-    buf = DWDData()
-    buf.read_dwd_file(directoryPath + '/' + selectedFiles[i])
-    buf.gridding(boo.vtx, boo.wts, boo.d_s)
-    boo.addTimestep(buf.R)
-    boo.time = int(selectedFiles[i][43:45])
-
-print(datetime.now()-startTime2)
-
-startTime2=datetime.now()
-boo.timeInterpolation(121)
-boo.R = boo.R[:,:,:120]
-print(datetime.now()-startTime2)
-boo.R = np.flip(np.rot90(np.swapaxes(boo.R, 0, 2),1,(1,2)),2)
 HHGposition = findRadarSite(lat, lon, boo)
 
 
-if not useRealData:
-    boo.R = createblob(boo.d_s, booResolution, timeSteps, u = blobDisplacementX/resScale, v = blobDisplacementY/resScale, x0 = HHGposition[0], x1= HHGposition[0], y0=HHGposition[1]+200, amp = 25, sigma = 4)
 
 
 boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution) +
@@ -264,7 +160,7 @@ if livePlot:
 nested_data = np.nan_to_num(nested_data)
 R = np.nan_to_num(R)
 
-allFields = totalField(totalField.findmaxima([], nested_data[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime)
+allFields = Totalfield(Totalfield.findmaxima([], nested_data[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime)
 
 
 for t in range(prog):
