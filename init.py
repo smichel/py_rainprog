@@ -44,22 +44,32 @@ class radarData:
 
     def initial_maxima(self,prog):
         self.progField = Totalfield(
-            Totalfield.findmaxima([], self.nested_data[prog - self.progField.trainTime, :, :], self.cRange, self.numMaxima,
+            Totalfield.findmaxima([], self.nested_data[prog-self.trainTime, :, :], self.cRange, self.numMaxima,
                                   self.rainThreshold, self.distThreshold, self.dist_nested),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
             self.resolution, self.cRange, self.trainTime)
 
 
-    def find_displacement(self):
+    def find_displacement(self,prog):
         for t in range(self.trainTime):
             if len(self.progField.activeFields) < self.numMaxima:
                 self.progField.assign_ids()
-            self.progField.test_maxima(self.nested_data[t,:,:])
-            self.progField.prog_step(t)
+            self.progField.test_maxima(self.nested_data[prog-self.trainTime + t,:,:])
+            self.progField.prog_step(prog-self.trainTime + t)
             self.progField.update_fields()
+
         self.progField.test_angles()
         self.meanXDisplacement = np.nanmean(self.progField.return_fieldHistX())
         self.meanYDisplacement = np.nanmean(self.progField.return_fieldHistY())
+        allFieldsNorm = self.progField.return_fieldHistMeanNorm()
+        allFieldsAngle = self.progField.return_fieldHistMeanAngle()
+        self.allFieldsNorm = allFieldsNorm[~np.isnan(allFieldsAngle)]
+        self.allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
+
+        self.covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle * allFieldsNorm))
+        self.gaussMeans = [self.meanXDisplacement, self.meanYDisplacement]
+
+
 class Square:
 
     def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist):
@@ -481,10 +491,9 @@ class DWDData(radarData, Totalfield):
         self.distThreshold = 70000
         self.trainTime = 5
         self.getGrid(self.resolution)
-        offset = self.cRange * 2
-        self.nested_data[0, offset:offset + self.d_s, offset:offset + self.d_s] = self.gridding()
+        self.offset = self.cRange * 2
+        self.nested_data[0, self.offset:self.offset + self.d_s, self.offset:self.offset + self.d_s] = self.gridding()
         # self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
-        self.initial_maxima()
 
     def getGrid(self, booresolution):
 
@@ -507,7 +516,7 @@ class DWDData(radarData, Totalfield):
         self.yCar_nested = np.arange(-110000 - self.cRange * 2 * self.resolution,
                                           10000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
         self.d_s = len(self.xCar)
-
+        self.d_s_nested = len(self.xCar_nested)
         [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
         [self.XCar_nested, self.YCar_nested] = np.meshgrid(self.xCar_nested, self.yCar_nested)
 
@@ -594,6 +603,7 @@ class LawrData(radarData, Totalfield):
             self.numMaxima = 20  # number of tracked maxima
             self.resolution = 100
             self.timeSteps = len(self.time)
+            self.distThreshold = 19000
             aziCorr = -5
             self.azi = np.mod(self.azi + aziCorr, 360)
             self.cRange = int(
@@ -627,7 +637,7 @@ class LawrData(radarData, Totalfield):
 
             Lat_nested = self.lat + XCar_nested / latDeg
             Lon_nested = self.lon + XCar_nested / (lonDeg * (np.cos(Lat_nested * np.pi / 180)))
-            self.nested_dist = np.sqrt(np.square(xCar_nested) + np.square(YCar_nested))
+            self.dist_nested = np.sqrt(np.square(xCar_nested) + np.square(YCar_nested))
 
             target_nested = np.zeros([XCar_nested.shape[0] * XCar_nested.shape[1], 2])
             target_nested[:, 0] = XCar_nested.flatten()
@@ -670,8 +680,8 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
 def findRadarSite(lawr, BOO):
-    lat = np.abs(BOO.data.lat - lawr.data.lat)
-    lon = np.abs(BOO.data.lon - lawr.data.lon)
+    lat = np.abs(BOO.lat - lawr.lat)
+    lon = np.abs(BOO.lon - lawr.lon)
     latIdx = np.where(lat == lat.min())
     lonIdx = np.where(lon == lon.min())
     return latIdx[1][0], lonIdx[0][0]
@@ -773,7 +783,7 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rai
 
 
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
+        prog_data[hhg_pixels] = interp2d(boo_prog_data[boo.offset:boo.offset+boo.d_s,boo.offset:boo.offset+boo.d_s], HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
         #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 

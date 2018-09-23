@@ -43,9 +43,10 @@ if len(str(day)) == 1:
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 
-directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+strMon+'/'+strDay
-fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
-
+#directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+strMon+'/'+strDay
+#fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
+directoryPath = 'E:/radardata/02/'
+fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
 
 res = 100
 booResolution = 200
@@ -69,8 +70,7 @@ contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 booFileList = sorted(os.listdir(directoryPath))
 dwdTime = list((mon,day,hour,prog))
 
-selectedFiles = fileSelector(directoryPath, dwdTime, 5)
-selectedFiles = getFiles(booFileList, hour)
+selectedFiles = fileSelector(directoryPath, dwdTime, 6)
 
 startTime=datetime.now()
 
@@ -80,18 +80,34 @@ for i, file in enumerate(selectedFiles[1:]):
     dwd.addTimestep(directoryPath + '/' + file)
     #print(file)
 print(datetime.now()-startTime)
+
 startTime=datetime.now()
-dwd.initial_maxima(5)
+dwd.initial_maxima(1)
 print(datetime.now()-startTime)
+
 startTime=datetime.now()
-dwd.find_displacement()
+dwd.find_displacement(0)
 print(datetime.now()-startTime)
+
 startTime=datetime.now()
 dwd.extrapolation(progTime)
 print(datetime.now()-startTime)
+
 startTime=datetime.now()
 lawr = LawrData(fp)
 print(datetime.now()-startTime)
+
+dwd.HHGPos = findRadarSite(lawr,dwd)
+dwd.set_auxillary_geoData(dwd,lawr,dwd.HHGPos)
+
+startTime=datetime.now()
+lawr.initial_maxima(prog)
+print(datetime.now()-startTime)
+
+startTime=datetime.now()
+lawr.find_displacement(prog)
+print(datetime.now()-startTime)
+
 
 
 # for t in range(test2.trainTime):
@@ -128,94 +144,64 @@ print(datetime.now()-startTime)
 #
 # print(datetime.now()-startTime2)
 
-HHGposition = findRadarSite(lat, lon, boo)
 
-
-
-
-boo.HHGdist = np.sqrt(np.square(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution) +
-                      np.square(boo.YCar - boo.YCar.min()- HHGposition[1] * booResolution))
-
-boo.HHG_cart_points = np.concatenate((np.reshape(boo.XCar - boo.XCar.min()- HHGposition[0] * booResolution,
-                                       (boo.d_s * boo.d_s,1)),
-                                     np.reshape(boo.YCar - boo.YCar.min()- HHGposition[1] * booResolution,
-                                      (boo.d_s * boo.d_s,1))), axis=1)
-
-boo.R[:, (boo.dist > boo.r.max())] = 0
+dwd.nested_data[:, (dwd.dist_nested > dwd.r.max())] = 0
 fig,ax = plt.subplots(figsize=(8,8))
 if livePlot:
-    for i in range(boo.R.shape[0]):
+    for i in range(dwd.nested_data.shape[0]):
         if (i == 0):
-            im = plt.imshow(boo.R[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+            im = plt.imshow(dwd.nested_data[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
             s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-            s.set_clim(0, np.max(nested_data))
+            s.set_clim(0, np.max(dwd.nested_data))
             s.set_ticks(contours)
             s.draw_all()
-            radarCircle = mpatches.Circle((HHGposition[0], HHGposition[1]), 20000 / booResolution, color='w', linewidth=1, fill=0)
+            radarCircle = mpatches.Circle((dwd.HHGPos[0], dwd.HHGPos[1]), 20000 / booResolution, color='w', linewidth=1, fill=0)
             ax.add_patch(radarCircle)
             plt.show(block=False)
         plt.pause(0.01)
-        im.set_data(boo.R[i, :, :])
+        im.set_data(dwd.nested_data[i, :, :])
 
-nested_data = np.nan_to_num(nested_data)
-R = np.nan_to_num(R)
-
-allFields = Totalfield(Totalfield.findmaxima([], nested_data[0, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist), rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime)
-
-
-for t in range(prog):
-    #print(t)
-    #maxima, status = testmaxima(maxima, nestedData[t, :, :], rainThreshold, distThreshold, res, status)
-    if len(allFields.activeFields) < numMaxes:
-        #allFields.activeFields = findmaxima(allFields.activeFields, nested_data[t, :, :], cRange, numMaxes, rainThreshold, distThreshold, dist)
-        allFields.assign_ids()
-        #print('looked for new maxima')
-
-    #fields = testmaxima(fields, nestedData[t, :, :], rainThreshold, distThreshold, res, cRange)
-    allFields.test_maxima(nested_data[t, :, :])
-    allFields.prog_step(t)
-
+for t in range(prog-lawr.trainTime+1,prog):
     if livePlot:
-        if t == 0:
+        if t == prog-lawr.trainTime:
             plt.figure(figsize=(8, 8))
-            im = plt.imshow(nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+            im = plt.imshow(lawr.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
             plt.show(block=False)
-            o, = plt.plot(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]), 'ko')
-            n, = plt.plot(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]), 'wo')
+            o, = plt.plot(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime)[:, 2:0:-1]), 'ko')
+            n, = plt.plot(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]), 'wo')
             s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-            s.set_clim(0, np.max(nested_data))
+            s.set_clim(0, np.max(lawr.nested_data))
             s.set_ticks(contours)
             s.draw_all()
             #s.set_ticklabels(contourLabels)
         else:
-            im.set_data(nested_data[t, :, :])
-            o.set_data(*np.transpose(allFields.return_maxima(0)[:, 2:0:-1]))
-            n.set_data(*np.transpose(allFields.return_maxima(-1)[:, 2:0:-1]))
+            im.set_data(lawr.nested_data[t, :, :])
+            o.set_data(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime)[:, 2:0:-1]))
+            n.set_data(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]))
         plt.pause(0.01)
         #plt.savefig('/scratch/local1/plots/analysis_timestep_' + str(t) + '.png')
 
-    allFields.update_fields()
 
 
 
 
-col = np.concatenate([np.zeros([1,np.max(allFields.activeIds)]), np.random.rand(2,np.max(allFields.activeIds))])
 
 if statistics:
+    col = np.concatenate([np.zeros([1, np.max(lawr.progField.activeIds)]), np.random.rand(2, np.max(lawr.progField.activeIds))])
     plt.figure(figsize=(8, 8))
     ax = plt.axes()
-    for i, field in enumerate(allFields.activeFields):
+    for i, field in enumerate(lawr.progField.activeFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
-    for i, field in enumerate(allFields.inactiveFields):
+    for i, field in enumerate(lawr.progField.inactiveFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-    ax.set_ylim(0, d_s+4*cRange)
-    ax.set_xlim(0, d_s+4*cRange)
+    ax.set_ylim(0, lawr.d_s+4*lawr.cRange)
+    ax.set_xlim(0, lawr.d_s+4*lawr.cRange)
     plt.gca().invert_yaxis()
     plt.show(block=False)
 
-allFields.test_angles()
+lawr.test_angles()
 
 if statistics:
     plt.figure(figsize=(8, 8))
@@ -276,35 +262,10 @@ if statistics:
 
     plt.show(block=False)
 
-allFieldsMeanX = np.nanmean(allFields.return_fieldHistX())
-allFieldsMeanY = np.nanmean(allFields.return_fieldHistY())
-allFieldsStdX = np.nanstd(allFields.return_fieldMeanX())
-allFieldsStdY = np.nanstd(allFields.return_fieldMeanY())
-
-allFieldsNorm = allFields.return_fieldHistMeanNorm()
-allFieldsAngle = allFields.return_fieldHistMeanAngle()
-
-allFieldsMeanNorm = np.linalg.norm([allFieldsMeanX, allFieldsMeanY])
-allFieldsMeanAngle = get_metangle(allFieldsMeanX, allFieldsMeanY)
-
-allFieldsStdNorm = np.linalg.norm([allFieldsStdX, allFieldsStdY])
-allFieldsStdAngle = get_metangle(allFieldsStdX, allFieldsStdY)
-
-displacementX = np.nanmean(allFields.return_fieldHistX())*res
-displacementY = np.nanmean(allFields.return_fieldHistY())*res
-
-allFieldsNorm = allFieldsNorm[~np.isnan(allFieldsAngle)]
-allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
-
-covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm))
-gaussMeans = [allFieldsMeanX, allFieldsMeanY]
 #use allFieldsMeanNorm & np.sin(allFieldsMeanAngle*allFieldsMeanNorm for means
 #use covNormAngle for covariance matrix
 #x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
 
-boo.nested_data = np.zeros([1, boo.d_s, boo.d_s])
-#boo.nested_data[0, 2 * cRange:boo.d_s + 2 * cRange, 2 * cRange:boo.d_s + 2 * cRange] =boo.R[prog,:,:]
-boo.nested_data[0, :, :] =boo.R[prog,:,:]
 #if not useRealData:
 resScale=1
 
@@ -312,21 +273,19 @@ resScale=1
 if prognosis:
     for t in range(progTime):
         if t == 0:
-            boo.prog_data = np.zeros([progTime, boo.d_s, boo.d_s])
+            dwd.prog_data = np.zeros([progTime, dwd.d_s, dwd.d_s])
 
             #boo.prog_data[t, :, :] = griddata(boo.cart_points,
             #                                  boo.nested_data[0, :, :].flatten(),
             #                                  (boo.XCar - displacementY * resScale,
             #                                   boo.YCar - displacementX * resScale), method='linear')
 
-            boo.prog_data[t, :, :] = booDisplacement(boo, boo.nested_data[0,:,:], displacementX * resScale, displacementY * resScale)
-
             prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
             yx, xy = np.meshgrid(np.arange(0, 4 * cRange + d_s), np.arange(0, 4 * cRange + d_s))
             xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
 
             prog_data[t, :, :] = nesting(nested_data[prog, :, :], nested_dist, target_nested,
-                                         boo.prog_data[t, :, :], boo, r[-1], rainThreshold, Lat_nested, Lon_nested)
+                                         dwd.prog_data[t, :, :], dwd, r[-1], rainThreshold, Lat_nested, Lon_nested)
 
             prog_data[t, :, :] = \
                 importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
@@ -335,11 +294,9 @@ if prognosis:
             #boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
             #                                  (boo.XCar - displacementY * resScale,
             #                                   boo.YCar - displacementX * resScale), method='linear')
-            boo.prog_data[t, :, :] = booDisplacement(boo, boo.prog_data[t-1,:,:], displacementX * resScale, displacementY * resScale)
-
             prog_data[t, :, :] = prog_data[t-1, :, :]
 
-            prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, boo.prog_data[t, :, :], boo,
+            prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, dwd.prog_data[t, :, :], dwd,
                                          r[-1], rainThreshold, Lat_nested, Lon_nested)
 
             prog_data[t, :, :] = \
@@ -377,19 +334,19 @@ if livePlot:
     for t in range(progTime):
         if t == 0:
             booFig,ax2 = plt.subplots(1)
-            booIm = ax2.imshow(boo.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-            booImR = ax2.contour(boo.R[prog+t, :, :],
+            booIm = ax2.imshow(dwd.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+            booImR = ax2.contour(dwd.R[prog + t, :, :],
                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
             plt.show(block=False)
             s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
-            s2.set_clim(0, np.nanmax(boo.prog_data))
+            s2.set_clim(0, np.nanmax(dwd.prog_data))
             s2.set_ticks(contours)
             s2.draw_all()
         else:
-            booIm.set_data(boo.prog_data[t, :, :])
+            booIm.set_data(dwd.prog_data[t, :, :])
             for tp in booImR.collections:
                 tp.remove()
-            booImR = ax2.contour(boo.R[prog+t, :, :],
+            booImR = ax2.contour(dwd.R[prog + t, :, :],
                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
             plt.pause(0.1)
         #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
