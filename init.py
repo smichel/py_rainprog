@@ -483,6 +483,11 @@ class DWDData(radarData, Totalfield):
             refl = boo.get('dataset1/data1/data')
             self.refl = refl*gain + offset
             self.time = boo.get('what').attrs['time']
+            self.hour = self.minute = self.second = []
+            self.hour.append(int("".join(map(chr, self.time))[0:2]))
+            self.minute.append(int("".join(map(chr, self.time))[2:4]))
+            self.second.append(int("".join(map(chr, self.time))[4:6]))
+
 
         super().__init__(filePath)
         self.resolution = 200  # horizontal resolution in m
@@ -552,12 +557,14 @@ class DWDData(radarData, Totalfield):
             offset = boo.get('dataset1/data1/what').attrs['offset']
             refl = boo.get('dataset1/data1/data')
             self.refl = refl * gain + offset
-            #time = boo.get('what').attrs['time'] # TODO change this to a str or some proper time format(currently in bytes)
+            time = boo.get('what').attrs['time']
+            self.hour.append(int("".join(map(chr, time))[0:2]))
+            self.minute.append(int("".join(map(chr, time))[2:4]))
+            self.second.append(int("".join(map(chr, time))[4:6]))
             nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
             nested_data[0, 2 * self.cRange: self.d_s + 2 * self.cRange,
             2 * self.cRange: self.d_s + 2 * self.cRange] = self.gridding()
             self.nested_data = np.vstack((self.nested_data, nested_data))
-            # consider using int(test2.data.time) or "".join(map(chr, test2.data.time)) to get the time in to a good format
 
     def timeInterpolation(self, timeSteps):
         # faster implementation of the timeInterpolation
@@ -570,6 +577,7 @@ class DWDData(radarData, Totalfield):
     def extrapolation(self, progTimeSteps):
 
         self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
+
         for t in range(progTimeSteps):
             self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[0,:,:], (self.meanXDisplacement*self.resolution/10)*t, (self.meanYDisplacement*self.resolution/10)*t)
 
@@ -611,6 +619,7 @@ class LawrData(radarData, Totalfield):
             self.lat = 9.973997  # location of the hamburg radar
             self.lon = 53.56833
             self.zsl = 100  # altitude of the hamburg radar
+            self.samples = 16  # number of samples for the importance sampling
             latDeg = 110540  # one degree equals 110540 m
             lonDeg = 113200  # one degree * cos(lat*pi/180) equals 113200 m
             aziCos = np.cos(np.radians(self.azi))
@@ -635,13 +644,13 @@ class LawrData(radarData, Totalfield):
 
             [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
 
-            Lat_nested = self.lat + XCar_nested / latDeg
-            Lon_nested = self.lon + XCar_nested / (lonDeg * (np.cos(Lat_nested * np.pi / 180)))
+            self.Lat_nested = self.lat + XCar_nested / latDeg
+            self.Lon_nested = self.lon + XCar_nested / (lonDeg * (np.cos(self.Lat_nested * np.pi / 180)))
             self.dist_nested = np.sqrt(np.square(xCar_nested) + np.square(YCar_nested))
 
-            target_nested = np.zeros([XCar_nested.shape[0] * XCar_nested.shape[1], 2])
-            target_nested[:, 0] = XCar_nested.flatten()
-            target_nested[:, 1] = YCar_nested.flatten()
+            self.target_nested = np.zeros([XCar_nested.shape[0] * XCar_nested.shape[1], 2])
+            self.target_nested[:, 0] = XCar_nested.flatten()
+            self.target_nested[:, 1] = YCar_nested.flatten()
 
             self.target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
             self.target[:, 0] = self.XCar.flatten()
@@ -667,6 +676,14 @@ class LawrData(radarData, Totalfield):
             self.R = np.rot90(self.R, 1, (1, 2))
             self.nested_data = np.nan_to_num(self.nested_data)
             self.R = np.nan_to_num(self.R)
+
+    def extrapolation(self, dwd, progTimeSteps, prog):
+        self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
+        self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, self.samples)
+        self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+        self.prog_data[0, :, :] = nesting(self.nested_data[prog, :, :], self.nested_dist, self.target_nested,
+                                     dwd.prog_data[0, :, :], dwd, self.r[-1], self.rainThreshold, self.Lat_nested, self.Lon_nested)
+        #for t in range(progTimeSteps):
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)

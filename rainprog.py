@@ -163,7 +163,7 @@ if livePlot:
 
 for t in range(prog-lawr.trainTime+1,prog):
     if livePlot:
-        if t == prog-lawr.trainTime:
+        if t == prog-lawr.trainTime+1:
             plt.figure(figsize=(8, 8))
             im = plt.imshow(lawr.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
             plt.show(block=False)
@@ -201,25 +201,25 @@ if statistics:
     plt.gca().invert_yaxis()
     plt.show(block=False)
 
-lawr.test_angles()
+lawr.progField.test_angles()
 
 if statistics:
     plt.figure(figsize=(8, 8))
     ax = plt.axes()
-    for i, field in enumerate(allFields.activeFields):
+    for i, field in enumerate(lawr.progField.activeFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
-    for i, field in enumerate(allFields.inactiveFields):
+    for i, field in enumerate(lawr.progField.inactiveFields):
         for t in field.histMaxima:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-    ax.set_ylim(0, d_s)
-    ax.set_xlim(0, d_s)
+    ax.set_ylim(0, lawr.d_s+4*lawr.cRange)
+    ax.set_xlim(0, lawr.d_s+4*lawr.cRange)
     plt.gca().invert_yaxis()
     plt.show(block=False)
 
 
     plt.figure(figsize=(8, 8))
-    for q, field in enumerate(allFields.activeFields):
+    for q, field in enumerate(lawr.progField.activeFields):
         if field.lifeTime >= trainTime:
             for i, t in enumerate(field.histNorm):
                 plt.plot(i, t, color='black', marker='o')
@@ -230,10 +230,10 @@ if statistics:
 
     fig = plt.figure(figsize=(8, 8))
     ax = plt.subplot(111, projection='polar')
-    for q, field in enumerate(allFields.activeFields):
+    for q, field in enumerate(lawr.progField.activeFields):
         if field.lifeTime >= trainTime:
             for i, t in enumerate(field.histAngle):
-                plt.polar(t * np.pi / 180, allFields.activeFields[q].histNorm[i], color='k', marker='o',
+                plt.polar(t * np.pi / 180, lawr.progField.activeFields[q].histNorm[i], color='k', marker='o',
                           alpha=0.1)
 
             plt.title('HistAngle')
@@ -241,7 +241,7 @@ if statistics:
     plt.show(block=False)
 
     plt.figure(figsize=(8, 8))
-    for q, field in enumerate(allFields.activeFields):
+    for q, field in enumerate(lawr.progField.activeFields):
         if field.lifeTime >= trainTime:
             for i, t in enumerate(field.histX):
                 plt.plot(i, t, alpha = 0.1, color='black', marker='o')
@@ -251,7 +251,7 @@ if statistics:
             plt.title('HistX')
 
     plt.figure(figsize=(8, 8))
-    for q, field in enumerate(allFields.activeFields):
+    for q, field in enumerate(lawr.progField.activeFields):
         if field.lifeTime >= trainTime:
             for i, t in enumerate(field.histY):
                 plt.plot(i, t, alpha = 0.1, color='navy', marker='o')
@@ -273,7 +273,7 @@ resScale=1
 if prognosis:
     for t in range(progTime):
         if t == 0:
-            dwd.prog_data = np.zeros([progTime, dwd.d_s, dwd.d_s])
+            #dwd.prog_data = np.zeros([progTime, dwd.d_s, dwd.d_s])
 
             #boo.prog_data[t, :, :] = griddata(boo.cart_points,
             #                                  boo.nested_data[0, :, :].flatten(),
