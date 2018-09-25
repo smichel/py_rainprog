@@ -43,10 +43,10 @@ if len(str(day)) == 1:
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 
-#directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+strMon+'/'+strDay
-#fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
-directoryPath = 'E:/radardata/02/'
-fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
+directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+strMon+'/'+strDay
+fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
+#directoryPath = 'E:/radardata/02/'
+#fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
 
 res = 100
 booResolution = 200
@@ -54,10 +54,10 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 45
+prog = 60
 trainTime = 8
 numMaxes = 20
-progTime = 60
+progTime = 40
 useRealData = 1
 prognosis = 1
 statistics = 0
@@ -70,7 +70,7 @@ contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
 booFileList = sorted(os.listdir(directoryPath))
 dwdTime = list((mon,day,hour,prog))
 
-selectedFiles = fileSelector(directoryPath, dwdTime, 6)
+selectedFiles = fileSelector(directoryPath, dwdTime, 5)
 
 startTime=datetime.now()
 
@@ -89,9 +89,8 @@ startTime=datetime.now()
 dwd.find_displacement(0)
 print(datetime.now()-startTime)
 
-startTime=datetime.now()
-dwd.extrapolation(progTime)
-print(datetime.now()-startTime)
+dwd.extrapolation(progTime+15)
+
 
 startTime=datetime.now()
 lawr = LawrData(fp)
@@ -99,6 +98,9 @@ print(datetime.now()-startTime)
 
 dwd.HHGPos = findRadarSite(lawr,dwd)
 dwd.set_auxillary_geoData(dwd,lawr,dwd.HHGPos)
+
+startTime=datetime.now()
+print(datetime.now()-startTime)
 
 startTime=datetime.now()
 lawr.initial_maxima(prog)
@@ -269,86 +271,57 @@ if statistics:
 #if not useRealData:
 resScale=1
 
+startTime=datetime.now()
+lawr.extrapolation(dwd,progTime,prog)
+print(datetime.now()-startTime)
 
 if prognosis:
     for t in range(progTime):
-        if t == 0:
-            #dwd.prog_data = np.zeros([progTime, dwd.d_s, dwd.d_s])
-
-            #boo.prog_data[t, :, :] = griddata(boo.cart_points,
-            #                                  boo.nested_data[0, :, :].flatten(),
-            #                                  (boo.XCar - displacementY * resScale,
-            #                                   boo.YCar - displacementX * resScale), method='linear')
-
-            prog_data = np.zeros([progTime, d_s + 4 * cRange, d_s + 4 * cRange])
-            yx, xy = np.meshgrid(np.arange(0, 4 * cRange + d_s), np.arange(0, 4 * cRange + d_s))
-            xSample, ySample = create_sample(gaussMeans, covNormAngle, samples)
-
-            prog_data[t, :, :] = nesting(nested_data[prog, :, :], nested_dist, target_nested,
-                                         dwd.prog_data[t, :, :], dwd, r[-1], rainThreshold, Lat_nested, Lon_nested)
-
-            prog_data[t, :, :] = \
-                importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
-                #importance_sampling(nested_data[prog, (nested_dist < np.max(r))], xy, yx, xSample, ySample, d_s, cRange)
-        else:
-            #boo.prog_data[t, :, :] = griddata(boo.cart_points, boo.prog_data[t - 1, :, :].flatten(),
-            #                                  (boo.XCar - displacementY * resScale,
-            #                                   boo.YCar - displacementX * resScale), method='linear')
-            prog_data[t, :, :] = prog_data[t-1, :, :]
-
-            prog_data[t, :, :] = nesting(prog_data[t, :, :], nested_dist, target_nested, dwd.prog_data[t, :, :], dwd,
-                                         r[-1], rainThreshold, Lat_nested, Lon_nested)
-
-            prog_data[t, :, :] = \
-                importance_sampling(prog_data[t, :,:], nested_dist, r[-1], xy, yx, xSample, ySample, d_s, cRange)
-
-
-
         if livePlot:
             if t == 0:
                 hhgFig,ax1 = plt.subplots(1)
-                imP = ax1.imshow(prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                imR = ax1.contour(nested_data[prog + t, :, :],
+                imP = ax1.imshow(lawr.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+                imR = ax1.contour(lawr.nested_data[prog + t, :, :],
                                   contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                 radarCircle2 = mpatches.Circle(
-                    (int(prog_data[t, :, :].shape[0] / 2), int(prog_data[t, :, :].shape[1] / 2)),
+                    (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
                     20000 / res, color='w', linewidth=1, fill=0)
                 ax1.add_patch(radarCircle2)
                 plt.show(block=False)
                 s1 = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
-                s1.set_clim(0, np.nanmax(prog_data))
+                s1.set_clim(0, np.nanmax(lawr.prog_data))
                 s1.set_ticks(contours)
                 s1.draw_all()
             else:
-                imP.set_data(prog_data[t, :, :])
+                imP.set_data(lawr.prog_data[t, :, :])
                 for tp in imR.collections:
                     tp.remove()
-                imR = ax1.contour(nested_data[prog + t, :, :], contours,
+                imR = ax1.contour(lawr.nested_data[prog + t, :, :], contours,
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
             plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
 
 
-hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, nested_data[prog:,:,:])
-if livePlot:
-    for t in range(progTime):
-        if t == 0:
-            booFig,ax2 = plt.subplots(1)
-            booIm = ax2.imshow(dwd.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-            booImR = ax2.contour(dwd.R[prog + t, :, :],
-                                 contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            plt.show(block=False)
-            s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
-            s2.set_clim(0, np.nanmax(dwd.prog_data))
-            s2.set_ticks(contours)
-            s2.draw_all()
-        else:
-            booIm.set_data(dwd.prog_data[t, :, :])
-            for tp in booImR.collections:
-                tp.remove()
-            booImR = ax2.contour(dwd.R[prog + t, :, :],
-                                 contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            plt.pause(0.1)
+hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(lawr.prog_data, lawr.nested_data[prog:,:,:])
+# if livePlot:
+#     for t in range(progTime):
+#         if t == 0:
+#             booFig,ax2 = plt.subplots(1)
+#             booIm = ax2.imshow(dwd.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+#             booImR = ax2.contour(dwd.R[prog + t, :, :],
+#                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+#             plt.show(block=False)
+#             s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
+#             s2.set_clim(0, np.nanmax(dwd.prog_data))
+#             s2.set_ticks(contours)
+#             s2.draw_all()
+#         else:
+#             booIm.set_data(dwd.prog_data[t, :, :])
+#             for tp in booImR.collections:
+#                 tp.remove()
+#             booImR = ax2.contour(dwd.R[prog + t, :, :],
+#                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+#             plt.pause(0.1)
         #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 
 time_elapsed = datetime.now()- startTime

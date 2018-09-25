@@ -483,7 +483,9 @@ class DWDData(radarData, Totalfield):
             refl = boo.get('dataset1/data1/data')
             self.refl = refl*gain + offset
             self.time = boo.get('what').attrs['time']
-            self.hour = self.minute = self.second = []
+            self.hour = []
+            self.minute = []
+            self.second = []
             self.hour.append(int("".join(map(chr, self.time))[0:2]))
             self.minute.append(int("".join(map(chr, self.time))[2:4]))
             self.second.append(int("".join(map(chr, self.time))[4:6]))
@@ -579,7 +581,17 @@ class DWDData(radarData, Totalfield):
         self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
 
         for t in range(progTimeSteps):
-            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[0,:,:], (self.meanXDisplacement*self.resolution/10)*t, (self.meanYDisplacement*self.resolution/10)*t)
+            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.meanXDisplacement*self.resolution/10)*t, (self.meanYDisplacement*self.resolution/10)*t)
+
+            self.second.append(self.second[-1]+30)
+            self.hour.append(self.hour[-1])
+            self.minute.append(self.minute[-1])
+            if self.second[-1] >= 60:
+                self.second[-1] = self.second[-1] % 60
+                self.minute[-1] += 1
+                if self.minute[-1] >= 60:
+                    self.hour[-1] += 1
+
 
 class LawrData(radarData, Totalfield):
 
@@ -681,9 +693,35 @@ class LawrData(radarData, Totalfield):
         self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
         self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, self.samples)
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
-        self.prog_data[0, :, :] = nesting(self.nested_data[prog, :, :], self.nested_dist, self.target_nested,
-                                     dwd.prog_data[0, :, :], dwd, self.r[-1], self.rainThreshold, self.Lat_nested, self.Lon_nested)
-        #for t in range(progTimeSteps):
+        self.prog_data[0, :, :] = self.nested_data[prog, :, :]
+
+        self.prog_start = 3 * ['']
+        self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[0:2])
+        self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[2:4])
+        self.prog_start[2] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[4:6])
+        self.prog_start_idx = np.where((np.asarray(dwd.hour[dwd.trainTime:]) == self.prog_start[0]) & (
+                    np.asarray(dwd.minute[dwd.trainTime:]) == self.prog_start[1]) & (
+                                                   np.asarray(dwd.second[dwd.trainTime:]) - 3 == self.prog_start[2]))[
+            0][0]
+        self.prog_data[0, :, :] = nesting(self.prog_data[0, :, :], self.dist_nested, self.target_nested,
+                                          dwd.prog_data[self.prog_start_idx+dwd.trainTime, :, :], dwd, self.r[-1],
+                                          self.rainThreshold,
+                                          self.Lat_nested, self.Lon_nested)
+
+        self.prog_data[0, :, :] = importance_sampling(self.prog_data[0, :, :], self.dist_nested, self.r[-1],
+                                                      self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+                                                      self.cRange)
+
+        for t in range(1,progTimeSteps):
+            self.prog_data[t, :, :] = self.prog_data[t - 1, :, :]
+
+            self.prog_data[t,:,:] = nesting(self.prog_data[t, :, :], self.dist_nested, self.target_nested,
+                                          dwd.prog_data[self.prog_start_idx + t, :, :], dwd, self.r[-1], self.rainThreshold,
+                                          self.Lat_nested, self.Lon_nested)
+
+            self.prog_data[t, :, :] = importance_sampling(self.prog_data[t, :, :], self.dist_nested, self.r[-1],
+                                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+                                                          self.cRange)
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
@@ -777,7 +815,7 @@ def fileSelector(directoryPath, time, trainTime = 5):
     hour = np.asarray([int(x[41:43]) for x in booFileList])
     min = np.asarray([int(x[43:45]) for x in booFileList])
     idx = np.where((time[2]==hour)&((time[3]/2)-(time[3]/2)%5==min))[0][0]
-    selectedFiles = booFileList[idx-trainTime:idx]
+    selectedFiles = booFileList[idx-trainTime:idx+1]
     return selectedFiles
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold, HHGlat, HHGlon):
     boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
@@ -798,9 +836,10 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rai
     HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - boo.lon[lonstart]) / (
             boo.lon[lonend] - boo.lon[lonstart]) * (lonend[0] - lonstart[0]) + lonstart[0],1,(0,1)))
 
+    boo_prog_data_dummy = boo_prog_data[boo.offset:boo.offset+boo.d_s,boo.offset:boo.offset+boo.d_s]
 
-    if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data[boo.offset:boo.offset+boo.d_s,boo.offset:boo.offset+boo.d_s], HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
+    if np.sum(boo_prog_data_dummy[boo_pixels]>rainthreshold):
+        prog_data[hhg_pixels] = interp2d(boo_prog_data_dummy, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
         #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
