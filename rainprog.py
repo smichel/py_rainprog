@@ -25,18 +25,25 @@ startTime = datetime.now()
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 year = 2016
 mon= 6
-day= 2
-hour = 9-2
+day= 13
+hour = 20-2
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
 if len(str(hour)) == 1:
     strHour = '0' + str(hour)
+else:
+    strHour = str(hour)
+
 if len(str(mon)) == 1:
     strMon = '0' + str(mon)
+else:
+    strMon = str(mon)
 if len(str(day)) == 1:
     strDay = '0' + str(day)
+else:
+    strDay = str(day)
 
 
 
@@ -54,10 +61,10 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 60
+prog = 20
 trainTime = 8
 numMaxes = 20
-progTime = 40
+progTime = 80
 useRealData = 1
 prognosis = 1
 statistics = 0

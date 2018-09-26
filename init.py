@@ -18,13 +18,13 @@ class radarData:
         self.rainThreshold = 0.1
 
     def set_auxillary_geoData(self, dwd, lawr, HHGposition):
-        dwd.HHGdist = np.sqrt(np.square(dwd.XCar - dwd.XCar.min() - HHGposition[0] * dwd.resolution) +
-                              np.square(dwd.YCar - dwd.YCar.min() - HHGposition[1] * dwd.resolution))
+        dwd.HHGdist = np.sqrt(np.square(dwd.XCar_nested - dwd.XCar_nested.min() - HHGposition[0] * dwd.resolution) +
+                              np.square(dwd.YCar_nested - dwd.YCar_nested.min() - HHGposition[1] * dwd.resolution))
 
-        dwd.HHG_cart_points = np.concatenate((np.reshape(dwd.XCar - dwd.XCar.min() - HHGposition[0] * dwd.resolution,
-                                                         (dwd.d_s * dwd.d_s, 1)),
-                                              np.reshape(dwd.YCar - dwd.YCar.min() - HHGposition[1] * dwd.resolution,
-                                                         (dwd.d_s * dwd.d_s, 1))), axis=1)
+        #dwd.HHG_cart_points = np.concatenate((np.reshape(dwd.XCar - dwd.XCar.min() - HHGposition[0] * dwd.resolution,
+        #                                                 (dwd.d_s * dwd.d_s, 1)),
+        #                                      np.reshape(dwd.YCar - dwd.YCar.min() - HHGposition[1] * dwd.resolution,
+        #                                                 (dwd.d_s * dwd.d_s, 1))), axis=1)
 
 
     def interpolate(self, values, vtx, wts, fill_value=np.nan):
@@ -509,19 +509,19 @@ class DWDData(radarData, Totalfield):
         aziCos = np.cos(np.radians(self.azi+90))
         aziSin = np.sin(np.radians(self.azi+90))
         xPolar = np.outer(self.r, aziCos)
-        xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
         yPolar = np.outer(self.r, aziSin)
+        xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
         yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
         points = np.concatenate((xPolar, yPolar), axis=1)
 
-        self.resolution = booresolution
         self.cRange = int(4000 / self.resolution)
-        self.xCar = np.arange(-60000, 60000 + 1, self.resolution).squeeze()
-        self.xCar_nested = np.arange(-60000 - self.cRange * 2 * self.resolution,
-                                     60000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
-        self.yCar = np.arange(-110000, 10000 + 1, self.resolution).squeeze()
-        self.yCar_nested = np.arange(-110000 - self.cRange * 2 * self.resolution,
-                                          10000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+        self.xCar = np.arange(-65000, 55000 + 1, self.resolution).squeeze()
+        self.xCar_nested = np.arange(-65000 - self.cRange * 2 * self.resolution,
+                                     55000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+
+        self.yCar = np.arange(-105000, 15000 + 1, self.resolution).squeeze()
+        self.yCar_nested = np.arange(-105000 - self.cRange * 2 * self.resolution,
+                                          15000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
         self.d_s = len(self.xCar)
         self.d_s_nested = len(self.xCar_nested)
         [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
@@ -530,8 +530,8 @@ class DWDData(radarData, Totalfield):
         self.dist = np.sqrt(np.square(self.XCar) + np.square(self.YCar))
         self.dist_nested = np.sqrt(np.square(self.XCar_nested) + np.square(self.YCar_nested))
 
-        self.lat = self.sitecoords[0] + self.XCar / latDeg
-        self.lon = self.sitecoords[1] + self.YCar / (lonDeg * (np.cos(self.lat * np.pi / 180)))
+        self.lat = self.sitecoords[1] + self.YCar_nested / latDeg
+        self.lon = self.sitecoords[0] + self.XCar_nested / (lonDeg * (np.cos(self.lat * np.pi / 180)))
 
         target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
         target[:, 0] = self.XCar.flatten()
@@ -564,8 +564,8 @@ class DWDData(radarData, Totalfield):
             self.minute.append(int("".join(map(chr, time))[2:4]))
             self.second.append(int("".join(map(chr, time))[4:6]))
             nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
-            nested_data[0, 2 * self.cRange: self.d_s + 2 * self.cRange,
-            2 * self.cRange: self.d_s + 2 * self.cRange] = self.gridding()
+            nested_data[0, self.offset: self.d_s + self.offset,
+            self.offset: self.d_s + self.offset] = self.gridding()
             self.nested_data = np.vstack((self.nested_data, nested_data))
 
     def timeInterpolation(self, timeSteps):
@@ -628,8 +628,8 @@ class LawrData(radarData, Totalfield):
             self.azi = np.mod(self.azi + aziCorr, 360)
             self.cRange = int(
                 800 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
-            self.lat = 9.973997  # location of the hamburg radar
-            self.lon = 53.56833
+            self.lon = 9.973997  # location of the hamburg radar
+            self.lat = 53.56833
             self.zsl = 100  # altitude of the hamburg radar
             self.samples = 16  # number of samples for the importance sampling
             latDeg = 110540  # one degree equals 110540 m
@@ -704,7 +704,7 @@ class LawrData(radarData, Totalfield):
                                                    np.asarray(dwd.second[dwd.trainTime:]) - 3 == self.prog_start[2]))[
             0][0]
         self.prog_data[0, :, :] = nesting(self.prog_data[0, :, :], self.dist_nested, self.target_nested,
-                                          dwd.prog_data[self.prog_start_idx+dwd.trainTime, :, :], dwd, self.r[-1],
+                                          dwd.prog_data[self.prog_start_idx, :, :], dwd, self.r[-1],
                                           self.rainThreshold,
                                           self.Lat_nested, self.Lon_nested)
 
@@ -734,12 +734,12 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
 
-def findRadarSite(lawr, BOO):
-    lat = np.abs(BOO.lat - lawr.lat)
-    lon = np.abs(BOO.lon - lawr.lon)
-    latIdx = np.where(lat == lat.min())
-    lonIdx = np.where(lon == lon.min())
-    return latIdx[1][0], lonIdx[0][0]
+def findRadarSite(lawr, dwd):
+    lat = np.abs(dwd.lat - lawr.lat)
+    lon = np.abs(dwd.lon - lawr.lon)
+    latIdx = np.unravel_index(np.argmin(lat),lat.shape)[0]
+    lonIdx = np.unravel_index(np.argmin(lon),lon.shape)[1]
+    return latIdx, lonIdx
 
 def get_metangle(x, y):
     '''Get meteorological angle of input vector.
@@ -817,29 +817,28 @@ def fileSelector(directoryPath, time, trainTime = 5):
     idx = np.where((time[2]==hour)&((time[3]/2)-(time[3]/2)%5==min))[0][0]
     selectedFiles = booFileList[idx-trainTime:idx+1]
     return selectedFiles
+
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold, HHGlat, HHGlon):
     boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
     hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
     lat1 = boo.lat - HHGlat.min()
     lat2 = boo.lat - HHGlat.max()
-    latstart = lat1[lat1 < 0].argmax()
-    latend= lat2[lat2 < 0].argmax()
+    latstart = np.unravel_index(np.abs(lat1).argmin(),lat1.shape)[0]
+    latend= np.unravel_index(np.abs(lat2).argmin(),lat2.shape)[0]
 
-    HHGLatInBOO = (HHGlat[:, :] - boo.lat[0, latstart]) / (
-            boo.lat[0, latend] - boo.lat[0, latstart]) * (latend - latstart) + latstart
+    HHGLatInBOO = (HHGlat[:, :] - boo.lat[latstart, 0]) / (
+            boo.lat[latend, 0] - boo.lat[latstart, 0]) * (latend - latstart) + latstart
 
     lon1 = boo.lon - HHGlon.min()
     lon2 = boo.lon - HHGlon.max()
-    lonstart = np.unravel_index(lon1[lon1 < 0].argmax(), boo.lat.shape)
-    lonend = np.unravel_index(lon2[lon2 < 0].argmax(), boo.lat.shape)
+    lonstart = np.unravel_index(np.abs(lon1).argmin(), lon1.shape)
+    lonend = np.unravel_index(np.abs(lon2).argmin(), lon2.shape)
 
-    HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - boo.lon[lonstart]) / (
-            boo.lon[lonend] - boo.lon[lonstart]) * (lonend[0] - lonstart[0]) + lonstart[0],1,(0,1)))
+    HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - boo.lon[lonstart[0], lonstart[1]]) / (
+            boo.lon[lonend[0], lonend[1]] - boo.lon[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1],1,(0,1)))
 
-    boo_prog_data_dummy = boo_prog_data[boo.offset:boo.offset+boo.d_s,boo.offset:boo.offset+boo.d_s]
-
-    if np.sum(boo_prog_data_dummy[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data_dummy, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
+    if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
+        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
         #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
