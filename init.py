@@ -3,15 +3,19 @@ import numpy as np
 import numpy.ma as ma
 import netCDF4
 import scipy.spatial.qhull as qhull
+from osgeo import osr
 from scipy.interpolate import griddata, RegularGridInterpolator, interp1d
 from scipy.ndimage import map_coordinates
 from sklearn.feature_extraction import image
 from numba import jit
+from wradlib_snips import make_2D_grid, reproject
 import numba
 from datetime import datetime
 import h5py
-import matplotlib.pyplot as plt
-import matplotlib
+#import matplotlib
+#matplotlib.use('TkAgg')
+#import matplotlib.pyplot as plt
+
 
 class radarData:
 
@@ -750,6 +754,22 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     a[cond2] = 320
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
+def get_Grid(sitecoords, maxrange, horiz_res):
+    #  spatialRef = osr.SpatialReference()
+    #  spatialRef.ImportFromEPSG(4326) # lon lat
+    #  32632
+
+    proj_cart = osr.SpatialReference()
+    proj_cart.ImportFromEPSG(32632)
+    proj_geo = osr.SpatialReference()
+    proj_geo.ImportFromEPSG(4326)
+
+    trgxyz, trgshape = make_2D_grid(sitecoords, proj_cart, maxrange, 0, horiz_res, 9999)
+    trgxy = trgxyz[:, 0:2]
+    trgx = trgxyz[:, 0].reshape(trgshape)[0, 0, :]
+    trgy = trgxyz[:, 1].reshape(trgshape)[0, :, 0]
+    lon,lat = reproject(trgx,trgy, projection_source=proj_cart, projection_target=proj_geo)
+    return lon,lat
 
 def findRadarSite(lawr, dwd):
     lat = np.abs(dwd.lat - lawr.lat)
@@ -854,13 +874,6 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rai
     HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - dwd.lon[lonstart[0], lonstart[1]]) / (
             dwd.lon[lonend[0], lonend[1]] - dwd.lon[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1], 1, (0, 1)))
 
-    plt.figure()
-    plt.imshow(prog_data)
-
-    test = interp2d(boo_prog_data, HHGLonInBOO, HHGLatInBOO)
-    plt.figure()
-    plt.imshow(test)
-    plt.show(block=False)
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
         prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
         #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')

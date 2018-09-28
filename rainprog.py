@@ -3,13 +3,13 @@ import netCDF4
 import os
 from datetime import datetime
 import matplotlib
-matplotlib.use('TkAgg')
+#matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.interpolate import griddata, RegularGridInterpolator
 from createblob import createblob
 from init import Square, Totalfield, LawrData, DWDData, radarData, get_metangle, create_sample, importance_sampling, \
-    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,fileSelector
+    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,fileSelector,get_Grid
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
 cmap = plt.get_cmap('viridis')
@@ -116,8 +116,11 @@ print(datetime.now()-startTime)
 startTime=datetime.now()
 lawr.find_displacement(prog)
 print(datetime.now()-startTime)
+from osgeo import osr
+from wradlib_snips import make_2D_grid
 
-
+sitecoords = [lawr.lon, lawr.lat]
+lons,lats = get_Grid(sitecoords, 20000,200)
 
 # for t in range(test2.trainTime):
 #     if t == 0:
