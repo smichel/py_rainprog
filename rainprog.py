@@ -25,8 +25,8 @@ startTime = datetime.now()
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 year = 2016
 mon= 6
-day= 13
-hour = 20-2
+day= 2
+hour = 9-2
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
@@ -61,10 +61,10 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 20
+prog = 40
 trainTime = 8
 numMaxes = 20
-progTime = 80
+progTime = 60
 useRealData = 1
 prognosis = 1
 statistics = 0
@@ -116,11 +116,7 @@ print(datetime.now()-startTime)
 startTime=datetime.now()
 lawr.find_displacement(prog)
 print(datetime.now()-startTime)
-from osgeo import osr
-from wradlib_snips import make_2D_grid
 
-sitecoords = [lawr.lon, lawr.lat]
-lons,lats = get_Grid(sitecoords, 20000,200)
 
 # for t in range(test2.trainTime):
 #     if t == 0:

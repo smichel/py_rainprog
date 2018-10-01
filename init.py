@@ -12,9 +12,9 @@ from wradlib_snips import make_2D_grid, reproject
 import numba
 from datetime import datetime
 import h5py
-#import matplotlib
-#matplotlib.use('TkAgg')
-#import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 
 
 class radarData:
@@ -509,8 +509,6 @@ class DWDData(radarData, Totalfield):
 
     def getGrid(self, booresolution):
 
-        latDeg = 111132.954  # https://stackoverflow.com/questions/639695/how-to-convert-latitude-or-longitude-to-meters
-        lonDeg = 111132.954  # one degree * cos(lat*pi/180) equals 113200 m
         aziCos = np.cos(np.radians(self.azi+90))
         aziSin = np.sin(np.radians(self.azi+90))
         xPolar = np.outer(self.r, aziCos)
@@ -518,7 +516,10 @@ class DWDData(radarData, Totalfield):
         xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
         yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
         points = np.concatenate((xPolar, yPolar), axis=1)
-
+        proj_cart = osr.SpatialReference()
+        proj_cart.ImportFromEPSG(32632)
+        lawr_sitecoords = [9.973997, 53.56833]
+        lawr_cartcoords = reproject(lawr_sitecoords, projection_target=proj_cart)
         self.cRange = int(4000 / self.resolution)
         self.xCar = np.arange(-65000, 55000 + 1, self.resolution).squeeze()
         self.xCar_nested = np.arange(-65000 - self.cRange * 2 * self.resolution,
@@ -535,12 +536,9 @@ class DWDData(radarData, Totalfield):
         self.dist = np.sqrt(np.square(self.XCar) + np.square(self.YCar))
         self.dist_nested = np.sqrt(np.square(self.XCar_nested) + np.square(self.YCar_nested))
 
-        self.lat = self.sitecoords[1] + self.YCar_nested / (latDeg - 559.822 * np.cos(2 * np.deg2rad(self.sitecoords[1]))
-                                             + 1.175 * np.cos(4 * np.deg2rad(self.sitecoords[1])))
 
-        self.lon = self.sitecoords[0] + self.XCar_nested / (lonDeg * (np.cos(np.deg2rad(self.lat))) -
-                                                        93.5 * np.cos(3 * np.deg2rad(self.lat)) +
-                                                        0.118 * np.cos(5 * np.deg2rad(self.lat)))
+        self.Lon, self.Lat = get_Grid(lawr_sitecoords, 60000, self.resolution)
+        self.Lon_nested, self.Lat_nested = get_Grid(lawr_sitecoords, 60000 + self.cRange * 2 * self.resolution, self.resolution)
 
         target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
         target[:, 0] = self.XCar.flatten()
@@ -641,8 +639,8 @@ class LawrData(radarData, Totalfield):
             self.lat = 53.56833
             self.zsl = 100  # altitude of the hamburg radar
             self.samples = 16  # number of samples for the importance sampling
-            latDeg = 111132.92  #https://stackoverflow.com/questions/639695/how-to-convert-latitude-or-longitude-to-meters
-            lonDeg = 111412.84
+            self.sitecoords = [self.lon, self.lat]
+
             aziCos = np.cos(np.radians(self.azi))
             aziSin = np.sin(np.radians(self.azi))
             xPolar = np.outer(self.r, aziCos)
@@ -655,12 +653,9 @@ class LawrData(radarData, Totalfield):
             self.yCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
 
             [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
-            Lat = self.lat + self.XCar / (latDeg - 559.822 * np.cos(2 * np.deg2rad(self.lat))
-                                             + 1.175 * np.cos(4 * np.deg2rad(self.lat)))
 
-            Lon = self.lon + self.YCar / (lonDeg * (np.cos(np.deg2rad(Lat))) -
-                                                        93.5 * np.cos(3 * np.deg2rad(Lat)) +
-                                                        0.118 * np.cos(5 * np.deg2rad(Lat)))
+            self.Lon,self.Lat = get_Grid(self.sitecoords,20000,self.resolution)
+            self.Lon_nested, self.Lat_nested = get_Grid(self.sitecoords, 20000 + self.cRange * 2 * self.resolution, self.resolution)
 
             self.dist = np.sqrt(np.square(self.xCar) + np.square(self.YCar))
 
@@ -669,14 +664,6 @@ class LawrData(radarData, Totalfield):
             yCar_nested = xCar_nested
 
             [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
-
-            self.Lat_nested = self.lat + \
-                              XCar_nested / (latDeg - 559.822 * np.cos(2 * np.deg2rad(self.lat))
-                                             + 1.175 * np.cos(4 * np.deg2rad(self.lat)))
-
-            self.Lon_nested = self.lon + XCar_nested / (lonDeg * (np.cos(np.deg2rad(self.Lat_nested))) -
-                                                        93.5 * np.cos(3 * np.deg2rad(self.Lat_nested)) +
-                                                        0.118 * np.cos(5 * np.deg2rad(self.Lat_nested)))
 
             self.dist_nested = np.sqrt(np.square(xCar_nested) + np.square(YCar_nested))
 
@@ -766,14 +753,14 @@ def get_Grid(sitecoords, maxrange, horiz_res):
 
     trgxyz, trgshape = make_2D_grid(sitecoords, proj_cart, maxrange, 0, horiz_res, 9999)
     trgxy = trgxyz[:, 0:2]
-    trgx = trgxyz[:, 0].reshape(trgshape)[0, 0, :]
-    trgy = trgxyz[:, 1].reshape(trgshape)[0, :, 0]
+    trgx = trgxyz[:, 0].reshape(trgshape)[0, :, :]
+    trgy = trgxyz[:, 1].reshape(trgshape)[0, :, :]
     lon,lat = reproject(trgx,trgy, projection_source=proj_cart, projection_target=proj_geo)
     return lon,lat
 
 def findRadarSite(lawr, dwd):
-    lat = np.abs(dwd.lat - lawr.lat)
-    lon = np.abs(dwd.lon - lawr.lon)
+    lat = np.abs(dwd.Lat_nested - lawr.lat)
+    lon = np.abs(dwd.Lon_nested - lawr.lon)
     latIdx = np.unravel_index(np.argmin(lat),lat.shape)[0]
     lonIdx = np.unravel_index(np.argmin(lon),lon.shape)[1]
     return lonIdx, latIdx
@@ -858,24 +845,24 @@ def fileSelector(directoryPath, time, trainTime = 5):
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rainthreshold, lawr, HHGlat, HHGlon):
     boo_pixels = ((dwd.HHGdist >= rMax) & (dwd.HHGdist <= nested_dist.max()))
     hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
-    lat1 = dwd.lat - HHGlat.min()
-    lat2 = dwd.lat - HHGlat.max()
+    lat1 = dwd.Lat_nested - HHGlat.min()
+    lat2 = dwd.Lat_nested - HHGlat.max()
     latstart = np.unravel_index(np.abs(lat1).argmin(),lat1.shape)[0]
     latend= np.unravel_index(np.abs(lat2).argmin(),lat2.shape)[0]
 
-    HHGLatInBOO = (HHGlat[:, :] - dwd.lat[latstart, 0]) / (
-            dwd.lat[latend, 0] - dwd.lat[latstart, 0]) * (latend - latstart) + latstart
+    HHGLatInBOO = (HHGlat[:, :] - dwd.Lat_nested[latstart, 0]) / (
+            dwd.Lat_nested[latend, 0] - dwd.Lat_nested[latstart, 0]) * (latend - latstart) + latstart
 
-    lon1 = dwd.lon - HHGlon.min()
-    lon2 = dwd.lon - HHGlon.max()
+    lon1 = dwd.Lon_nested - HHGlon.min()
+    lon2 = dwd.Lon_nested - HHGlon.max()
     lonstart = np.unravel_index(np.abs(lon1).argmin(), lon1.shape)
     lonend = np.unravel_index(np.abs(lon2).argmin(), lon2.shape)
 
-    HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - dwd.lon[lonstart[0], lonstart[1]]) / (
-            dwd.lon[lonend[0], lonend[1]] - dwd.lon[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1], 1, (0, 1)))
+    HHGLonInBOO = (HHGlon[:, :] - dwd.Lon_nested[lonstart[0], lonstart[1]]) / (
+        dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1]
 
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
+        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
         #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
