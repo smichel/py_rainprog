@@ -518,8 +518,13 @@ class DWDData(radarData, Totalfield):
         points = np.concatenate((xPolar, yPolar), axis=1)
         proj_cart = osr.SpatialReference()
         proj_cart.ImportFromEPSG(32632)
+        proj_geo = osr.SpatialReference()
+        proj_geo.ImportFromEPSG(4326)
         lawr_sitecoords = [9.973997, 53.56833]
         lawr_cartcoords = reproject(lawr_sitecoords, projection_target=proj_cart)
+        boo_cartcoords = reproject(self.sitecoords[0:2], projection_target=proj_cart)
+
+        self.polar_grid= reproject(points+boo_cartcoords, projection_source=proj_cart, projection_target=proj_geo)
         self.cRange = int(4000 / self.resolution)
         self.xCar = np.arange(-65000, 55000 + 1, self.resolution).squeeze()
         self.xCar_nested = np.arange(-65000 - self.cRange * 2 * self.resolution,
@@ -540,15 +545,15 @@ class DWDData(radarData, Totalfield):
         self.Lon, self.Lat = get_Grid(lawr_sitecoords, 60000, self.resolution)
         self.Lon_nested, self.Lat_nested = get_Grid(lawr_sitecoords, 60000 + self.cRange * 2 * self.resolution, self.resolution)
 
-        target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
-        target[:, 0] = self.XCar.flatten()
-        target[:, 1] = self.YCar.flatten()
+        target = np.zeros([self.Lon.shape[0] * self.Lon.shape[1], 2])
+        target[:, 0] = self.Lon.flatten()
+        target[:, 1] = self.Lat.flatten()
 
-        self.cart_points = np.concatenate((np.reshape(self.XCar, (self.d_s * self.d_s, 1)),
-                                          np.reshape(self.YCar, (self.d_s * self.d_s, 1))), axis=1)
+        self.cart_points = np.concatenate((np.reshape(self.Lon, (self.d_s * self.d_s, 1)),
+                                          np.reshape(self.Lat, (self.d_s * self.d_s, 1))), axis=1)
 
 
-        self.vtx, self.wts = super().interp_weights(points, target)
+        self.vtx, self.wts = super().interp_weights(self.polar_grid, target)
         self.nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
 
     def gridding(self):
