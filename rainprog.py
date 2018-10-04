@@ -50,7 +50,7 @@ else:
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 
-directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/'+strMon+'/'+strDay
+directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+strMon+'/'+strDay
 fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
 #directoryPath = 'E:/radardata/02/'
 #fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
@@ -61,10 +61,10 @@ resScale = booResolution / res
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 30
+prog = 45
 trainTime = 8
 numMaxes = 20
-progTime = 60
+progTime = 90
 useRealData = 1
 prognosis = 1
 statistics = 0

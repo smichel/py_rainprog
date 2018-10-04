@@ -500,7 +500,7 @@ class DWDData(radarData, Totalfield):
         self.resolution = 200  # horizontal resolution in m
         self.trainTime = 5  # 5 Timesteps for training to find the displacement vector (equals 25 minutes)
         self.numMaxima = 20  # number of tracked maxima
-        self.distThreshold = 70000
+        self.distThreshold = 50000
         self.trainTime = 5
         self.getGrid(self.resolution)
         self.offset = self.cRange * 2
@@ -525,14 +525,14 @@ class DWDData(radarData, Totalfield):
         boo_cartcoords = reproject(self.sitecoords[0:2], projection_target=proj_cart)
 
         self.polar_grid= reproject(points+boo_cartcoords, projection_source=proj_cart, projection_target=proj_geo)
-        self.cRange = int(4000 / self.resolution)
-        self.xCar = np.arange(-65000, 55000 + 1, self.resolution).squeeze()
-        self.xCar_nested = np.arange(-65000 - self.cRange * 2 * self.resolution,
+        self.cRange = int(6000 / self.resolution)
+        self.xCar = np.arange(-55000, 55000 + 1, self.resolution).squeeze()
+        self.xCar_nested = np.arange(-55000 - self.cRange * 2 * self.resolution,
                                      55000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
 
-        self.yCar = np.arange(-105000, 15000 + 1, self.resolution).squeeze()
-        self.yCar_nested = np.arange(-105000 - self.cRange * 2 * self.resolution,
-                                          15000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+        self.yCar = np.arange(-55000, 55000 + 1, self.resolution).squeeze()
+        self.yCar_nested = np.arange(-55000 - self.cRange * 2 * self.resolution,
+                                          55000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
         self.d_s = len(self.xCar)
         self.d_s_nested = len(self.xCar_nested)
         [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
@@ -542,8 +542,8 @@ class DWDData(radarData, Totalfield):
         self.dist_nested = np.sqrt(np.square(self.XCar_nested) + np.square(self.YCar_nested))
 
 
-        self.Lon, self.Lat = get_Grid(lawr_sitecoords, 60000, self.resolution)
-        self.Lon_nested, self.Lat_nested = get_Grid(lawr_sitecoords, 60000 + self.cRange * 2 * self.resolution, self.resolution)
+        self.Lon, self.Lat = get_Grid(lawr_sitecoords, 55000, self.resolution)
+        self.Lon_nested, self.Lat_nested = get_Grid(lawr_sitecoords, 55000 + self.cRange * 2 * self.resolution, self.resolution)
 
         target = np.zeros([self.Lon.shape[0] * self.Lon.shape[1], 2])
         target[:, 0] = self.Lon.flatten()
@@ -848,23 +848,24 @@ def fileSelector(directoryPath, time, trainTime = 5):
     return selectedFiles
 
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rainthreshold, lawr, HHGlat, HHGlon):
-    boo_pixels = ((dwd.HHGdist >= rMax) & (dwd.HHGdist <= nested_dist.max()))
-    hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
-    lat1 = dwd.Lat_nested - HHGlat.min()
-    lat2 = dwd.Lat_nested - HHGlat.max()
-    latstart = np.unravel_index(np.abs(lat1).argmin(),lat1.shape)[0]
-    latend= np.unravel_index(np.abs(lat2).argmin(),lat2.shape)[0]
+    boo_pixels = ((dwd.dist_nested>= rMax) & (dwd.dist_nested<= lawr.dist_nested.max()))
+    hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= lawr.dist_nested.max()))
 
-    HHGLatInBOO = (HHGlat[:, :] - dwd.Lat_nested[latstart, 0]) / (
-            dwd.Lat_nested[latend, 0] - dwd.Lat_nested[latstart, 0]) * (latend - latstart) + latstart
+    lat1 = dwd.Lat_nested - lawr.Lat_nested.min()
+    lat2 = dwd.Lat_nested - lawr.Lat_nested.max()
+    latstart = np.unravel_index(np.abs(lat1).argmin(),lat1.shape)
+    latend= np.unravel_index(np.abs(lat2).argmin(),lat2.shape)
 
-    lon1 = dwd.Lon_nested - HHGlon.min()
-    lon2 = dwd.Lon_nested - HHGlon.max()
+    HHGLatInBOO = (lawr.Lat_nested[:, :] - dwd.Lat_nested[latstart]) / (
+            dwd.Lat_nested[latend] - dwd.Lat_nested[latstart]) * (latend[0] - latstart[0]) + latstart[0]
+
+    lon1 = dwd.Lon_nested - lawr.Lon_nested.min()
+    lon2 = dwd.Lon_nested - lawr.Lon_nested.max()
     lonstart = np.unravel_index(np.abs(lon1).argmin(), lon1.shape)
     lonend = np.unravel_index(np.abs(lon2).argmin(), lon2.shape)
 
-    HHGLonInBOO = (HHGlon[:, :] - dwd.Lon_nested[lonstart[0], lonstart[1]]) / (
-        dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1]
+    HHGLonInBOO = (lawr.Lon_nested[:, :] - dwd.Lon_nested[lonstart[0], lonstart[1]]) / (
+        dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[0] - lonstart[0]) + lonstart[0]
 
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
         prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
