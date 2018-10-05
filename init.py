@@ -497,7 +497,7 @@ class DWDData(radarData, Totalfield):
 
 
         super().__init__(filePath)
-        self.resolution = 200  # horizontal resolution in m
+        self.resolution = 250  # horizontal resolution in m
         self.trainTime = 5  # 5 Timesteps for training to find the displacement vector (equals 25 minutes)
         self.numMaxima = 20  # number of tracked maxima
         self.distThreshold = 50000
@@ -593,7 +593,7 @@ class DWDData(radarData, Totalfield):
         self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
 
         for t in range(progTimeSteps):
-            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.meanXDisplacement*self.resolution/10)*t, (self.meanYDisplacement*self.resolution/10)*t)
+            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.meanXDisplacement/10)*t, (self.meanYDisplacement/10)*t)
 
             self.second.append(self.second[-1]+30)
             self.hour.append(self.hour[-1])
@@ -666,7 +666,7 @@ class LawrData(radarData, Totalfield):
 
             xCar_nested = np.arange(-20000 - self.cRange * 2 * self.resolution,
                                     20000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
-            yCar_nested = xCar_nested
+            yCar_nested = np.copy(xCar_nested)
 
             [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
 
@@ -849,7 +849,7 @@ def fileSelector(directoryPath, time, trainTime = 5):
 
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rainthreshold, lawr, HHGlat, HHGlon):
     boo_pixels = ((dwd.dist_nested>= rMax) & (dwd.dist_nested<= lawr.dist_nested.max()))
-    hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= lawr.dist_nested.max()))
+    hhg_pixels = ((lawr.dist_nested >= rMax) & (lawr.dist_nested<= lawr.dist_nested.max()))
 
     lat1 = dwd.Lat_nested - lawr.Lat_nested.min()
     lat2 = dwd.Lat_nested - lawr.Lat_nested.max()
@@ -864,8 +864,11 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rai
     lonstart = np.unravel_index(np.abs(lon1).argmin(), lon1.shape)
     lonend = np.unravel_index(np.abs(lon2).argmin(), lon2.shape)
 
+
+
+
     HHGLonInBOO = (lawr.Lon_nested[:, :] - dwd.Lon_nested[lonstart[0], lonstart[1]]) / (
-        dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[0] - lonstart[0]) + lonstart[0]
+        dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1]
 
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
         prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
@@ -873,18 +876,10 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rai
     return  prog_data
 
 def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
-    #paddingNaNs = int(1500/boo.resolution)
 
-    x = np.arange(boo_prog_data.shape[0]) - displacementX/boo.resolution
-    y = np.arange(boo_prog_data.shape[1]) - displacementY/boo.resolution
-
+    x = np.arange(boo_prog_data.shape[0]) - displacementX
+    y = np.arange(boo_prog_data.shape[1]) - displacementY
     [Y, X] = np.meshgrid(y,x)
-    # padding boo data with nans to prevent errors, this should equal a distance of 1500m with a resolution of 500m. This
-    # is far over the possible maximum movespeed of clouds (1500m in 30s equals 180 km/h)
-
-    #boo_data = np.empty([boo.d_s + paddingNaNs*2, boo.d_s + paddingNaNs*2])
-    #boo_data.fill(np.nan)
-    #boo_data[paddingNaNs : boo.d_s+ paddingNaNs, paddingNaNs : boo.d_s + paddingNaNs] = boo_prog_data
     boo_prog_data = interp2d(boo_prog_data, X, Y)
     return boo_prog_data
 

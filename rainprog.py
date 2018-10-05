@@ -26,7 +26,7 @@ startTime = datetime.now()
 year = 2016
 mon= 6
 day= 2
-hour = 9-2
+hour = 10-2
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
@@ -56,12 +56,11 @@ fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'
 #fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
 
 res = 100
-booResolution = 200
-resScale = booResolution / res
+
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 45
+prog = 50
 trainTime = 8
 numMaxes = 20
 progTime = 90
@@ -96,7 +95,7 @@ startTime=datetime.now()
 dwd.find_displacement(0)
 print(datetime.now()-startTime)
 
-dwd.extrapolation(progTime+15)
+dwd.extrapolation(progTime)
 
 
 startTime=datetime.now()
@@ -163,7 +162,7 @@ if livePlot:
             s.set_clim(0, np.max(dwd.nested_data))
             s.set_ticks(contours)
             s.draw_all()
-            radarCircle = mpatches.Circle((dwd.HHGPos[0], dwd.HHGPos[1]), 20000 / booResolution, color='w', linewidth=1, fill=0)
+            radarCircle = mpatches.Circle((dwd.HHGPos[0], dwd.HHGPos[1]), 20000 / dwd.resolution, color='w', linewidth=1, fill=0)
             ax.add_patch(radarCircle)
             plt.show(block=False)
         plt.pause(0.01)
