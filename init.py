@@ -523,16 +523,17 @@ class DWDData(radarData, Totalfield):
         lawr_sitecoords = [9.973997, 53.56833]
         lawr_cartcoords = reproject(lawr_sitecoords, projection_target=proj_cart)
         boo_cartcoords = reproject(self.sitecoords[0:2], projection_target=proj_cart)
-
+        max_dist = 50000
         self.polar_grid= reproject(points+boo_cartcoords, projection_source=proj_cart, projection_target=proj_geo)
         self.cRange = int(6000 / self.resolution)
-        self.xCar = np.arange(-55000, 55000 + 1, self.resolution).squeeze()
-        self.xCar_nested = np.arange(-55000 - self.cRange * 2 * self.resolution,
-                                     55000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
 
-        self.yCar = np.arange(-55000, 55000 + 1, self.resolution).squeeze()
-        self.yCar_nested = np.arange(-55000 - self.cRange * 2 * self.resolution,
-                                          55000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+        self.xCar = np.arange(-max_dist, max_dist + 1, self.resolution).squeeze()
+        self.xCar_nested = np.arange(-max_dist - self.cRange * 2 * self.resolution,
+                                     max_dist + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+
+        self.yCar = np.arange(-max_dist, max_dist + 1, self.resolution).squeeze()
+        self.yCar_nested = np.arange(-max_dist- self.cRange * 2 * self.resolution,
+                                     max_dist+ self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
         self.d_s = len(self.xCar)
         self.d_s_nested = len(self.xCar_nested)
         [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
@@ -542,19 +543,28 @@ class DWDData(radarData, Totalfield):
         self.dist_nested = np.sqrt(np.square(self.XCar_nested) + np.square(self.YCar_nested))
 
 
-        self.Lon, self.Lat = get_Grid(lawr_sitecoords, 55000, self.resolution)
-        self.Lon_nested, self.Lat_nested = get_Grid(lawr_sitecoords, 55000 + self.cRange * 2 * self.resolution, self.resolution)
+        self.Lon, self.Lat = get_Grid(lawr_sitecoords, max_dist, self.resolution)
+        self.Lon_nested, self.Lat_nested = get_Grid(lawr_sitecoords, max_dist+ self.cRange * 2 * self.resolution, self.resolution)
 
-        target = np.zeros([self.Lon.shape[0] * self.Lon.shape[1], 2])
-        target[:, 0] = self.Lon.flatten()
-        target[:, 1] = self.Lat.flatten()
+        target = np.zeros([self.Lon_nested.shape[0] * self.Lat_nested.shape[1], 2])
+        target[:, 0] = self.Lon_nested.flatten()
+        target[:, 1] = self.Lat_nested.flatten()
 
-        self.cart_points = np.concatenate((np.reshape(self.Lon, (self.d_s * self.d_s, 1)),
-                                          np.reshape(self.Lat, (self.d_s * self.d_s, 1))), axis=1)
+
 
 
         self.vtx, self.wts = super().interp_weights(self.polar_grid, target)
         self.nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+
+        # self.cart_points = np.concatenate((np.reshape(self.Lon_nested, (self.d_s * self.d_s, 1)),
+        #                                   np.reshape(self.Lat_nested, (self.d_s * self.d_s, 1))), axis=1)
+        # cart_points = points + boo_cartcoords
+        # target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
+        # target[:, 0] = self.XCar.flatten()+lawr_cartcoords[0]
+        # target[:, 1] = self.YCar.flatten()+lawr_cartcoords[1]
+        # plt.figure()
+        # plt.scatter(cart_points[:, 0], cart_points[:, 1])
+        # plt.scatter(target[:, 0], target[:, 1], c='r')
 
     def gridding(self):
 
@@ -603,6 +613,7 @@ class DWDData(radarData, Totalfield):
                 self.minute[-1] += 1
                 if self.minute[-1] >= 60:
                     self.hour[-1] += 1
+                    self.minute[-1] = 0
 
 
 class LawrData(radarData, Totalfield):
@@ -863,15 +874,17 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rai
     lon2 = dwd.Lon_nested - lawr.Lon_nested.max()
     lonstart = np.unravel_index(np.abs(lon1).argmin(), lon1.shape)
     lonend = np.unravel_index(np.abs(lon2).argmin(), lon2.shape)
-
-
-
-
     HHGLonInBOO = (lawr.Lon_nested[:, :] - dwd.Lon_nested[lonstart[0], lonstart[1]]) / (
         dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1]
 
+    resScale = lawr.resolution / dwd.resolution
+    dist2edge = (lawr.nested_data.shape[1]-1)/2*resScale
+
+    x = np.arange(dwd.HHGPos[0]-dist2edge, dwd.HHGPos[0]+dist2edge+resScale, lawr.resolution/dwd.resolution)
+    y = np.copy(x)
+    xy,yx = np.meshgrid(x,y)
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
+        prog_data[hhg_pixels] = interp2d(boo_prog_data, yx[hhg_pixels], xy[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
         #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
