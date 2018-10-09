@@ -508,9 +508,9 @@ class DWDData(radarData, Totalfield):
         # self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
 
     def getGrid(self, booresolution):
-
-        aziCos = np.cos(np.radians(self.azi+90))
-        aziSin = np.sin(np.radians(self.azi+90))
+        mett_azi = met2math_angle(self.azi)
+        aziCos = np.cos(np.radians(mett_azi))
+        aziSin = np.sin(np.radians(mett_azi))
         xPolar = np.outer(self.r, aziCos)
         yPolar = np.outer(self.r, aziSin)
         xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
@@ -546,9 +546,9 @@ class DWDData(radarData, Totalfield):
         self.Lon, self.Lat = get_Grid(lawr_sitecoords, max_dist, self.resolution)
         self.Lon_nested, self.Lat_nested = get_Grid(lawr_sitecoords, max_dist+ self.cRange * 2 * self.resolution, self.resolution)
 
-        target = np.zeros([self.Lon_nested.shape[0] * self.Lat_nested.shape[1], 2])
-        target[:, 0] = self.Lon_nested.flatten()
-        target[:, 1] = self.Lat_nested.flatten()
+        target = np.zeros([self.Lon.shape[0] * self.Lat.shape[1], 2])
+        target[:, 0] = self.Lon.flatten()
+        target[:, 1] = self.Lat.flatten()
 
 
 
@@ -570,8 +570,7 @@ class DWDData(radarData, Totalfield):
 
         rPolar = z2rainrate(self.refl).T
         rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
-
-        return np.rot90(np.reshape(super().interpolate(rPolar.flatten(), self.vtx, self.wts), (self.d_s, self.d_s)),2,(0,1))
+        return np.reshape(super().interpolate(rPolar.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
 
 
 
@@ -651,14 +650,16 @@ class LawrData(radarData, Totalfield):
             self.azi = np.mod(self.azi + aziCorr, 360)
             self.cRange = int(
                 800 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
+            mett_azi = met2math_angle(self.azi)
+
             self.lon = 9.973997  # location of the hamburg radar
             self.lat = 53.56833
             self.zsl = 100  # altitude of the hamburg radar
             self.samples = 16  # number of samples for the importance sampling
             self.sitecoords = [self.lon, self.lat]
 
-            aziCos = np.cos(np.radians(self.azi))
-            aziSin = np.sin(np.radians(self.azi))
+            aziCos = np.cos(np.radians(mett_azi))
+            aziSin = np.sin(np.radians(mett_azi))
             xPolar = np.outer(self.r, aziCos)
             xPolar = np.reshape(xPolar, (333 * 360, 1))
             yPolar = np.outer(self.r, aziSin)
@@ -707,8 +708,6 @@ class LawrData(radarData, Totalfield):
                 self.nested_data[t, 2 * self.cRange: 2 * self.cRange + self.d_s,
                 2 * self.cRange: 2 * self.cRange + self.d_s] = self.R[t, :, :]
 
-            self.nested_data = np.rot90(self.nested_data, 1, (1, 2))
-            self.R = np.rot90(self.R, 1, (1, 2))
             self.nested_data = np.nan_to_num(self.nested_data)
             self.R = np.nan_to_num(self.R)
 
@@ -757,6 +756,7 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     a[cond2] = 320
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
+
 def get_Grid(sitecoords, maxrange, horiz_res):
     #  spatialRef = osr.SpatialReference()
     #  spatialRef.ImportFromEPSG(4326) # lon lat
@@ -797,7 +797,47 @@ def get_metangle(x, y):
                                   fill_value=np.nan)
     return met_ang
 
+def met2math_angle(met_angle):
+    '''Convert meteorological to mathematical angles.
 
+    Args:
+        met_angle (numpy.ndarray): Meteorological angles.
+
+    Returns:
+        (numpy.ndarray): Mathematical angles.
+
+    '''
+    if np.logical_or(np.any(met_angle > 360),  np.any(met_angle < 0)):
+        raise ValueError('Meteorological angles must be between 0 and 360')
+    math_angle = (90 - met_angle + 360) % 360
+    return math_angle
+
+def polar2xy(r, az):
+    '''Transform polar to cartesian x,y-values.
+
+    Transform azimuth angle to mathematical angles and uses trigonometric
+    functions to obtain cartesian x,y - values out of angle and radius.
+
+    Note:
+        This function does not calculate Cartesian coordinates, but simple x,y
+        values. For coordinates, a Cartesian grid object is needed.
+
+    Args:
+        r (numpy.ndarray): Array of ranges in m.
+        az (numpy.ndarray): Corresponding array of azimuths angles.
+
+    Returns:
+        (numpy.ndarray): Array of cartesian x, y-values in m.
+
+    '''
+    if np.logical_or(np.any(az < 0), np.any(az > 360)):
+        raise ValueError('Azimuth angles must be between 0 and 360')
+    if np.any(r < 0):
+        raise ValueError('Range values must be greater than 0')
+    math_az = met2math_angle(az)  # Transform meteo. to mathematical angles.
+    y = np.sin(np.radians(math_az))*r
+    x = np.cos(np.radians(math_az))*r
+    return np.stack((x, y), axis=-1)
 
 
 def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample, d_s, cRange):
@@ -884,8 +924,8 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rai
     y = np.copy(x)
     xy,yx = np.meshgrid(x,y)
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data, yx[hhg_pixels], xy[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
-        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
+        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[
+            hhg_pixels])        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
 def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
