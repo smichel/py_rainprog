@@ -50,7 +50,7 @@ class radarData:
     def initial_maxima(self,prog):
         self.progField = Totalfield(
             Totalfield.findmaxima([], self.nested_data[prog-self.trainTime, :, :], self.cRange, self.numMaxima,
-                                  self.rainThreshold, self.distThreshold, self.dist_nested),
+                                  self.rainThreshold, self.distThreshold, self.dist_nested, self.resolution),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
             self.resolution, self.cRange, self.trainTime)
 
@@ -70,9 +70,12 @@ class radarData:
         allFieldsAngle = self.progField.return_fieldHistMeanAngle()
         self.allFieldsNorm = allFieldsNorm[~np.isnan(allFieldsAngle)]
         self.allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
-
-        self.covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle * allFieldsNorm))
-        self.gaussMeans = [self.meanXDisplacement, self.meanYDisplacement]
+        try:
+            self.covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle * allFieldsNorm))
+            self.gaussMeans = [self.meanXDisplacement, self.meanYDisplacement]
+        except ValueError:
+            self.covNormAngle = np.nan
+            self.gaussMeans = np.nan
 
 
 class Square:
@@ -371,12 +374,14 @@ class Totalfield:
 
             shiftX = shiftX[lengths != 0]
             shiftY = shiftY[lengths != 0]
+            zero = status[lengths == 0]
             status = status[lengths != 0]
             lengths = lengths[lengths != 0]
 
             shiftXex = shiftX[lengths <= self.cRange*self.res]
             shiftYex = shiftY[lengths <= self.cRange*self.res]
             lengthFilter.extend(status[lengths <= self.cRange*self.res])
+            lengthFilter.extend(zero)
 
             status = status[lengths <= self.cRange*self.res]
 
@@ -397,7 +402,7 @@ class Totalfield:
         lengthUnique, lengthCounts = np.unique(np.array(lengthFilter), return_counts=True)
         angleUnique, angleCounts = np.unique(np.array(angleFilter), return_counts=True)
         aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) > int(self.trainTime/2) # angleFilter
-        lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) > 1 # lengthFilter
+        lFilter = (np.full_like(lengthCounts, self.trainTime+1) - lengthCounts) > 1 # lengthFilter
 
         for i in reversed(range(len(self.activeFields))):
             if aFilter[i] | lFilter[i]:
@@ -412,12 +417,13 @@ class Totalfield:
                 self.activeIds.append(self.inactiveIds[-1])
                 del self.inactiveIds[-1]
 
-    def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshold, dist):
+    def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshold, dist, resolution):
         grid = len(nestedData[1])
         dims = nestedData.shape
         nestedData = nestedData.flatten()
         distFlat = dist.flatten()
         sorted = np.empty([grid * grid, 3])
+        minDistance = 3000/resolution
 
         sortedIdx = np.argsort(nestedData)
         distFlat = distFlat[sortedIdx]
@@ -434,7 +440,7 @@ class Totalfield:
             for j in range(0, len(fields)):
                 distance[:, j] = np.sqrt(
                     np.square(fields[j].maxima[0, 1] - dummy[:, 1]) + np.square(fields[j].maxima[0, 2] - dummy[:, 2]))
-            potPoints = np.flatnonzero(np.prod(distance >= cRange * 3, axis=1))
+            potPoints = np.flatnonzero(np.prod(distance >= minDistance, axis=1))
             if not len(potPoints):
                 return fields
             if dummy[potPoints[-1], 0] > rainThreshold:
@@ -641,7 +647,7 @@ class LawrData(radarData, Totalfield):
                 self.time = nc.variables['Time'][:]
 
             super().__init__(filepath)
-            self.trainTime = 8  # 8 Timesteps for training to find the displacement vector (equals 4 minutes)
+            self.trainTime = 10  # 8 Timesteps for training to find the displacement vector (equals 4 minutes)
             self.numMaxima = 20  # number of tracked maxima
             self.resolution = 100
             self.timeSteps = len(self.time)
@@ -649,7 +655,7 @@ class LawrData(radarData, Totalfield):
             aziCorr = -5
             self.azi = np.mod(self.azi + aziCorr, 360)
             self.cRange = int(
-                800 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
+                2000 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
             mett_azi = met2math_angle(self.azi)
 
             self.lon = 9.973997  # location of the hamburg radar
@@ -917,12 +923,6 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rai
     HHGLonInBOO = (lawr.Lon_nested[:, :] - dwd.Lon_nested[lonstart[0], lonstart[1]]) / (
         dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1]
 
-    resScale = lawr.resolution / dwd.resolution
-    dist2edge = (lawr.nested_data.shape[1]-1)/2*resScale
-
-    x = np.arange(dwd.HHGPos[0]-dist2edge, dwd.HHGPos[0]+dist2edge+resScale, lawr.resolution/dwd.resolution)
-    y = np.copy(x)
-    xy,yx = np.meshgrid(x,y)
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
         prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[
             hhg_pixels])        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')

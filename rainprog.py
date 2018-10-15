@@ -26,7 +26,8 @@ startTime = datetime.now()
 year = 2016
 mon= 6
 day= 2
-hour = 10-2
+hour = 9-2
+#investigate 13.6 18:20
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
@@ -60,10 +61,10 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 40
+prog = 15
 trainTime = 8
 numMaxes = 20
-progTime = 90
+progTime = 120-prog
 useRealData = 1
 prognosis = 1
 statistics = 0
@@ -78,7 +79,7 @@ dwdTime = list((mon,day,hour,prog))
 
 selectedFiles = fileSelector(directoryPath, dwdTime, 5)
 
-startTime=datetime.now()
+totalTime=datetime.now()
 
 dwd = DWDData(directoryPath + '/' + selectedFiles[0])
 
@@ -95,7 +96,9 @@ startTime=datetime.now()
 dwd.find_displacement(0)
 print(datetime.now()-startTime)
 
-dwd.extrapolation(progTime)
+
+
+dwd.extrapolation(progTime+progTime%12)
 
 
 startTime=datetime.now()
@@ -116,7 +119,9 @@ startTime=datetime.now()
 lawr.find_displacement(prog)
 print(datetime.now()-startTime)
 
-
+if np.any(np.isnan(lawr.covNormAngle)):
+    lawr.covNormAngle = dwd.covNormAngle
+    lawr.gaussMeans = [x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans]
 # for t in range(test2.trainTime):
 #     if t == 0:
 #         plt.figure(figsize=(8, 8))
@@ -165,11 +170,11 @@ if livePlot:
             radarCircle = mpatches.Circle((dwd.HHGPos[0], dwd.HHGPos[1]), 20000 / dwd.resolution, color='w', linewidth=1, fill=0)
             ax.add_patch(radarCircle)
             plt.show(block=False)
-        plt.pause(0.01)
+        plt.pause(0.1)
         im.set_data(dwd.nested_data[i, :, :])
 
-for t in range(prog-lawr.trainTime+1,prog):
-    if livePlot:
+if livePlot:
+    for t in range(prog-lawr.trainTime+1,prog):
         if t == prog-lawr.trainTime+1:
             plt.figure(figsize=(8, 8))
             im = plt.imshow(lawr.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
@@ -185,7 +190,7 @@ for t in range(prog-lawr.trainTime+1,prog):
             im.set_data(lawr.nested_data[t, :, :])
             o.set_data(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime)[:, 2:0:-1]))
             n.set_data(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]))
-        plt.pause(0.01)
+        plt.pause(0.1)
         #plt.savefig('/scratch/local1/plots/analysis_timestep_' + str(t) + '.png')
 
 
@@ -205,6 +210,20 @@ if statistics:
             plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
     ax.set_ylim(0, lawr.d_s+4*lawr.cRange)
     ax.set_xlim(0, lawr.d_s+4*lawr.cRange)
+    plt.gca().invert_yaxis()
+    plt.show(block=False)
+
+    col = np.concatenate([np.zeros([1, np.max(dwd.progField.activeIds)]), np.random.rand(2, np.max(dwd.progField.activeIds))])
+    plt.figure(figsize=(8, 8))
+    ax = plt.axes()
+    for i, field in enumerate(dwd.progField.activeFields):
+        for t in field.histMaxima:
+            plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
+    for i, field in enumerate(dwd.progField.inactiveFields):
+        for t in field.histMaxima:
+            plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
+    ax.set_ylim(0, dwd.d_s+4*dwd.cRange)
+    ax.set_xlim(0, dwd.d_s+4*dwd.cRange)
     plt.gca().invert_yaxis()
     plt.show(block=False)
 
@@ -281,8 +300,8 @@ lawr.extrapolation(dwd,progTime,prog)
 print(datetime.now()-startTime)
 
 if prognosis:
-    for t in range(progTime):
-        if livePlot:
+    if livePlot:
+        for t in range(progTime):
             if t == 0:
                 hhgFig,ax1 = plt.subplots(1)
                 imP = ax1.imshow(lawr.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
@@ -307,7 +326,6 @@ if prognosis:
             #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
 
 
-hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(lawr.prog_data, lawr.nested_data[prog:,:,:])
 # if livePlot:
 #     for t in range(progTime):
 #         if t == 0:
@@ -329,10 +347,16 @@ hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(lawr.prog_data
 #             plt.pause(0.1)
         #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 
-time_elapsed = datetime.now()- startTime
+time_elapsed = datetime.now()- totalTime
 print('Total time: '+str(time_elapsed))
 
+prog_data = lawr.prog_data
+prog_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
+hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, lawr.nested_data[prog:,:,:])
 
+plt.figure()
+a=plt.plot(ORSS[:,0:4])
+plt.legend(a,[0.1,0.2,0.5,1])
 
 #fig, ax = plt.subplots()
 #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
