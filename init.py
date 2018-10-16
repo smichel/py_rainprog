@@ -358,7 +358,7 @@ class Totalfield:
 
         angleFilter = list(range(fieldNums))
         lengthFilter = list(range(fieldNums))
-
+        maxDist = self.cRange * self.res * 1.2
         for t in range(self.trainTime):
             shiftX = np.empty([len(self.activeFields)])
             shiftY = np.empty([len(self.activeFields)])
@@ -378,12 +378,12 @@ class Totalfield:
             status = status[lengths != 0]
             lengths = lengths[lengths != 0]
 
-            shiftXex = shiftX[lengths <= self.cRange*self.res]
-            shiftYex = shiftY[lengths <= self.cRange*self.res]
-            lengthFilter.extend(status[lengths <= self.cRange*self.res])
+            shiftXex = shiftX[lengths <= maxDist]
+            shiftYex = shiftY[lengths <= maxDist]
+            lengthFilter.extend(status[lengths <= maxDist])
             lengthFilter.extend(zero)
 
-            status = status[lengths <= self.cRange*self.res]
+            status = status[lengths <= maxDist]
 
             meanXex = np.empty([len(shiftXex)])
             meanYex = np.empty([len(shiftYex)])
