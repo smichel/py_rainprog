@@ -61,14 +61,14 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 15
+prog = 30
 trainTime = 8
 numMaxes = 20
 progTime = 120-prog
 useRealData = 1
 prognosis = 1
 statistics = 0
-livePlot = 0
+livePlot = 1
 samples = 16
 blobDisplacementX = -3
 blobDisplacementY = -1
@@ -311,7 +311,7 @@ if prognosis:
                     (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
                     20000 / res, color='w', linewidth=1, fill=0)
                 ax1.add_patch(radarCircle2)
-                plt.show(block=False)
+                #plt.show(block=False)
                 s1 = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
                 s1.set_clim(0, np.nanmax(lawr.prog_data))
                 s1.set_ticks(contours)
@@ -322,8 +322,23 @@ if prognosis:
                     tp.remove()
                 imR = ax1.contour(lawr.nested_data[prog + t, :, :], contours,
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            plt.pause(0.1)
-            #plt.savefig('/scratch/local1/plots/prognosis_timestep_' + str(t) + '.png')
+            #plt.pause(0.1)
+            if len(str(dwd.second[dwd.trainTime+t]))==1:
+                seconds = '0'+str(dwd.second[dwd.trainTime+t])
+            else:
+                seconds = str(dwd.second[dwd.trainTime+t])
+
+            plt.savefig('/scratch/local1/plots/prognosis_'+str(year)+strMon+strDay+str(dwd.hour[dwd.trainTime+t])+str(dwd.minute[dwd.trainTime+t])+seconds+'.png')
+
+plt.figure()
+for t in range(len(lawr.probabilities)):
+    plt.imshow(lawr.probabilities[t, :, :])
+    if t == 0:
+        plt.colorbar()
+
+    plt.savefig(
+        '/scratch/local1/plots/probabilities_' + str(year) + strMon + strDay + str(dwd.hour[dwd.trainTime + t]) + str(
+            dwd.minute[dwd.trainTime + t]) + seconds + '.png')
 
 
 # if livePlot:
@@ -353,12 +368,70 @@ print('Total time: '+str(time_elapsed))
 prog_data = lawr.prog_data
 prog_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
 hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, lawr.nested_data[prog:,:,:])
+thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
+
 
 plt.figure()
-a=plt.plot(ORSS[:,0:4])
-plt.legend(a,[0.1,0.2,0.5,1])
-
+a=plt.plot(PC[:,0:5])
+plt.legend(a,thresholds[0:5])
+plt.title('PC')
+#plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_PC.png')
+plt.figure()
+a=plt.plot(POD[:,0:5])
+plt.legend(a,thresholds[0:5])
+plt.title('POD')
+#plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_POD.png')
+plt.figure()
+a=plt.plot(FAR[:,0:5])
+plt.legend(a,thresholds[0:5])
+plt.title('FAR')
+#plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_FAR.png')
+plt.figure()
+a=plt.plot(CSI[:,0:5])
+plt.legend(a,thresholds[0:5])
+plt.title('CSI')
+#plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_CSI.png')
+plt.figure()
+a=plt.plot(ORSS[:,0:5])
+plt.legend(a,thresholds[0:5])
+plt.title('ORSS')
+#plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_ORSS.png')
 #fig, ax = plt.subplots()
 #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
 #ax.bar(bin_edges[:-1]+0.1, histY, color='r', width = 0.2)
 #plt.show(block=False)
+for t in range(progTime):
+    if t == 0:
+        pls, axs = plt.subplots(1,2,figsize=(15,9))
+        ax1=axs[1]
+        prob = axs[0].imshow(lawr.probabilities[t,:,:])
+        cb = pls.colorbar(prob, fraction = 0.046, pad = 0.04, ax=axs[0])
+        imP = ax1.imshow(lawr.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+        imR = ax1.contour(lawr.nested_data[prog + t, :, :],
+                          contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+        radarCircle2 = mpatches.Circle(
+            (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
+            20000 / res, color='w', linewidth=1, fill=0)
+        ax1.add_patch(radarCircle2)
+        # plt.show(block=False)
+        s1 = plt.colorbar(imP, fraction = 0.046, pad = 0.04, format=matplotlib.ticker.ScalarFormatter())
+        s1.set_clim(0, np.nanmax(lawr.prog_data))
+        s1.set_ticks(contours)
+        s1.draw_all()
+        plt.tight_layout()
+    else:
+        imP.set_data(lawr.prog_data[t, :, :])
+        prob.set_data(lawr.probabilities[t,:,:])
+        for tp in imR.collections:
+            tp.remove()
+        imR = ax1.contour(lawr.nested_data[prog + t, :, :], contours,
+                          norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+    if len(str(dwd.second[dwd.trainTime + t])) == 1:
+        seconds = '0' + str(dwd.second[dwd.trainTime + t])
+    else:
+        seconds = str(dwd.second[dwd.trainTime + t])
+
+    plt.pause(0.1)
+    #plt.savefig(
+    #    '/scratch/local1/plots/probability_' + str(year) + strMon + strDay + str(dwd.hour[dwd.trainTime + t]) + str(
+    #        dwd.minute[dwd.trainTime + t]) + seconds + '.png')

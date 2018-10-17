@@ -63,7 +63,7 @@ class radarData:
             self.progField.prog_step(prog-self.trainTime + t)
             self.progField.update_fields()
 
-        self.progField.test_angles()
+        #self.progField.test_angles()
         self.meanXDisplacement = np.nanmean(self.progField.return_fieldHistX())
         self.meanYDisplacement = np.nanmean(self.progField.return_fieldHistY())
         allFieldsNorm = self.progField.return_fieldHistMeanNorm()
@@ -655,7 +655,7 @@ class LawrData(radarData, Totalfield):
             aziCorr = -5
             self.azi = np.mod(self.azi + aziCorr, 360)
             self.cRange = int(
-                2000 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
+                1000 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
             mett_azi = met2math_angle(self.azi)
 
             self.lon = 9.973997  # location of the hamburg radar
@@ -721,8 +721,10 @@ class LawrData(radarData, Totalfield):
         self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
         self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, self.samples)
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+        self.probabilities = np.copy(self.prog_data)
+        rainThreshold=0.5
         self.prog_data[0, :, :] = self.nested_data[prog, :, :]
-
+        self.probabilities[0,:,:] = self.nested_data[prog,:,:]>rainThreshold
         self.prog_start = 3 * ['']
         self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[0:2])
         self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[2:4])
@@ -740,6 +742,14 @@ class LawrData(radarData, Totalfield):
         self.prog_data[0, :, :] = importance_sampling(self.prog_data[0, :, :], self.dist_nested, self.r[-1],
                                                       self.xy, self.yx, self.xSample, self.ySample, self.d_s,
                                                       self.cRange)
+        self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
+                                          dwd.prog_data[self.prog_start_idx, :, :]>rainThreshold, dwd, self.r[-1],
+                                          self.rainThreshold, self,
+                                          self.Lat_nested, self.Lon_nested)
+
+        self.probabilities[0, :, :] = importance_sampling(self.probabilities[0, :, :], self.dist_nested, self.r[-1],
+                                                      self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+                                                      self.cRange)
 
         for t in range(1,progTimeSteps):
             self.prog_data[t, :, :] = self.prog_data[t - 1, :, :]
@@ -751,6 +761,19 @@ class LawrData(radarData, Totalfield):
             self.prog_data[t, :, :] = importance_sampling(self.prog_data[t, :, :], self.dist_nested, self.r[-1],
                                                           self.xy, self.yx, self.xSample, self.ySample, self.d_s,
                                                           self.cRange)
+
+
+            self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
+
+            self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
+                                              dwd.prog_data[self.prog_start_idx + t, :, :]>rainThreshold, dwd, self.r[-1],
+                                              self.rainThreshold, self,
+                                              self.Lat_nested, self.Lon_nested)
+
+            self.probabilities[t, :, :] = importance_sampling(self.probabilities[t, :, :], self.dist_nested, self.r[-1],
+                                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+                                                          self.cRange)
+
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
