@@ -6,6 +6,7 @@ import scipy.spatial.qhull as qhull
 from osgeo import osr
 from scipy.interpolate import griddata, RegularGridInterpolator, interp1d
 from scipy.ndimage import map_coordinates
+import scipy.odr
 from sklearn.feature_extraction import image
 from numba import jit
 from wradlib_snips import make_2D_grid, reproject
@@ -63,7 +64,9 @@ class radarData:
             self.progField.prog_step(prog-self.trainTime + t)
             self.progField.update_fields()
 
-        #self.progField.test_angles()
+        self.progField.test_angles2()
+        self.progField.test_angles()
+
         self.meanXDisplacement = np.nanmean(self.progField.return_fieldHistX())
         self.meanYDisplacement = np.nanmean(self.progField.return_fieldHistY())
         allFieldsNorm = self.progField.return_fieldHistMeanNorm()
@@ -140,6 +143,7 @@ class Totalfield:
 
     def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime):
         self.activeFields = fields
+        self.rejectedFields = []
         self.inactiveFields = []
         self.rainThreshold = rainThreshold  # minimal rainthreshold
         self.distThreshold = distThreshold  # distance threshold to radarboundary
@@ -249,6 +253,8 @@ class Totalfield:
         return np.asarray(fieldHistMeanAngle)
 
     def test_maxima(self, nestedData):
+
+
         maxima = np.empty([len(self.activeFields), 3])
         status = np.arange(len(self.activeFields))
 
@@ -347,6 +353,40 @@ class Totalfield:
                 self.inactiveFields.remove(field)
 
         #do that
+    def test_angles2(self):
+
+        def f(B, x):
+            return B[0] * x + B[1]
+
+        fieldNums = 0
+        for field in reversed(self.activeFields):
+            if field.lifeTime < self.trainTime:
+                self.rejectedFields.add(field)
+                self.activeFields.remove(field)
+            else:
+                fieldNums += 1
+
+        self.deltas = fieldNums * ['']
+        self.sum_square_delta = fieldNums * ['']
+        self.sum_square = fieldNums * ['']
+        self.betas = fieldNums * ['']
+        linear = scipy.odr.Model(f)
+        for i,field in enumerate(self.activeFields):
+            mydata = scipy.odr.Data([x[0,1] for x in field.histMaxima],[x[0,2] for x in field.histMaxima])
+            myodr = scipy.odr.ODR(mydata, linear, beta0=[0,0])
+            myoutput = myodr.run()
+            self.betas[i] = myoutput.beta
+            self.deltas[i] = myoutput.delta
+            self.sum_square[i] = myoutput.sum_square
+            self.sum_square_delta[i] = myoutput.sum_square_delta
+            # plt.figure()
+            # plt.scatter([x[0, 1] for x in self.activeFields[i].histMaxima],
+            #             [x[0, 2] for x in self.activeFields[i].histMaxima])
+            # plt.plot(np.asarray([x[0, 1] for x in self.activeFields[i].histMaxima]),
+            #          f(self.betas[i], np.asarray([x[0, 1] for x in self.activeFields[i].histMaxima])))
+            # plt.title(str(i))
+            # plt.show(block=False)
+
 
     def test_angles(self):
         fieldNums = 0
