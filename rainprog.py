@@ -25,8 +25,8 @@ startTime = datetime.now()
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
 year = 2016
 mon= 6
-day= 2
-hour = 9-2
+day= 13
+hour = 20-2
 #investigate 13.6 18:20
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
@@ -61,7 +61,7 @@ res = 100
 smallVal = 2
 rainThreshold = 0.1
 distThreshold = 19000
-prog = 45
+prog = 40
 trainTime = 8
 numMaxes = 20
 progTime = 120-prog
@@ -98,7 +98,7 @@ print(datetime.now()-startTime)
 
 
 
-dwd.extrapolation(progTime+progTime%12)
+dwd.extrapolation(progTime+12)
 
 
 startTime=datetime.now()
@@ -299,7 +299,7 @@ startTime=datetime.now()
 lawr.extrapolation(dwd,progTime,prog)
 print(datetime.now()-startTime)
 
-if prognosis:
+if 0:
     if livePlot:
         for t in range(progTime):
             if t == 0:
@@ -311,7 +311,7 @@ if prognosis:
                     (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
                     20000 / res, color='w', linewidth=1, fill=0)
                 ax1.add_patch(radarCircle2)
-                #plt.show(block=False)
+                plt.show(block=False)
                 s1 = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
                 s1.set_clim(0, np.nanmax(lawr.prog_data))
                 s1.set_ticks(contours)
@@ -322,23 +322,23 @@ if prognosis:
                     tp.remove()
                 imR = ax1.contour(lawr.nested_data[prog + t, :, :], contours,
                                   norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            #plt.pause(0.1)
+            plt.pause(0.1)
             if len(str(dwd.second[dwd.trainTime+t]))==1:
                 seconds = '0'+str(dwd.second[dwd.trainTime+t])
             else:
                 seconds = str(dwd.second[dwd.trainTime+t])
 
-            plt.savefig('/scratch/local1/plots/prognosis_'+str(year)+strMon+strDay+str(dwd.hour[dwd.trainTime+t])+str(dwd.minute[dwd.trainTime+t])+seconds+'.png')
+            #plt.savefig('/scratch/local1/plots/prognosis_'+str(year)+strMon+strDay+str(dwd.hour[dwd.trainTime+t])+str(dwd.minute[dwd.trainTime+t])+seconds+'.png')
 
-plt.figure()
-for t in range(len(lawr.probabilities)):
-    plt.imshow(lawr.probabilities[t, :, :])
-    if t == 0:
-        plt.colorbar()
+#plt.figure()
+#for t in range(len(lawr.probabilities)):
+#    plt.imshow(lawr.probabilities[t, :, :])
+#    if t == 0:
+#        plt.colorbar()
 
-    plt.savefig(
-        '/scratch/local1/plots/probabilities_' + str(year) + strMon + strDay + str(dwd.hour[dwd.trainTime + t]) + str(
-            dwd.minute[dwd.trainTime + t]) + seconds + '.png')
+#    plt.savefig(
+#        '/scratch/local1/plots/probabilities_' + str(year) + strMon + strDay + str(dwd.hour[dwd.trainTime + t]) + str(
+#            dwd.minute[dwd.trainTime + t]) + seconds + '.png')
 
 
 # if livePlot:
@@ -413,7 +413,7 @@ for t in range(progTime):
             (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
             20000 / res, color='w', linewidth=1, fill=0)
         ax1.add_patch(radarCircle2)
-        # plt.show(block=False)
+        plt.show(block=False)
         s1 = plt.colorbar(imP, fraction = 0.046, pad = 0.04, format=matplotlib.ticker.ScalarFormatter())
         s1.set_clim(0, np.nanmax(lawr.prog_data))
         s1.set_ticks(contours)
@@ -426,10 +426,10 @@ for t in range(progTime):
             tp.remove()
         imR = ax1.contour(lawr.nested_data[prog + t, :, :], contours,
                           norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-    if len(str(dwd.second[dwd.trainTime + t])) == 1:
-        seconds = '0' + str(dwd.second[dwd.trainTime + t])
-    else:
-        seconds = str(dwd.second[dwd.trainTime + t])
+    #if len(str(dwd.second[dwd.trainTime + t])) == 1:
+    #    seconds = '0' + str(dwd.second[dwd.trainTime + t])
+    #else:
+    #    seconds = str(dwd.second[dwd.trainTime + t])
 
     plt.pause(0.1)
     #plt.savefig(

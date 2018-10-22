@@ -6,6 +6,7 @@ import scipy.spatial.qhull as qhull
 from osgeo import osr
 from scipy.interpolate import griddata, RegularGridInterpolator, interp1d
 from scipy.ndimage import map_coordinates
+from skimage.feature import match_template
 import scipy.odr
 from sklearn.feature_extraction import image
 from numba import jit
@@ -53,7 +54,7 @@ class radarData:
             Totalfield.findmaxima([], self.nested_data[prog-self.trainTime, :, :], self.cRange, self.numMaxima,
                                   self.rainThreshold, self.distThreshold, self.dist_nested, self.resolution),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
-            self.resolution, self.cRange, self.trainTime)
+            self.resolution, self.cRange, self.trainTime, self.d_s)
 
 
     def find_displacement(self,prog):
@@ -65,7 +66,7 @@ class radarData:
             self.progField.update_fields()
 
         self.progField.test_angles2()
-        self.progField.test_angles()
+        #self.progField.test_angles()
 
         self.meanXDisplacement = np.nanmean(self.progField.return_fieldHistX())
         self.meanYDisplacement = np.nanmean(self.progField.return_fieldHistY())
@@ -141,7 +142,7 @@ class Square:
 
 class Totalfield:
 
-    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime):
+    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime,d_s):
         self.activeFields = fields
         self.rejectedFields = []
         self.inactiveFields = []
@@ -162,7 +163,11 @@ class Totalfield:
         self.ids = np.arange(self.numMaxes*self.trainTime, 0, -1)
         self.activeIds = []  # ids in use (active and inactive fields)
         self.inactiveIds = list(self.ids)  # ids not in use
-
+        self.deltas = []
+        self.sum_square_delta = []
+        self.sum_square = []
+        self.betas = []
+        self.d_s = d_s
         self.assign_ids()
     def return_maxima(self, time):
         maxima = np.empty([len(self.activeFields), 3])
@@ -224,6 +229,24 @@ class Totalfield:
                 fieldStdY.append(field.stdY)
 
         return np.asarray(fieldStdY)
+
+    def return_fieldSumSquare(self):
+        fieldSumSquare=[]
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldSumSquare.append(field.sum_square)
+
+        return np.asarray(fieldSumSquare)
+
+    def return_fieldTotalLength(self):
+        fieldTotalLength=[]
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldTotalLength.append(field.totalLength)
+
+        return np.asarray(fieldTotalLength)
 
     def return_fieldRelStdNorm(self):
         fieldRelStdNorm = []
@@ -292,11 +315,16 @@ class Totalfield:
     def prog_step(self,t):
 
         for field in self.activeFields:
-            corrArea = self.nested_data[t, (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
+
+            corrArea = self.nested_data[t,
+                       (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
                        (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
-            dataArea = self.nested_data[t + 1, (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+            dataArea = self.nested_data[t + 1,
+                       (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
                        (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
             # maybe consider using "from skimage.feature import match_template" template matching
+            # or using shift,error,diffphase = register_translation(self.nested_data[t+5,:,:],self.nested_data[t,:,:])
+            # print("Detected pixel offset (y, x): {}".format(shift))
             # http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_template.html
             c = leastsquarecorr(dataArea, corrArea)
             cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
@@ -366,19 +394,17 @@ class Totalfield:
             else:
                 fieldNums += 1
 
-        self.deltas = fieldNums * ['']
-        self.sum_square_delta = fieldNums * ['']
-        self.sum_square = fieldNums * ['']
-        self.betas = fieldNums * ['']
+
         linear = scipy.odr.Model(f)
         for i,field in enumerate(self.activeFields):
             mydata = scipy.odr.Data([x[0,1] for x in field.histMaxima],[x[0,2] for x in field.histMaxima])
             myodr = scipy.odr.ODR(mydata, linear, beta0=[0,0])
             myoutput = myodr.run()
-            self.betas[i] = myoutput.beta
-            self.deltas[i] = myoutput.delta
-            self.sum_square[i] = myoutput.sum_square
-            self.sum_square_delta[i] = myoutput.sum_square_delta
+            field.beta = myoutput.beta
+            field.delta = myoutput.delta
+            field.sum_square = myoutput.sum_square
+            field.sum_square_delta = myoutput.sum_square_delta
+            field.totalLength = np.sqrt(np.square(field.histMaxima[0].squeeze()[1]-field.histMaxima[-1].squeeze()[1])+np.square(field.histMaxima[0].squeeze()[2]-field.histMaxima[-1].squeeze()[2]))
             # plt.figure()
             # plt.scatter([x[0, 1] for x in self.activeFields[i].histMaxima],
             #             [x[0, 2] for x in self.activeFields[i].histMaxima])
@@ -386,7 +412,13 @@ class Totalfield:
             #          f(self.betas[i], np.asarray([x[0, 1] for x in self.activeFields[i].histMaxima])))
             # plt.title(str(i))
             # plt.show(block=False)
+        for i in reversed(range(len(self.activeFields))):
 
+            if self.activeFields[i].sum_square>self.activeFields[i].totalLength/2:
+
+                self.inactiveFields.append(field)
+                self.inactiveFields[-1].lifeTime = -1
+                del self.activeFields[i]
 
     def test_angles(self):
         fieldNums = 0
