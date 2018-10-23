@@ -71,6 +71,7 @@ class radarData:
         self.meanXDisplacement = np.nanmean(self.progField.return_fieldHistX())
         self.meanYDisplacement = np.nanmean(self.progField.return_fieldHistY())
         allFieldsNorm = self.progField.return_fieldHistMeanNorm()
+        self.normEqualOneSum = np.sum(self.progField.return_fieldHistNorm()==1)
         allFieldsAngle = self.progField.return_fieldHistMeanAngle()
         self.allFieldsNorm = allFieldsNorm[~np.isnan(allFieldsAngle)]
         self.allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
@@ -204,6 +205,14 @@ class Totalfield:
 
         return np.asarray(fieldHistX)
 
+    def return_fieldHistNorm(self):
+        fieldHistNorm = []
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistNorm.append(field.histNorm[-self.trainTime:-1])
+
+        return np.asarray(fieldHistNorm)
+
     def return_fieldHistY(self):
         fieldHistY = []
         for field in self.activeFields:
@@ -331,16 +340,42 @@ class Totalfield:
             field.shiftX = int(cIdx[0] - 0.5 * len(c))
             field.shiftY = int(cIdx[1] - 0.5 * len(c))
             field.norm = np.linalg.norm([field.shiftX, field.shiftY])
+
             field.angle = get_metangle(field.shiftX, field.shiftY)
             field.angle = field.angle.filled()
             field.add_norm(field.norm)
             field.add_angle(field.angle)
             field.add_maximum(np.copy(field.maxima))
             field.add_shift(field.shiftX, field.shiftY)
-            field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
-                                             int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
-            field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
-            field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
+            field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + field.shiftX),
+                                                  int(field.maxima[0, 2] + field.shiftY)]
+            field.maxima[0, 1] = int(field.maxima[0, 1] + field.shiftX)
+            field.maxima[0, 2] = int(field.maxima[0, 2] + field.shiftY)
+
+
+            # if field.norm == 1:
+            #     corrArea = self.nested_data[t,
+            #                (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
+            #                (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
+            #     dataArea = self.nested_data[t + 2,
+            #                (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+            #                (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+            #     c = leastsquarecorr(dataArea, corrArea)
+            #     cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
+            #     field.shiftX = int(cIdx[0] - 0.5 * len(c))*0.5
+            #     field.shiftY = int(cIdx[1] - 0.5 * len(c))*0.5
+            #     field.norm = np.linalg.norm([field.shiftX, field.shiftY])
+            #     field.angle = get_metangle(field.shiftX, field.shiftY)
+            #     field.angle = field.angle.filled()
+            #     field.add_norm(field.norm)
+            #     field.add_angle(field.angle)
+            #     field.add_maximum(np.copy(field.maxima))
+            #     field.add_shift(field.shiftX, field.shiftY)
+            #     field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + field.shiftX),
+            #                                           int(field.maxima[0, 2] + field.shiftY)]
+            #     field.maxima[0, 1] = (field.maxima[0, 1] + field.shiftX)
+            #     field.maxima[0, 2] = (field.maxima[0, 2] + field.shiftY)
+
 
     def update_fields(self):
 
