@@ -7,9 +7,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.interpolate import griddata, RegularGridInterpolator
+from multiprocessing import Process
 from createblob import createblob
 from init import Square, Totalfield, LawrData, DWDData, radarData, get_metangle, create_sample, importance_sampling, \
-    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,fileSelector,get_Grid
+    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,fileSelector,get_Grid, Results
+import multiprocessing as mp
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
 cmap = plt.get_cmap('viridis')
@@ -23,17 +25,19 @@ def gauss(x, *p):
 
 
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130511160000.nc'
-year = 2016
-mon= 6
-day= 13
-hour = 20-2
 #investigate 13.6 18:20
 #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
 #directoryPath = 'G:/Rainprog/boo/'
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
 
-def prognosis(year, mon,day,hour, minute):
+def prognosis(date, t):
+    year =date[0]
+    mon =date[1]
+    day=date[2]
+    hour=date[3]
+    minute=date[4]
+    progTime=date[5]
     startTime = datetime.now()
     if len(str(hour)) == 1:
         strHour = '0' + str(hour)
@@ -59,19 +63,19 @@ def prognosis(year, mon,day,hour, minute):
     #directoryPath = 'E:/radardata/02/'
     #fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
 
-    res = 100
+    res = 60
 
     smallVal = 2
-    rainThreshold = 0.1
+    rainThreshold = 0.5
     distThreshold = 19000
     prog = int(minute*2)
     trainTime = 8
     numMaxes = 20
-    progTime = 120-prog
     useRealData = 1
     prognosis = 1
     statistics = 0
-    livePlot = 1
+    livePlot = 0
+    probabilityFlag = 0
     samples = 16
     blobDisplacementX = -3
     blobDisplacementY = -1
@@ -82,45 +86,31 @@ def prognosis(year, mon,day,hour, minute):
 
     selectedFiles = fileSelector(directoryPath, dwdTime, 5)
 
-    totalTime=datetime.now()
+
 
     dwd = DWDData(directoryPath + '/' + selectedFiles[0])
 
     for i, file in enumerate(selectedFiles[1:]):
         dwd.addTimestep(directoryPath + '/' + file)
         #print(file)
-    print(datetime.now()-startTime)
-
-    startTime=datetime.now()
     dwd.initial_maxima(1)
-    print(datetime.now()-startTime)
-
-    startTime=datetime.now()
     dwd.find_displacement(0)
-    print(datetime.now()-startTime)
 
 
 
     dwd.extrapolation(progTime+12)
-
-
-    startTime=datetime.now()
     lawr = LawrData(fp)
-    print(datetime.now()-startTime)
 
     dwd.HHGPos = findRadarSite(lawr,dwd)
     dwd.set_auxillary_geoData(dwd,lawr,dwd.HHGPos)
+    if np.sum(dwd.prog_data[:, ((dwd.dist_nested >= lawr.r[-1]) & (dwd.dist_nested <= lawr.dist_nested.max()))]>rainThreshold)<100:
+        hit= miss= f_alert= corr_zero= BIAS= PC= POD= FAR= CSI= ORSS = np.zeros([progTime, num_r])*np.nan
+        return hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS
 
-    startTime=datetime.now()
-    print(datetime.now()-startTime)
 
-    startTime=datetime.now()
+
     lawr.initial_maxima(prog)
-    print(datetime.now()-startTime)
-
-    startTime=datetime.now()
     lawr.find_displacement(prog)
-    print(datetime.now()-startTime)
 
     if np.any(np.isnan(lawr.covNormAngle)) or lawr.normEqualOneSum>len(lawr.progField.activeIds):
         lawr.covNormAngle = dwd.covNormAngle
@@ -161,8 +151,9 @@ def prognosis(year, mon,day,hour, minute):
 
 
     dwd.nested_data[:, (dwd.dist_nested > dwd.r.max())] = 0
-    fig,ax = plt.subplots(figsize=(8,8))
+
     if livePlot:
+        fig, ax = plt.subplots(figsize=(8, 8))
         for i in range(dwd.nested_data.shape[0]):
             if (i == 0):
                 im = plt.imshow(dwd.nested_data[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
@@ -298,9 +289,7 @@ def prognosis(year, mon,day,hour, minute):
     #if not useRealData:
     resScale=1
 
-    startTime=datetime.now()
-    lawr.extrapolation(dwd,progTime,prog)
-    print(datetime.now()-startTime)
+    lawr.extrapolation(dwd,progTime,prog,probabilityFlag)
 
     if 0:
         if livePlot:
@@ -365,76 +354,155 @@ def prognosis(year, mon,day,hour, minute):
     #             plt.pause(0.1)
             #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 
-    time_elapsed = datetime.now()- totalTime
-    print('Total time: '+str(time_elapsed))
 
     prog_data = lawr.prog_data
     prog_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
     hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, lawr.nested_data[prog:,:,:])
     thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
 
+    if statistics:
+        plt.figure()
+        a=plt.plot(PC[:,0:5])
+        plt.legend(a,thresholds[0:5])
+        plt.title('PC')
+        #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_PC.png')
+        plt.figure()
+        a=plt.plot(POD[:,0:5])
+        plt.legend(a,thresholds[0:5])
+        plt.title('POD')
+        #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_POD.png')
+        plt.figure()
+        a=plt.plot(FAR[:,0:5])
+        plt.legend(a,thresholds[0:5])
+        plt.title('FAR')
+        #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_FAR.png')
+        plt.figure()
+        a=plt.plot(CSI[:,0:5])
+        plt.legend(a,thresholds[0:5])
+        plt.title('CSI')
+        #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_CSI.png')
+        plt.figure()
+        a=plt.plot(ORSS[:,0:5])
+        plt.legend(a,thresholds[0:5])
+        plt.title('ORSS')
+        #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_ORSS.png')
+        #fig, ax = plt.subplots()
+        #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
+        #ax.bar(bin_edges[:-1]+0.1, histY, color='r', width = 0.2)
+        #plt.show(block=False)
+        for t in range(progTime):
+            if t == 0:
+                pls, axs = plt.subplots(1,2,figsize=(15,9))
+                ax1=axs[1]
+                prob = axs[0].imshow(lawr.probabilities[t,:,:])
+                cb = pls.colorbar(prob, fraction = 0.046, pad = 0.04, ax=axs[0])
+                imP = ax1.imshow(lawr.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
+                imR = ax1.contour(lawr.nested_data[prog + t, :, :],
+                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+                radarCircle2 = mpatches.Circle(
+                    (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
+                    20000 / res, color='w', linewidth=1, fill=0)
+                ax1.add_patch(radarCircle2)
+                plt.show(block=False)
+                s1 = plt.colorbar(imP, fraction = 0.046, pad = 0.04, format=matplotlib.ticker.ScalarFormatter())
+                s1.set_clim(0, np.nanmax(lawr.prog_data))
+                s1.set_ticks(contours)
+                s1.draw_all()
+                plt.tight_layout()
+            else:
+                imP.set_data(lawr.prog_data[t, :, :])
+                prob.set_data(lawr.probabilities[t,:,:])
+                for tp in imR.collections:
+                    tp.remove()
+                imR = ax1.contour(lawr.nested_data[prog + t, :, :], contours,
+                                  norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+            #if len(str(dwd.second[dwd.trainTime + t])) == 1:
+            #    seconds = '0' + str(dwd.second[dwd.trainTime + t])
+            #else:
+            #    seconds = str(dwd.second[dwd.trainTime + t])
 
-    plt.figure()
-    a=plt.plot(PC[:,0:5])
-    plt.legend(a,thresholds[0:5])
-    plt.title('PC')
-    #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_PC.png')
-    plt.figure()
-    a=plt.plot(POD[:,0:5])
-    plt.legend(a,thresholds[0:5])
-    plt.title('POD')
-    #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_POD.png')
-    plt.figure()
-    a=plt.plot(FAR[:,0:5])
-    plt.legend(a,thresholds[0:5])
-    plt.title('FAR')
-    #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_FAR.png')
-    plt.figure()
-    a=plt.plot(CSI[:,0:5])
-    plt.legend(a,thresholds[0:5])
-    plt.title('CSI')
-    #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_CSI.png')
-    plt.figure()
-    a=plt.plot(ORSS[:,0:5])
-    plt.legend(a,thresholds[0:5])
-    plt.title('ORSS')
-    #plt.savefig('/scratch/local1/plots/prognosis_'+str(dwdTime)+'_ORSS.png')
-    #fig, ax = plt.subplots()
-    #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
-    #ax.bar(bin_edges[:-1]+0.1, histY, color='r', width = 0.2)
-    #plt.show(block=False)
-    for t in range(progTime):
-        if t == 0:
-            pls, axs = plt.subplots(1,2,figsize=(15,9))
-            ax1=axs[1]
-            prob = axs[0].imshow(lawr.probabilities[t,:,:])
-            cb = pls.colorbar(prob, fraction = 0.046, pad = 0.04, ax=axs[0])
-            imP = ax1.imshow(lawr.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-            imR = ax1.contour(lawr.nested_data[prog + t, :, :],
-                              contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-            radarCircle2 = mpatches.Circle(
-                (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
-                20000 / res, color='w', linewidth=1, fill=0)
-            ax1.add_patch(radarCircle2)
-            plt.show(block=False)
-            s1 = plt.colorbar(imP, fraction = 0.046, pad = 0.04, format=matplotlib.ticker.ScalarFormatter())
-            s1.set_clim(0, np.nanmax(lawr.prog_data))
-            s1.set_ticks(contours)
-            s1.draw_all()
-            plt.tight_layout()
-        else:
-            imP.set_data(lawr.prog_data[t, :, :])
-            prob.set_data(lawr.probabilities[t,:,:])
-            for tp in imR.collections:
-                tp.remove()
-            imR = ax1.contour(lawr.nested_data[prog + t, :, :], contours,
-                              norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        #if len(str(dwd.second[dwd.trainTime + t])) == 1:
-        #    seconds = '0' + str(dwd.second[dwd.trainTime + t])
-        #else:
-        #    seconds = str(dwd.second[dwd.trainTime + t])
-
-        plt.pause(0.1)
+            plt.pause(0.1)
         #plt.savefig(
         #    '/scratch/local1/plots/probability_' + str(year) + strMon + strDay + str(dwd.hour[dwd.trainTime + t]) + str(
         #        dwd.minute[dwd.trainTime + t]) + seconds + '.png')
+    print(datetime.now()-startTime)
+
+
+    result = Results(hit, miss, f_alert, corr_zero, BIAS, PC, POD, FAR, CSI, ORSS,year, mon, day, hour, minute)
+    return result
+
+year = 2016
+
+
+
+rain_thresholds = np.array([0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 30])
+num_r = len(rain_thresholds)
+
+
+
+progTime = 60
+
+
+runs = 40
+
+months= [6]
+startHour = 10
+days =[2,13,14,18,23,24,25]
+days = [days[0]]
+endHour = 12
+minutes=np.array([0,10,20])
+runs = len(minutes)
+hours = np.arange(startHour,endHour)
+
+dimensions = [len(months), len(days), len(hours),len(minutes),progTime,num_r]
+
+
+
+hit = np.zeros(dimensions)
+miss = np.zeros(dimensions)
+f_alert = np.zeros(dimensions)
+corr_zero = np.zeros(dimensions)
+total = np.zeros(dimensions)
+BIAS = np.zeros(dimensions)
+PC = np.zeros(dimensions)
+POD = np.zeros(dimensions)
+FAR = np.zeros(dimensions)
+CSI = np.zeros(dimensions)
+ORSS = np.zeros(dimensions)
+
+dates = []
+for mon in months:
+    for day in days:
+        for hour in hours:
+            for minute in minutes:
+                dates.append([year, mon, day, hour, minute, progTime])
+t = np.arange(len(dates))
+# startTime = datetime.now()
+# results2 = []
+# for date in dates:
+#     try:
+#         results2.append(prognosis(date[0],date[1],date[2],date[3],date[4], date[5]))
+#     except:
+#         results2.append(Results(np.nan([60, 9]), np.nan([60, 9]), np.nan([60, 9]), np.nan([60, 9]), np.nan([60, 9]),
+#                                np.nan([60, 9]), np.nan([60, 9]), np.nan([60, 9]), np.nan([60, 9]), np.nan([60, 9]),
+#                                year, mon,
+#                                day, hour, minute))
+# print(datetime.now() - startTime)
+
+startTime = datetime.now()
+pool = mp.Pool(4)
+results = []
+for date in dates:
+    try:
+
+        results.append(pool.starmap(prognosis, zip(date,t)))
+
+    except:
+        nan_dummy = np.zeros([progTime,len(rain_thresholds)])*np.nan
+        results.append(Results(nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy, date[0], date[1], date[2], date[3], date[4]))
+
+pool.close()
+pool.join()
+
+results = [r.get() for r in results]
+print(datetime.now() - startTime)

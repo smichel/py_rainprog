@@ -76,11 +76,15 @@ class radarData:
         self.allFieldsNorm = allFieldsNorm[~np.isnan(allFieldsAngle)]
         self.allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
         try:
-            self.covNormAngle = np.cov(allFieldsNorm, np.sin(allFieldsAngle * allFieldsNorm))
+            self.covNormAngle = np.cov(allFieldsNorm[~np.isnan(np.sin(allFieldsAngle * allFieldsNorm))], np.sin(allFieldsAngle * allFieldsNorm)[~np.isnan(np.sin(allFieldsAngle * allFieldsNorm))])
             self.gaussMeans = [self.meanXDisplacement, self.meanYDisplacement]
         except ValueError:
             self.covNormAngle = np.nan
             self.gaussMeans = np.nan
+
+
+
+
 
 
 class Square:
@@ -557,6 +561,25 @@ class Totalfield:
             else:
                 return fields
         return fields
+
+class Results:
+    def __init__(self, hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS,year,mon,day,hour,minute):
+        self.hit = hit
+        self.miss = miss
+        self.f_alert = f_alert
+        self.corr_zero = corr_zero
+        self.BIAS = BIAS
+        self.PC = PC
+        self.POD = POD
+        self.FAR = FAR
+        self.CSI = CSI
+        self.ORSS = ORSS
+        self.year = year
+        self.mon = mon
+        self.day = day
+        self.hour = hour
+        self.minute = minute
+
 class DWDData(radarData, Totalfield):
 
     def __init__(self, filePath):
@@ -824,14 +847,13 @@ class LawrData(radarData, Totalfield):
             self.nested_data = np.nan_to_num(self.nested_data)
             self.R = np.nan_to_num(self.R)
 
-    def extrapolation(self, dwd, progTimeSteps, prog):
+    def extrapolation(self, dwd, progTimeSteps, prog,probabilityFlag):
         self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
         self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, self.samples)
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.copy(self.prog_data)
         rainThreshold=0.5
         self.prog_data[0, :, :] = self.nested_data[prog, :, :]
-        self.probabilities[0,:,:] = self.nested_data[prog,:,:]>rainThreshold
         self.prog_start = 3 * ['']
         self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[0:2])
         self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[2:4])
@@ -849,12 +871,15 @@ class LawrData(radarData, Totalfield):
         self.prog_data[0, :, :] = importance_sampling(self.prog_data[0, :, :], self.dist_nested, self.r[-1],
                                                       self.xy, self.yx, self.xSample, self.ySample, self.d_s,
                                                       self.cRange)
-        self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
+        if probabilityFlag:
+            self.probabilities[0,:,:] = self.nested_data[prog,:,:]>rainThreshold
+
+            self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
                                           dwd.prog_data[self.prog_start_idx, :, :]>rainThreshold, dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
-        self.probabilities[0, :, :] = importance_sampling(self.probabilities[0, :, :], self.dist_nested, self.r[-1],
+            self.probabilities[0, :, :] = importance_sampling(self.probabilities[0, :, :], self.dist_nested, self.r[-1],
                                                       self.xy, self.yx, self.xSample, self.ySample, self.d_s,
                                                       self.cRange)
 
@@ -869,15 +894,15 @@ class LawrData(radarData, Totalfield):
                                                           self.xy, self.yx, self.xSample, self.ySample, self.d_s,
                                                           self.cRange)
 
+            if probabilityFlag:
+                self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
 
-            self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
-
-            self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
+                self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
                                               dwd.prog_data[self.prog_start_idx + t, :, :]>rainThreshold, dwd, self.r[-1],
                                               self.rainThreshold, self,
                                               self.Lat_nested, self.Lon_nested)
 
-            self.probabilities[t, :, :] = importance_sampling(self.probabilities[t, :, :], self.dist_nested, self.r[-1],
+                self.probabilities[t, :, :] = importance_sampling(self.probabilities[t, :, :], self.dist_nested, self.r[-1],
                                                           self.xy, self.yx, self.xSample, self.ySample, self.d_s,
                                                           self.cRange)
 
