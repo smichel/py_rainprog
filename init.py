@@ -657,7 +657,7 @@ class DWDData(radarData, Totalfield):
         proj_geo = osr.SpatialReference()
         proj_geo.ImportFromEPSG(4326)
         lawr_sitecoords = [9.973997, 53.56833]
-        lawr_cartcoords = reproject(lawr_sitecoords, projection_target=proj_cart)
+        #lawr_cartcoords = reproject(lawr_sitecoords, projection_target=proj_cart)
         boo_cartcoords = reproject(self.sitecoords[0:2], projection_target=proj_cart)
         max_dist = 50000
         self.polar_grid= reproject(points+boo_cartcoords, projection_source=proj_cart, projection_target=proj_geo)
@@ -1011,9 +1011,37 @@ def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample
     return prog_data
 
 def create_sample(gaussMeans, covNormAngle, samples):
+    '''Draw random samples from a multivariate normal distribution which is specified by the input gaussMeans and covariances.
+
+    Note:
+        https://docs.scipy.org/doc/numpy-1.15.1/reference/generated/numpy.random.multivariate_normal.html
+
+    Args:
+        gaussMeans(list): Mean of the distribution
+        covNormAngle (numpy.ndarray): 2d array containing the covariances
+        samples (int): Number of samples to be drawn
+
+    Returns:
+        vals (numpy.ndarray): interpolated data 2d array at new x,y coordinates
+    '''
     return np.random.multivariate_normal(gaussMeans, covNormAngle, samples).T
 
-def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
+def get_values(xSample, ySample, x, y, nested_data):
+    '''Returns an interpolated array of the x and y coordinated from the input data array (nested_data).
+
+    Note:
+        The new and x and y coordinates need to be positive and within range of the dimensions of nested_data.
+        There is no extrapolation implemented.
+
+    Args:
+        xSample(numpy.ndarray): data array in 2d
+        ySample (numpy.ndarray): 2d array containing new x coordinates
+        x (numpy.ndarray): 2d array containing new y coordinates
+        y (numpy.ndarray):
+
+    Returns:
+        vals (numpy.ndarray): interpolated data 2d array at new x,y coordinates
+    '''
     x = np.full((len(xSample), len(x)), x).T
     y = np.full((len(ySample), len(y)), y).T
     x_= x - xSample
@@ -1022,7 +1050,21 @@ def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
     return vals
 
 @jit(nopython=True)
-def interp2d(nested_data, x, y):  # nested_data in 2d
+def interp2d(nested_data, x, y):
+    '''Returns an interpolated(areal interpolation) array of the x and y coordinated from the input data array (nested_data).
+
+    Note:
+        The new and x and y coordinates need to be positive and within range of the dimensions of nested_data.
+        There is no extrapolation implemented.
+
+    Args:
+        nested_data (numpy.ndarray): data array in 2d
+        x (numpy.ndarray): 2d array containing new x coordinates
+        y (numpy.ndarray): 2d array containing new y coordinates
+
+    Returns:
+        vals (numpy.ndarray): interpolated data 2d array at new x,y coordinates
+    '''
     vals = np.empty_like(x)
     for idx, xx in np.ndenumerate(x):
         xi = int(xx)
