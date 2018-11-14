@@ -1,0 +1,177 @@
+%% Zweiseitiges Layout
+\documentclass[11pt,twoside,a4paper,fleqn]{report}
+\usepackage[top=3cm, bottom=2.5cm, left=4cm, right=3cm]{geometry}
+
+%% Schriftbild
+\usepackage{lmodern}  % Latin Modern Zeichensatz
+\usepackage[utf8]{inputenc}  % Unterstützung von Umlauten im Quelltext
+\usepackage[T1]{fontenc}  % Korrekte Umlaute im PDF
+\usepackage[ngerman]{babel}  % Silbentrennung nach neuer Rechtschreibung
+\renewcommand{\familydefault}{\sfdefault}  % Serifenlose Schrift
+\usepackage{setspace}\onehalfspacing  % 1.5-facher Zeilenabstand
+\renewcommand{\arraystretch}{1.5}  % 1.5-facher Zeilenabstand (Tabellen)
+\setlength{\parindent}{0pt}  % Keine Einrückung am Beginn von Absätzen
+\usepackage{emptypage}
+\usepackage{placeins} % plaziert figures in die richtige section
+\usepackage{multirow}
+\sloppy  % Weniger Silbentrennung
+
+% Kopfzeile: Section auf linker Seite, Subsection auf rechter Seite
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection\ #1}}
+\fancyhf{}
+\fancyhead[LE,RO]{\small{\thepage}}
+\fancyhead[LO]{\small{\rightmark}}
+\fancyhead[RE]{\small{\leftmark}}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{%
+  \fancyhead{}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+%% Literaturverzeichnis (BibTex)
+\usepackage{natbib}
+\bibliographystyle{apalike}  % Layout des Literaturverzeichnisses
+
+%% Verlinkung von Inhaltsverzeichnis, Bildern und Formeln
+\usepackage[pagebackref]{hyperref}  % Verlinkung von URLs und Referenzen
+\usepackage{color}  % Definition der Linkfarben
+\definecolor{DarkRed}{rgb}{0.5,0,0}
+\definecolor{Black}{rgb}{0,0,0}
+\hypersetup{
+  colorlinks,
+  citecolor=Black,
+  linkcolor=Black,
+  urlcolor=Black}
+
+%% Mathematikumgebung
+\usepackage{mathtools}
+\usepackage{amsmath}
+\usepackage{amssymb}  % Erweiterte Bibliothek mathematischer Symbole
+%\usepackage{euler}  % Serifenlose Schrift in Formelumgebungen
+\usepackage[makeroom]{cancel}  % Durchstreichen von Termen
+\renewcommand{\deg}{\ensuremath{^{\circ}}}  % Grad Zeichen im Text
+\renewcommand{\epsilon}{\varepsilon}  % Nutze richtiges Epsilon
+
+%% Grafikumgebungen
+\usepackage{graphicx}  % Erweiterte Grafikumgebung
+\usepackage{float}  % Automatische Positionierung von Bildern
+\usepackage{subcaption}  %  Bildunterschriften für subfigures
+
+%% Formeln, Bilder und Tabellen pro section nummerieren
+\numberwithin{equation}{chapter}
+\numberwithin{figure}{chapter}
+\numberwithin{table}{chapter}
+
+%% Listenumgebung
+\usepackage{enumerate}
+\usepackage{textcomp}  % Korrekte serifenlose Aufzählungszeichen
+
+%% Farbige Umrahmungen
+\usepackage{framed}
+\definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
+
+%% Blindtext zum Testen des Layouts
+\usepackage{blindtext}
+
+%% Inhalt der Titelseite
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setcounter{section}{0}
+\begin{document}
+	\thispagestyle{empty}
+	\begin{center}
+		\hspace*{0pt}\vfill
+		\begin{Huge}
+			Development and Evaluation of a Probabilistic Precipitation Predictor
+		\end{Huge}
+		\vfill
+		\begin{minipage}{0.5\textwidth}
+			\centering
+			%\begin{flushleft}
+				\begin{large}
+					Masterthesis by
+				\end{large}
+				\\\vspace{0.5cm}
+				\begin{huge}
+					Simon Michel
+				\end{huge}
+			%\end{flushleft}
+		\end{minipage}
+		\vfill
+		
+		\begin{minipage}{0.5\textwidth}
+			\centering
+			%\begin{flushleft}
+				\begin{large}
+					%Matrikelnummer: 6353359\\
+					Universität Hamburg\\
+					Fachbereich Geowissenschaften
+				\end{large}
+			%\end{flushleft}
+		\end{minipage}
+		\vfill
+		
+		\begin{minipage}{0.5\textwidth}
+			\centering
+			%\begin{flushleft}
+				\begin{large}
+					%Matrikelnummer: 6353359\\
+					Erstgutachter: Dr. Marco Clemens\\
+					Zweitgutachter: Prof. Dr. Felix Ament
+				\end{large}
+			%\end{flushleft}
+		\end{minipage}
+		\vfill
+		\begin{minipage}{0.5\textwidth}
+			\centering
+			%\begin{flushleft}
+				\begin{large}
+					Hamburg, \today
+				\end{large}
+			%\end{flushleft}
+		\end{minipage}
+		\vfill
+	\end{center}
+	
+	\newpage
+	\thispagestyle{empty}
+	\null
+	\vfill
+	Bachelorarbeit im Fachbereich Geowissenschaften der Universität Hamburg\\
+	Thema der Arbeit: \glqq Ableitung und Analyse der Meeresoberflächentemperatur, der Verdunstung und des Süßwasserflusses aus OceanRAIN\grqq
+	
+	
+\newpage
+\renewcommand{\abstractname}{\huge \flushleft Zusammenfassung}
+\begin{abstract}
+\null
+\end{abstract}
+\thispagestyle{empty}
+\pagestyle{empty}
+\tableofcontents
+\listoffigures
+\listoftables
+\newpage\pagestyle{fancy}
+\chapter{Einleitung}
+\pagenumbering{arabic}
+\chapter{Methodik}
+\section{Datensatz}
+\chapter{Fazit und Ausblick}
+\chapter{Danksagungen}
+\bibliography{References}
+\chapter{Eidesstattliche Erklärung}
+Ich versichere an Eides statt, dass ich diese Arbeit selbstständig verfasst und keine anderen als die angegebenen Hilfsmittel benutzt habe. Insbesondere habe ich keine im Literaturverzeichnis nicht genannten Internet-Quellen benutzt. Diese Arbeit habe ich vorher nicht in einem anderen Prüfungsverfahren eingereicht und die eingereichte schriftliche Fassung entspricht der Fassung auf dem elektronischen Speichermedium. Ich stimme einer Veröffentlichung dieser Arbeit zu.
+\\
+\\
+\\
+\\
+\\
+Simon Michel\\
+Hamburg, \today
+\end{document}
+
