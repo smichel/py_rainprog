@@ -6,7 +6,7 @@
 \usepackage{lmodern}  % Latin Modern Zeichensatz
 \usepackage[utf8]{inputenc}  % Unterstützung von Umlauten im Quelltext
 \usepackage[T1]{fontenc}  % Korrekte Umlaute im PDF
-\usepackage[ngerman]{babel}  % Silbentrennung nach neuer Rechtschreibung
+\usepackage[english]{babel}  % Silbentrennung nach neuer Rechtschreibung
 \renewcommand{\familydefault}{\sfdefault}  % Serifenlose Schrift
 \usepackage{setspace}\onehalfspacing  % 1.5-facher Zeilenabstand
 \renewcommand{\arraystretch}{1.5}  % 1.5-facher Zeilenabstand (Tabellen)
@@ -87,7 +87,7 @@
 	\begin{center}
 		\hspace*{0pt}\vfill
 		\begin{Huge}
-			Development and Evaluation of a Probabilistic Precipitation Predictor
+			Probabilistic Radar-Based Precipitation Nowcasting
 		\end{Huge}
 		\vfill
 		\begin{minipage}{0.5\textwidth}
@@ -142,12 +142,12 @@
 	\thispagestyle{empty}
 	\null
 	\vfill
-	Bachelorarbeit im Fachbereich Geowissenschaften der Universität Hamburg\\
-	Thema der Arbeit: \glqq Ableitung und Analyse der Meeresoberflächentemperatur, der Verdunstung und des Süßwasserflusses aus OceanRAIN\grqq
+	Masterthesis im Fachbereich Geowissenschaften der Universität Hamburg\\
+	Thema der Arbeit: \glqq Probabilistic Radar-Based Precipitation Nowcasting\grqq
 	
 	
 \newpage
-\renewcommand{\abstractname}{\huge \flushleft Zusammenfassung}
+\renewcommand{\abstractname}{\huge \flushleft Abstract}
 \begin{abstract}
 \null
 \end{abstract}
@@ -157,14 +157,42 @@
 \listoffigures
 \listoftables
 \newpage\pagestyle{fancy}
-\chapter{Einleitung}
+\chapter{Introduction}
 \pagenumbering{arabic}
-\chapter{Methodik}
-\section{Datensatz}
-\chapter{Fazit und Ausblick}
-\chapter{Danksagungen}
+\chapter{Data}
+\section{DWD Radar Data}
+Boostedt DWD radar site: 54.0055° N, 10.04683° E, 124.6 m height
+
+Precipitation scan: 0.5° ,following orographie (150 km range)
+250m range gates, 1° azimuth steps
+5 minute time resolution
+C-Band
+100 km x 100 km box around PATTERN radar position taken from the whole radar image
+\section{PATTERN Radar Data}
+% https://wetterradar.uni-hamburg.de/index.php?id=4035
+PATTERN Hamburg radar position: 53.56833°N, 9.97997° E, ~80m height
+
+60m range gates, 1° azimuth steps (20 km range)
+30s time resolution
+X-Band
+\chapter{Methodology}
+\section{Prognosis Model}
+\subsection{Setting of Parameters}
+\subsection{Gridding and Coordinate Transformation}
+Both the DWD and PATTERN radar data are initially in a polar grid around their respective radar stations. For simplicity and nesting/comparability between both radars, the data is transformed and gridded to a Cartesian grid. 
+This is done by using the Transverse Mercator projection transforming the polar grid coordinates to a Cartesian grid. The Transverse Mercator projection divides the Earth into 60 zones with  6° longitude in width. This reduces the distortion due to the curvature of the earth. The viewed region lies in the EPSG zone 32632. 
+
+
+
+\subsection{Interpolation}
+\subsection{Displacement Detection}
+\subsection{Importance Sampling}
+\section{Evaluation Methods}
+\chapter{Results and Discussion}
+\chapter{Conclusion and Outlook}
+\chapter{Acknowledgement}
 \bibliography{References}
-\chapter{Eidesstattliche Erklärung}
+\chapter{Eidesstattliche Versicherung}
 Ich versichere an Eides statt, dass ich diese Arbeit selbstständig verfasst und keine anderen als die angegebenen Hilfsmittel benutzt habe. Insbesondere habe ich keine im Literaturverzeichnis nicht genannten Internet-Quellen benutzt. Diese Arbeit habe ich vorher nicht in einem anderen Prüfungsverfahren eingereicht und die eingereichte schriftliche Fassung entspricht der Fassung auf dem elektronischen Speichermedium. Ich stimme einer Veröffentlichung dieser Arbeit zu.
 \\
 \\
