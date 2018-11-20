@@ -35,9 +35,12 @@
 
 \usepackage{tikz}
 \usepackage{pgfplots}
-\pgfmathdeclarefunction{invgauss}{2}{%
-	\pgfmathparse{sqrt(-2*ln(#1))*cos(deg(2*pi*#2))}%
+\pgfplotsset{compat=1.11}
+\pgfmathdeclarefunction{gauss}{3}{%
+  \pgfmathparse{1/(sqrt(pow(#2,2)*2*pi))*exp(-(pow((#3-#1),2))/(2*pow(#2,2)))}%
 }
+
+\pgfmathsetseed{12344}%
 
 %% Literaturverzeichnis (BibTex)
 \usepackage{natbib}
@@ -300,22 +303,36 @@ Least square correlation
 	
 	
 	\begin{tikzpicture}
-	\fill (0,0) circle[radius=2pt];
-	\draw[step=1cm, gray, very thin] (0,0) grid (4,4); 
-	\draw (0,0)	-- (3,3);
-	\draw (0,0)	-- (2.7,3.3);	
-	\draw (0,0)	-- (3.3,3.3);
-	\draw (0,0)	-- (3.3,2.7);
-	\draw (0,0)	-- (3.2,3.1);
-	\draw (0,0)	-- (3.1,3.15);
-	\draw (0,0)	-- (2.9,3.2);
-	\draw (0,0)	-- (3,3.1);
-	\draw (0,0)	-- (2.8,3.1);
-	\draw (0,0)	-- (2.9,2.8);
-	\draw (0,0)	-- (2.7,3.1);
+    \begin{axis}[
+	axis x line=center,
+	axis y line=center,
+	xtick={0,1,...,4},
+	ytick={0,1,...,4},
+	grid=major,
+	xmin=0,
+	ymin=0,
+	xmax=4,
+	ymax=4
+    ]
+	\fill (3,3) circle[radius=2pt];
+
+	\draw (3.32,3.3) node {$f(x,y)$};
+
+	\foreach \x in {0, ..., 15} {
+		\coordinate (A) at ({gauss(0,0.3,rand/2)},{gauss(0,0.3,rand/2)});
+		\draw (A) -- (3,3);
+		\fill (A) circle[radius=1pt];
+	}
+	\draw (1.5,0.5) --(3,3);
+	\fill (1.5,0.5) circle[radius=2pt];
+	\draw (1.5,0.3) node {$f(x_s,y_s)$};
+
+    \end{axis}
 	\end{tikzpicture}
 \end{center}
-
+\begin{equation}
+	f(x,y) = 
+\end{equation}
 \section{Evaluation Methods}
 \chapter{Results and Discussion}
 \chapter{Conclusion and Outlook}
