@@ -1051,7 +1051,7 @@ def get_values(xSample, ySample, x, y, nested_data):
 
 @jit(nopython=True)
 def interp2d(nested_data, x, y):
-    '''Returns an interpolated(areal interpolation) array of the x and y coordinated from the input data array (nested_data).
+    '''Returns an interpolated(bilinear interpolation) array of the x and y coordinated from the input data array (nested_data).
 
     Note:
         The new and x and y coordinates need to be positive and within range of the dimensions of nested_data.
