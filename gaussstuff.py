@@ -33,3 +33,7 @@ print('Fitted mean = ', coeffY[1])
 print('Fitted standard deviation = ', coeffY[2])
 
 plt.show(block=False)
+
+def gauss(x, *p):
+    A, mu, sigma = p
+    return A*np.exp(-(x-mu)**2/2.*sigma**2)

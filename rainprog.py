@@ -501,7 +501,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-result = prognosis([2016,6,13,20,0,80],0)
+result = prognosis([2016,6,2,7,20,60],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -525,53 +525,52 @@ result = prognosis([2016,6,13,20,0,80],0)
 # pool.close()
 # pool.join()
 
-import matplotlib.patches as mpatches
-contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
+# import matplotlib.patches as mpatches
+# contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
+#
+# fig, ax = plt.subplots(1)
+# cmap = plt.get_cmap('viridis')
+# cmap.colors[0] = [0.75, 0.75, 0.75]
+# dataArea1 =self.nested_data[t+1,
+#                        (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+#                        (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+# dat = ax.imshow(dataArea1, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+# plt.plot(48,48,marker='X',color='ghostwhite',markersize=8)
+# plt.plot(48+int(cIdx[1] - 0.5 * len(c)),48+int(cIdx[0] - 0.5 * len(c)),marker='X',color='black',markersize=8)
+# s = plt.colorbar(dat, format=matplotlib.ticker.ScalarFormatter())
+# s.set_label('Precipitation in mm/h')
+# s.set_clim(0, 20)
+# s.set_ticks(contours)
+# s.draw_all()
+# ax.set_xticklabels(ax.get_xticks()*0.25)
+# ax.set_yticklabels(ax.get_yticks()*0.25)
+# plt.show()
+#
+# fig, ax = plt.subplots(1)
+# cmap = plt.get_cmap('viridis')
+# cmap.colors[0] = [0.75, 0.75, 0.75]
+# dataArea1 =self.nested_data[t,
+#                        (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+#                        (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+# dat = ax.imshow(dataArea1, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
+# corrAreaRect = mpatches.Rectangle((24,24),48,48,color='r',linewidth=1,fill=0)
+# ax.add_patch(corrAreaRect)
+# plt.plot(48,48,marker='X',color='ghostwhite',markersize=8)
+# s = plt.colorbar(dat, format=matplotlib.ticker.ScalarFormatter())
+# s.set_label('Precipitation in mm/h')
+# s.set_clim(0, 20)
+# s.set_ticks(contours)
+# s.draw_all()
+# ax.set_xticklabels(ax.get_xticks()*0.25)
+# ax.set_yticklabels(ax.get_yticks()*0.25)
+# plt.show()
+#
+# fig,ax = plt.subplots(1)
+# corr = ax.imshow(c, cmap=plt.get_cmap('inferno_r'))
+# plt.colorbar(corr)
+# plt.plot(24,24,marker='X',color='ghostwhite',markersize=8)
+# plt.plot(cIdx[1],cIdx[0],marker='X',color='black',markersize=8)
+# ax.set_xticklabels(ax.get_xticks()*0.25)
+# ax.set_yticklabels(ax.get_yticks()*0.25)
+# plt.show()
 
-fig, ax = plt.subplots(1)
-cmap = plt.get_cmap('viridis')
-cmap.colors[0] = [0.75, 0.75, 0.75]
-dataArea1 =self.nested_data[t+1,
-                       (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
-                       (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
-dat = ax.imshow(dataArea1, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-plt.plot(48,48,marker='X',color='ghostwhite',markersize=8)
-plt.plot(48+int(cIdx[1] - 0.5 * len(c)),48+int(cIdx[0] - 0.5 * len(c)),marker='X',color='black',markersize=8)
-s = plt.colorbar(dat, format=matplotlib.ticker.ScalarFormatter())
-s.set_label('Precipitation in mm/h')
-s.set_clim(0, 20)
-s.set_ticks(contours)
-s.draw_all()
-ax.set_xticklabels(ax.get_xticks()*0.25)
-ax.set_yticklabels(ax.get_yticks()*0.25)
-plt.show()
-
-fig, ax = plt.subplots(1)
-cmap = plt.get_cmap('viridis')
-cmap.colors[0] = [0.75, 0.75, 0.75]
-dataArea1 =self.nested_data[t,
-                       (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
-                       (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
-dat = ax.imshow(dataArea1, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-corrAreaRect = mpatches.Rectangle((24,24),48,48,color='r',linewidth=1,fill=0)
-ax.add_patch(corrAreaRect)
-plt.plot(48,48,marker='X',color='ghostwhite',markersize=8)
-s = plt.colorbar(dat, format=matplotlib.ticker.ScalarFormatter())
-s.set_label('Precipitation in mm/h')
-s.set_clim(0, 20)
-s.set_ticks(contours)
-s.draw_all()
-ax.set_xticklabels(ax.get_xticks()*0.25)
-ax.set_yticklabels(ax.get_yticks()*0.25)
-plt.show()
-
-fig,ax = plt.subplots(1)
-corr = ax.imshow(c, cmap=plt.get_cmap('inferno_r'))
-plt.colorbar(corr)
-plt.plot(24,24,marker='X',color='ghostwhite',markersize=8)
-plt.plot(cIdx[1],cIdx[0],marker='X',color='black',markersize=8)
-ax.set_xticklabels(ax.get_xticks()*0.25)
-ax.set_yticklabels(ax.get_yticks()*0.25)
-plt.show()
-
-print(datetime.now() - startTime)

@@ -44,6 +44,9 @@
 \pgfmathdeclarefunction{gauss}{4}{%A,mu,sigma,x
 	\pgfmathparse{#1*(exp(-(pow((#4-#2),2))/(2*pow(#3,2))))}%
 }
+\pgfmathdeclarefunction{invgauss}{2}{%
+	\pgfmathparse{sqrt(-2*ln(#1))*cos(deg(2*pi*#2))}%
+}
 \pgfmathsetseed{12344}%
 
 %% Literaturverzeichnis (BibTex)
@@ -197,7 +200,13 @@ Both the DWD and PATTERN radar data are initially in a polar grid around their r
 
 This is done by using the Transverse Mercator projection transforming the polar grid coordinates to a Cartesian grid. The Transverse Mercator projection divides the Earth into 60 zones with  6° longitude in width. This reduces the distortion due to the curvature of the earth. Hamburg and its surrounding area lies in the EPSG zone 32632. 
 
-
+Displacing the point of origin in the coordinate system from the point of the radar to the EPSG zone 32632.
+\begin{equation}
+	\begin{array}{lcl}
+		x = r \cdot \cos(azi)\\
+		y = r \cdot \sin(azi)
+	\end{array}	
+\end{equation}
 
 \begin{equation}
 	Z  = 10 \cdot \log _{10}(z)
@@ -353,22 +362,26 @@ With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 
 	\draw (3.32,3.3) node {$f(x,y)$};
 
-	\foreach \x in {0, ..., 10} {%A,mu,sigma,x
+	\foreach \x in {0, ..., 24} {%A,mu,sigma,x
 		\pgfmathsetmacro{\xcoor}{rand}% x-coordinate
-		\coordinate (A) at ({gauss(1,0,1,\xcoor)},{gauss(1,0,1,\xcoor)});
-		%\draw (A) -- (3,3);
-		\fill (A) circle[radius=1pt];
+		\edef\temp{
+			%\noexpand\coordinate (A) at ({gauss(1,0,1,\xcoor)},{gauss(1,0,1,\xcoor)});
+			\noexpand\coordinate (A) at ({invgauss(rnd,rnd)/4+1},{invgauss(rnd,rnd)/4+1});
+			\noexpand\draw (A) -- (3,3);	
+			\noexpand\fill (A) circle[radius=1pt];
+		}
+	\temp
 	}
-	\draw (1.5,0.5) --(3,3);
-	\fill (1.5,0.5) circle[radius=2pt];
-	\draw (1.5,0.3) node {$f(x_s,y_s)$};
+	%\draw (1.5,0.5) --(3,3);
+	%\fill (1.5,0.5) circle[radius=2pt];
+	\draw (1.5,0.5) node {$f(x_s,y_s)$};
 
     \end{axis}
 	\end{tikzpicture}
 \end{center}
 
 \begin{equation}
-	f(x,y) = \frac{1}{N}\sum_{s=0}^{N} f(x_s,y_s)
+	f_{t+1}(x,y) = \frac{1}{N}\sum_{s=0}^{N} f_{t}(x_s,y_s)
 \end{equation}
 \section{Evaluation Methods}
 \subsection{Point to Point Evaluation}
