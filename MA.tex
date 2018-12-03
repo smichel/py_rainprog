@@ -35,11 +35,15 @@
 
 \usepackage{tikz}
 \usepackage{pgfplots}
+\usetikzlibrary{math} %needed tikz library
 \pgfplotsset{compat=1.11}
-\pgfmathdeclarefunction{gauss}{3}{%
-  \pgfmathparse{1/(sqrt(pow(#2,2)*2*pi))*exp(-(pow((#3-#1),2))/(2*pow(#2,2)))}%
+\usetikzlibrary{calc}
+%\pgfmathdeclarefunction{gauss}{3}{%
+%  \pgfmathparse{1/(sqrt(pow(#2,2)*2*pi))*exp(-(pow((#3-#1),2))/(2*pow(#2,2)))}%
+%}
+\pgfmathdeclarefunction{gauss}{4}{%A,mu,sigma,x
+	\pgfmathparse{#1*(exp(-(pow((#4-#2),2))/(2*pow(#3,2))))}%
 }
-
 \pgfmathsetseed{12344}%
 
 %% Literaturverzeichnis (BibTex)
@@ -316,18 +320,18 @@ Least square correlation
 \end{figure}
 %http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
 \begin{equation}
-	\sum_{ij}^{} (c-d)^2
+	d^2_{q,p}(u,v) = \sum_{x,y}^{}\big[q(x,y)-p(x-u,y-v)\big]^2
 \end{equation}
 \subsection{Bivariate Normal Densities}
 With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 \begin{equation}
 	\rho = \dfrac{\sigma_{12}}{\sigma_1\sigma_2}
 \end{equation}
-\begin{equation*}
+\begin{equation}
 	\begin{multlined}
 		p_{x1x2}(x_1,x_2)=\dfrac{1}{2\pi\sigma_1\sigma_2\sqrt{1-\rho^2}} \times \\ e^{-\dfrac{1}{2(1-\rho^2)}\bigg[\bigg(\dfrac{x_1-\mu_1}{\sigma_1}\bigg)^2-2\rho\bigg(\dfrac{x_1-\mu_1}{\sigma_1}\bigg)\bigg(\dfrac{x_2-\mu_2}{\sigma_2}\bigg)+\bigg(\dfrac{x_2-\mu_2}{\sigma_2}\bigg)^2\bigg]}
 	\end{multlined}
-\end{equation*}
+\end{equation}
 \subsection{Importance Sampling}
 
 \begin{center}
@@ -349,9 +353,10 @@ With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 
 	\draw (3.32,3.3) node {$f(x,y)$};
 
-	\foreach \x in {0, ..., 15} {
-		\coordinate (A) at ({gauss(0,0.3,rand/2)},{gauss(0,0.3,rand/2)});
-		\draw (A) -- (3,3);
+	\foreach \x in {0, ..., 10} {%A,mu,sigma,x
+		\pgfmathsetmacro{\xcoor}{rand}% x-coordinate
+		\coordinate (A) at ({gauss(1,0,1,\xcoor)},{gauss(1,0,1,\xcoor)});
+		%\draw (A) -- (3,3);
 		\fill (A) circle[radius=1pt];
 	}
 	\draw (1.5,0.5) --(3,3);
@@ -361,9 +366,7 @@ With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
     \end{axis}
 	\end{tikzpicture}
 \end{center}
-\begin{equation}
-	f(x,y) = 
-\end{equation}
+
 \begin{equation}
 	f(x,y) = \frac{1}{N}\sum_{s=0}^{N} f(x_s,y_s)
 \end{equation}
