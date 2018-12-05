@@ -231,7 +231,9 @@ a and b are empirically-derived parameters. DWD and PATTERN use following values
 
 \subsection{Interpolation Methods}
 \subsubsection{Barycentric Interpolation}
+To transform the data from a polar grid to a Cartesian grid a Barycentric interpolation is applied to the radar data. The Barycentric interpolation is implemented following \cite{bary}. 
 
+For the two dimensional barycentric interpolation the first step is to arrange the initial grid, here a polar grid around the radar site, into triangles. A possible way to do this is using the Delaunay Triangulation after \cite{delaunay}. This triangulation triangulates triangles from set of points \textbf{P} so that no point in \textbf{P} is inside of the circumcircle of any triangle.
 \begin{center}
 	
 	
@@ -275,48 +277,55 @@ f(x_P,y_P) = d\,f(x_A,y_A)+e\,f(x_B,y_B)+g\,f(x_C,y_C)
 \end{equation}
 
 \subsubsection{Bilinear Interpolation}
-\begin{center}
+Following a similiar approach as \cite{bilinear} the bilinear interpolation is implemented as the equation \ref{eq:bilinear}. The bilinear interpolation is used for datapoints which lie inside of a square Cartesian grid. This is depicted in Fig. \ref{fig:bilinear}. The point $(x,y)$ is surrounded by the points $(x_1,y_1),(x_2,y_1),(x_2,y_2),(x_1,y_2)$. Now to calculate the value $f(x,y)$, the values of the surrounding points $f(x_1,y_1),f(x_2,y_1),f(x_2,y_2),f(x_1,y_2)$ are weighted with their respective opposite areas $m,n,o,p $ and are summed up. 
 
 
-\begin{tikzpicture}
-
-\draw (0,0) rectangle (4,4);
-\draw (0,0) rectangle (1,1);
-\draw (1,1) rectangle (4,4);
-\fill (0,0) circle[radius=2pt];
-\fill (0,4) circle[radius=2pt];
-\fill (4,0) circle[radius=2pt];
-\fill (4,4) circle[radius=2pt];
-\fill (1,1) circle[radius=2pt];
-\draw (-0.3,-0.3) node {$(x_1,y_1)$};
-\draw (-0.3,4.3) node {$(x_1,y_2)$};
-\draw (4.3,-0.3) node {$(x_2,y_1)$};
-\draw (4.3,4.3) node {$(x_2,y_2)$};
-\draw (1.5,1.3) node {$(x,y)$};
-\draw (2.5,2.5) node {$m$};
-\draw (0.5,2.5) node {$n$};
-\draw (0.5,0.5) node {$o$};
-\draw (2.5,0.5) node {$p$};
-
-\end{tikzpicture}
-\end{center}
+\begin{figure}[H]
+	\centering
+	\begin{tikzpicture}
+	\draw (0,0) rectangle (4,4);
+	\draw (0,0) rectangle (1,1);
+	\draw (1,1) rectangle (4,4);
+	\fill (0,0) circle[radius=2pt];
+	\fill (0,4) circle[radius=2pt];
+	\fill (4,0) circle[radius=2pt];
+	\fill (4,4) circle[radius=2pt];
+	\fill (1,1) circle[radius=2pt];
+	\draw (-0.3,-0.3) node {$(x_1,y_1)$};
+	\draw (-0.3,4.3) node {$(x_1,y_2)$};
+	\draw (4.3,-0.3) node {$(x_2,y_1)$};
+	\draw (4.3,4.3) node {$(x_2,y_2)$};
+	\draw (1.5,1.3) node {$(x,y)$};
+	\draw (2.5,2.5) node {$m$};
+	\draw (0.5,2.5) node {$n$};
+	\draw (0.5,0.5) node {$o$};
+	\draw (2.5,0.5) node {$p$};
+	\end{tikzpicture}
+	\caption{Bilinear Interpolation}
+	\label{fig:bilinear}	
+\end{figure}
 
 \begin{equation}
 	f(x,y) = m\,f(x_1,y_1)+n\,f(x_2,y_1)+o\,f(x_2,y_2)+p\,f(x_1,y_2)
+	\label{eq:bilinear}
 \end{equation}
 \subsection{Displacement Detection}
 Least square correlation
-
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{maximaOverview.eps}
+	\caption{Boostedt radar, with the maxima marked with 'x'}
+\end{figure}
 \begin{figure}[h]
 	\centering
 	\begin{minipage}{0.45\textwidth}
 		\includegraphics[width=\textwidth,trim={15mm 0 15mm 0},clip]{Displacement_t0.png}
-		\caption{Sector of the boostedt radar on timestep 0}
+		\caption{Sector of the boostedt radar at timestep t}
 		\label{fig:displacement_t0}
 	\end{minipage}\hfill
 	\begin{minipage}{0.45\textwidth}
 		\includegraphics[width=\textwidth,trim={15mm 0 15mm 0},clip]{Displacement_t1.png}
-		\caption{Sector of the boostedt radar on timestep 1}
+		\caption{Sector of the boostedt radar at timestep t+1}
 		\label{fig:displacment_t1}
 	\end{minipage}
 
@@ -341,11 +350,11 @@ With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 		p_{x1x2}(x_1,x_2)=\dfrac{1}{2\pi\sigma_1\sigma_2\sqrt{1-\rho^2}} \times \\ e^{-\dfrac{1}{2(1-\rho^2)}\bigg[\bigg(\dfrac{x_1-\mu_1}{\sigma_1}\bigg)^2-2\rho\bigg(\dfrac{x_1-\mu_1}{\sigma_1}\bigg)\bigg(\dfrac{x_2-\mu_2}{\sigma_2}\bigg)+\bigg(\dfrac{x_2-\mu_2}{\sigma_2}\bigg)^2\bigg]}
 	\end{multlined}
 \end{equation}
-\subsection{Importance Sampling}
 
-\begin{center}
-	
-	
+
+\subsection{Importance Sampling}
+	\begin{figure}[H]
+	\centering
 	\begin{tikzpicture}
     \begin{axis}[
 	axis x line=center,
@@ -378,7 +387,10 @@ With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 
     \end{axis}
 	\end{tikzpicture}
-\end{center}
+	\caption{Normal Distribution with $\mu$ = 1 and $\sigma$ = 1/4}
+	\label{fig:importancesampling}
+\end{figure}
+
 
 \begin{equation}
 	f_{t+1}(x,y) = \frac{1}{N}\sum_{s=0}^{N} f_{t}(x_s,y_s)
