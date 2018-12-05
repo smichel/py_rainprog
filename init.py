@@ -51,7 +51,7 @@ class radarData:
 
     def initial_maxima(self,prog):
         self.progField = Totalfield(
-            Totalfield.findmaxima([], self.nested_data[prog-self.trainTime, :, :], self.cRange, self.numMaxima,
+            Totalfield.findmaxima([], self.nested_data[-self.trainTime-prog, :, :], self.cRange, self.numMaxima,
                                   self.rainThreshold, self.distThreshold, self.dist_nested, self.resolution),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
             self.resolution, self.cRange, self.trainTime, self.d_s)

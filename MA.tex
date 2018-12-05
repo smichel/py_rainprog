@@ -233,7 +233,8 @@ a and b are empirically-derived parameters. DWD and PATTERN use following values
 \subsubsection{Barycentric Interpolation}
 To transform the data from a polar grid to a Cartesian grid a Barycentric interpolation is applied to the radar data. The Barycentric interpolation is implemented following \cite{bary}. 
 
-For the two dimensional barycentric interpolation the first step is to arrange the initial grid, here a polar grid around the radar site, into triangles. A possible way to do this is using the Delaunay Triangulation after \cite{delaunay}. This triangulation triangulates triangles from set of points \textbf{P} so that no point in \textbf{P} is inside of the circumcircle of any triangle.
+For the two dimensional barycentric interpolation the first step is to arrange the initial grid, here a polar grid around the radar site, into triangles. A possible way to do this is using the Delaunay Triangulation after \cite{delaunay}. This triangulation triangulates a set of points \textbf{P} so that no point in \textbf{P} is inside of the circumcircle of any triangle. Now the surrounding triangle is known for each point of the cartesian grid.
+
 \begin{center}
 	
 	
