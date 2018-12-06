@@ -196,9 +196,15 @@ X-Band
 \section{Prognosis Model}
 \subsection{Setting of Parameters}
 \subsection{Gridding and Coordinate Transformation}
-Both the DWD and PATTERN radar data are initially in a polar grid around their respective radar stations. For simplicity and nesting/comparability between both radars, the data is transformed and gridded to a Cartesian grid. 
+Both the DWD and PATTERN radar data are initially in a polar grid around their respective radar stations. For simplicity, nesting/comparability between both radars and to regard the curvature of the earth, the polar data is transformed and gridded to a Cartesian grid. 
 
 This is done by using the Transverse Mercator projection transforming the polar grid coordinates to a Cartesian grid. The Transverse Mercator projection divides the Earth into 60 zones with  6° longitude in width. This reduces the distortion due to the curvature of the earth. Hamburg and its surrounding area lies in the EPSG zone 32632. 
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{EPSG.eps}
+	\caption{EPSG Overview}
+\end{figure}
 
 Displacing the point of origin in the coordinate system from the point of the radar to the EPSG zone 32632.
 \begin{equation}
@@ -233,11 +239,13 @@ a and b are empirically-derived parameters. DWD and PATTERN use following values
 \subsubsection{Barycentric Interpolation}
 To transform the data from a polar grid to a Cartesian grid a Barycentric interpolation is applied to the radar data. The Barycentric interpolation is implemented following \cite{bary}. 
 
-For the two dimensional barycentric interpolation the first step is to arrange the initial grid, here a polar grid around the radar site, into triangles. A possible way to do this is using the Delaunay Triangulation after \cite{delaunay}. This triangulation triangulates a set of points \textbf{P} so that no point in \textbf{P} is inside of the circumcircle of any triangle. Now the surrounding triangle is known for each point of the cartesian grid.
+For the two dimensional barycentric interpolation the first step is to arrange the initial grid, here a polar grid around the radar site, into triangles. A possible way to do this is using the Delaunay Triangulation after \cite{delaunay}. This triangulation triangulates a set of points \textbf{P} so that no point in \textbf{P} is inside of the circumcircle of any triangle. Now the surrounding triangle is known for each point of the Cartesian grid.
 
-\begin{center}
-	
-	
+In comparison to coordinate systems like Cartesian or polar coordinate systems where points are offsets to a origin, barycentric coordinates describe the position of points relative to a simplex (e.g. a line, a triangle or a tetrahedron) (\citealp{bary} and \citealp{baryBerrut}). In this case barycentric coordinates are used to compare positions of points to triangles. For triangles barycentric coordinates can be understood as area coordinates. The equations to calculate the barycentric coordinates $d,e,g$ of the point $P$ in the triangle $A,B,C$ are ratios of their respective triangles and the total triangle(Fig. \ref{fig:bary}). For example the coordinate $g$ is calculated by dividing the area of the triangle $CAP$ by the area of the triangle $ABC$ (\ref{eq:barycor}).
+
+Now to get the value $f(x_p,y_p)$, the values of the points $A,B,C$ are weighted by their respective coordinate $d,e,g$ and summed up (eq. \ref{eq:baryeq}).
+\begin{figure}
+	\centering
 	\begin{tikzpicture}
 	
 	\draw (0,0) -- (2,4) -- (4,0) -- (0,0);
@@ -260,10 +268,13 @@ For the two dimensional barycentric interpolation the first step is to arrange t
 	
 	\draw (1.6,0.5) node {$d$};
 	\draw (2.4,1.8) node {$e$};
-	\draw (1.2,1.8) node {$f$};
+	\draw (1.2,1.8) node {$g$};
 				
 	\end{tikzpicture}
-\end{center}
+	\caption{Barycentric interpolation in a triangle}
+	\label{fig:bary}
+\end{figure}
+
 
 \begin{equation}
 	\begin{aligned}
@@ -271,10 +282,12 @@ For the two dimensional barycentric interpolation the first step is to arrange t
 		e = \dfrac{\Delta BCP}{\Delta ABC}\\
 		g = \dfrac{\Delta CAP}{\Delta ABC}
 	\end{aligned}
+	\label{eq:barycor}
 \end{equation}
 
 \begin{equation}
 f(x_P,y_P) = d\,f(x_A,y_A)+e\,f(x_B,y_B)+g\,f(x_C,y_C)
+\label{eq:baryeq}
 \end{equation}
 
 \subsubsection{Bilinear Interpolation}

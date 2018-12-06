@@ -574,3 +574,18 @@ result = prognosis([2016,6,13,19,20,60],0)
 # ax.set_yticklabels(ax.get_yticks()*0.25)
 # plt.show()
 
+import matplotlib.patches as mpatches
+import cartopy.crs as ccrs
+from cartopy.io.img_tiles import OSM
+import matplotlib.pyplot as plt
+import matplotlib.dates
+
+osm_tiles = OSM()
+ax = plt.axes(projection=ccrs.PlateCarree())
+ax.coastlines()
+gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                  linewidth=2, color='gray', alpha=0.5, linestyle='--')
+gl.xlabels_top = False
+gl.ylabels_left = False
+rect = mpatches.Rectangle((6,0),12,84,fill=False,color='red')
+ax.add_patch(rect)
