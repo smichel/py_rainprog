@@ -576,16 +576,49 @@ result = prognosis([2016,6,13,19,20,60],0)
 
 import matplotlib.patches as mpatches
 import cartopy.crs as ccrs
-from cartopy.io.img_tiles import OSM
+from cartopy.io.img_tiles import OSM,GoogleTiles
 import matplotlib.pyplot as plt
 import matplotlib.dates
+import matplotlib.patches as mpatches
 
 osm_tiles = OSM()
+plt.rcParams["figure.figsize"] = (9,6)
+plt.rcParams.update({'font.size': 22})
 ax = plt.axes(projection=ccrs.PlateCarree())
 ax.coastlines()
 gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                  linewidth=2, color='gray', alpha=0.5, linestyle='--')
+                  linewidth=1, color='gray', alpha=0.5, linestyle='--')
 gl.xlabels_top = False
 gl.ylabels_left = False
 rect = mpatches.Rectangle((6,0),12,84,fill=False,color='red')
 ax.add_patch(rect)
+
+google = GoogleTiles()
+mercator = google.crs
+
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111,projection=mercator)
+
+ax2.set_extent([7.5, 12.6, 52.4, 55.5])
+ax2.add_image(osm_tiles, 8, interpolation='bilinear')
+
+xy_dwd = [10.04683,54.0044]
+xy_dwd_T = mercator.transform_point(xy_dwd[0],xy_dwd[1],ccrs.PlateCarree())
+radarCircle_dwd = mpatches.Circle(xy=xy_dwd_T, radius=260000, color='r', linewidth=1, fill=0,transform = mercator)
+ax2.add_patch(radarCircle_dwd)
+xy_pat = [9.9734,53.56833]
+xy_pat_T = mercator.transform_point(xy_pat[0],xy_pat[1],ccrs.PlateCarree())
+radarCircle_pat = mpatches.Circle(xy=xy_pat_T, radius=20000*1.73, color='k', linewidth=1, fill=0,transform = mercator)
+ax2.add_patch(radarCircle_pat)
+x_rect = np.array([9.2167,10.7473])
+y_rect = np.array([53.11,54.0215])
+xy_rect=mercator.transform_points(ccrs.PlateCarree(),x_rect,y_rect)
+radarRect = mpatches.Rectangle(xy_rect[0],width=xy_rect[1,0]-xy_rect[0,0],height=xy_rect[1,1]-xy_rect[0,1], color='b',fill=0)
+ax2.add_patch(radarRect)
+
+gl2 = ax2.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                  linewidth=0.5, color='gray', alpha=0.2, linestyle='--')
+gl2.xlabels_top = False
+gl2.ylabels_left = False
+
+plt.show()

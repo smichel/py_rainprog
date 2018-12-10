@@ -192,6 +192,13 @@ PATTERN Hamburg radar position: 53.56833°N, 9.97997° E, ~80m height
 60m range gates, 1° azimuth steps (20 km range)
 30s time resolution
 X-Band
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth,trim={11cm 0 11cm 0}, clip]{radarOverview.eps}
+	\caption{Radaroverview. Red: Boostedt precip sweep, Black: Pattern precip sweep, Blue: Nesting area from boostedt radar sweep}
+	\label{fig:radarOverview}
+\end{figure}
 \chapter{Methodology}
 \section{Prognosis Model}
 \subsection{Setting of Parameters}
@@ -202,7 +209,7 @@ This is done by using the Transverse Mercator projection transforming the polar 
 
 \begin{figure}
 	\centering
-	\includegraphics[width=\textwidth]{EPSG.eps}
+	\includegraphics[width=\textwidth]{EPSG2.eps}
 	\caption{EPSG Overview}
 \end{figure}
 
@@ -324,11 +331,23 @@ Following a similiar approach as \cite{bilinear} the bilinear interpolation is i
 	\label{eq:bilinear}
 \end{equation}
 \subsection{Displacement Detection}
+In this thesis a combination of a cell and field-based algorithm is used.
+
+In order to make a prognosis on the movement of precipitation fields a displacement vector is needed and several approximations are necessary. 
+
+To find displacement vectors the following procedure is applied to the precipitation fields of the PATTERN and DWD radar.
+\begin{enumerate}
+	\item Detection of suitable patches in the precipitation field for tracking (Fig. \ref{fig:maximaOverview}).
+	\item Tracking of the patches over the evolution of several time steps.
+	\item If patches move out of the frame or become undesirable to be tracked new patches are searched in the actual time step.
+	\item Tracks of each patch are evaluated.
+\end{enumerate}
 Least square correlation
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{maximaOverview.eps}
 	\caption{Boostedt radar, with the maxima marked with 'x'}
+	\label{fig:maximaOverview}
 \end{figure}
 \begin{figure}[h]
 	\centering
