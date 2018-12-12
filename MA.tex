@@ -337,17 +337,25 @@ In order to make a prognosis on the movement of precipitation fields a displacem
 
 To find displacement vectors the following procedure is applied to the precipitation fields of the PATTERN and DWD radar.
 \begin{enumerate}
-	\item Detection of suitable patches in the precipitation field for tracking (Fig. \ref{fig:maximaOverview}).
-	\item Tracking of the patches over the evolution of several time steps.
-	\item If patches move out of the frame or become undesirable to be tracked new patches are searched in the actual time step.
+	\item Detection of suitable patches in the precipitation field for tracking (Fig. \ref{fig:maximaOverview} and Fig. \ref{fig:maximaOverviewZoom}).
+	\item Tracking of the patches (Fig. \ref{fig:displacement_t0} and Fig. \ref{fig:displacement_t1}) over the evolution of several time steps.
+	\item If patches move out of the frame or tracking becomes undesirable new patches are searched in the current time step.
 	\item Tracks of each patch are evaluated.
 \end{enumerate}
+
+
 Least square correlation
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=\textwidth]{maximaOverview.eps}
+	\includegraphics[width=0.9\textwidth]{maximaOverview.eps}
 	\caption{Boostedt radar, with the maxima marked with 'x'}
 	\label{fig:maximaOverview}
+\end{figure}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\textwidth]{maximaOverviewZoom.eps}
+	\caption{Section of the Boostedt radar, with the maxima marked with 'x',and red circles for showing the minimum distance between the local maxima}
+	\label{fig:maximaOverviewZoom}
 \end{figure}
 \begin{figure}[h]
 	\centering
@@ -359,7 +367,7 @@ Least square correlation
 	\begin{minipage}{0.45\textwidth}
 		\includegraphics[width=\textwidth,trim={15mm 0 15mm 0},clip]{Displacement_t1.png}
 		\caption{Sector of the boostedt radar at timestep t+1}
-		\label{fig:displacment_t1}
+		\label{fig:displacement_t1}
 	\end{minipage}
 
 \end{figure}
@@ -368,6 +376,12 @@ Least square correlation
 	\includegraphics[width=\textwidth,trim={15mm 0 15mm 0},clip]{Correlation_Matrix.png}
 	\caption{Correlation Matrix between the red area from \ref{fig:displacement_t0} and the total area of \ref{fig:displacment_t1}}
 	\label{fig:corr_matrix}
+\end{figure}
+
+\begin{figure}[ht]
+	\includegraphics[width=\textwidth,trim={15mm 0 15mm 0},clip]{displacement.eps}
+	\caption{Correlation Matrix between the red area from \ref{fig:displacement_t0} and the total area of \ref{fig:displacment_t1}}
+	\label{fig:displacement}
 \end{figure}
 %http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
 \begin{equation}

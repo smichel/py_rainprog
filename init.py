@@ -455,7 +455,7 @@ class Totalfield:
 
             if self.activeFields[i].sum_square>self.activeFields[i].totalLength/2:
 
-                self.inactiveFields.append(field)
+                self.inactiveFields.append(self.activeFields[i])
                 self.inactiveFields[-1].lifeTime = -1
                 del self.activeFields[i]
 
