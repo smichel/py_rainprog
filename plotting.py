@@ -48,15 +48,22 @@ ax.grid(linewidth=0.5)
 plt.show()
 
 
+plt.rcParams.update({'font.size': 22})
+plt.rcParams["figure.figsize"] = (9,6)
 fig,ax = plt.subplots(1)
 corr = ax.imshow(c, cmap=plt.get_cmap('inferno_r'))
-plt.colorbar(corr)
+s = plt.colorbar(corr)
+s.set_clim(0,np.max(c))
+s.set_label('Cross Correlation')
+s.ax.tick_params(labelsize=18)
+s.draw_all()
 plt.plot(24,24,marker='X',color='ghostwhite',markersize=8)
 plt.plot(cIdx[1],cIdx[0],marker='X',color='black',markersize=8)
 ax.set_xticklabels(ax.get_xticks()*0.25)
 ax.set_yticklabels(ax.get_yticks()*0.25)
 ax.grid(linewidth=0.5)
 plt.show()
+
 
 import matplotlib.patches as mpatches
 import cartopy.crs as ccrs
