@@ -344,11 +344,17 @@ To find displacement vectors the following procedure is applied to the precipita
 \end{enumerate}
 
 \textbf{Detection of suitable patches} \\
-In order to detect the displacement of the precipitation fields in the radar scans, suitable patches for tracking are needed. Selecting suitable patches is important for future tracking. Ideally the precipitation field inside each patch should remain Lagrangian persistent in the tracking time. Furthermore the precipitation field inside the patch should ideally have a distinguishable pattern so the  tracking via cross-correlation becomes more reliable.\\
+In order to detect the displacement of the precipitation fields in the radar scans, suitable patches for tracking are needed. Selecting suitable patches is important for future tracking. Ideally the precipitation field inside each patch should remain Lagrangian persistent in the tracking time. Furthermore the precipitation field inside the patch should ideally have a distinguishable pattern so the  tracking via cross-correlation becomes more reliable (Fig. \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). 
 
+The patches are then iteratively selected by the following procedure. First the pixel with the highest rain rate inside the precipitation field is chosen. That pixel is then set as the middle point of the patch. The patch is a square with a side length of 2\,km for the PATTERN radar and a 12\,km for the DWD radar. The next patch is then located around the pixel with the second highest rain rate inside the precipitation field. The center point of the next patch needs to have a  minimum distance of 3\,km to other center points to reduce the overlap of the patches (Fig. \ref{fig:maximaOverviewZoom}). The location of the third patch is then centered around the pixel with next highest rain rate, again with a minimum distance of 3\,km to any other center point. This procedure is then continued until a specific number of patches is chosen or no more pixels with a minimum rain rate of over 0.5\,mm and a minimum distance of 3\,km to all other center points can be found inside the radar image.\\\\
 \textbf{Tracking of the patches} \\
-
-\textbf{Evalutation of tracks} \\
+To get information about the displacement of the precipitation fields the position of the patches in the radar scans is tracked for 8 minutes for the PATTERN radar and 25 minutes for the DWD radar. This is done by estimating the displacement of each patch between two time steps via two dimensional cross-correlation (Fig \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). To estimate the displacement of one patch the patch in the radar image at the time $t$ (Fig. \ref{fig:displacement_t0}) is 'searched' in the radar image of the next time step $t + 1$ (Fig. \ref{fig:displacement_t1}). The search area is a square with double the side length of a patch, 4\,km for the PATTERN radar and 24\,km for the DWD radar. The patch is then cross-correlated with the total area of the 'search' area by using the equation  \ref{eq:crosscorr} for non-normalized cross-correlation (utilizing the squared Euclidean distance, \citealp{crosscorr}). 
+%http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
+\begin{equation}
+d^2_{q,p}(u,v) = \sum_{x,y}^{}\big[q(x,y)-p(x-u,y-v)\big]^2
+\label{eq:crosscorr}
+\end{equation}
+\textbf{Evaluation of tracks} \\
 
 
 Least square correlation
@@ -390,10 +396,7 @@ Least square correlation
 	\caption{Correlation Matrix between the red area from \ref{fig:displacement_t0} and the total area of \ref{fig:displacment_t1}}
 	\label{fig:displacement}
 \end{figure}
-%http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
-\begin{equation}
-	d^2_{q,p}(u,v) = \sum_{x,y}^{}\big[q(x,y)-p(x-u,y-v)\big]^2
-\end{equation}
+
 \subsection{Bivariate Normal Densities}
 With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 \begin{equation}
