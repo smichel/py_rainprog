@@ -355,13 +355,54 @@ To get information about the displacement of the precipitation fields the positi
 d^2_{q,p}(u,v) = \sum_{x,y}^{}\big[q(x,y)-p(x-u,y-v)\big]^2
 \label{eq:crosscorr}
 \end{equation}
-In eq. \ref{eq:crosscorr} $q$ is the patch, the sum is over $x$, $y$ of the window containing the 'search' area $p$ positioned at $u$, $v$. 
-By calculating the squared Euclidean distance for every possible position of the patch over the 'search' area, you get a matrix of squared Euclidean distances for all possible positions (Fig. \ref{fig:corr_matrix}). Low values indicate a low Euclidean distance and high values a high Euclidean distance. A low Euclidean distance indicates a high similarity between the patch and the corresponding window used for the calculation of the squared Euclidean distance and a high Euclidean distance vice versa a low similarity.
+In eq. \ref{eq:crosscorr} $q$ is the patch, the sum is over $x$, $y$ of the window containing the 'search' area $p$ positioned at $u$, $v$.\\
+By calculating the squared Euclidean distance for every possible position of the patch over the 'search' area, you get a matrix of squared Euclidean distances for all possible positions (Fig. \ref{fig:corr_matrix}). Low values indicate a low Euclidean distance and high values a high Euclidean distance. A low Euclidean distance indicates a high similarity between the patch and the corresponding window used for the calculation of the squared Euclidean distance and a high Euclidean distance vice versa a low similarity.\\
+The lowest squared Euclidean distance here is indicated by the black cross. The original position of the center point of the patch is indicated by the white cross. Thus the estimated displacement of the patch over one time step is the displacement between the white and black cross.\\
+This procedure is then applied over the total time and all patches. If the center point of a patch moves out of the radar frame or the total number of rain pixels become lower than $xy$, then the patch is discarded and a new patch is selected by the procedure described before. 
 \\\\
-\textbf{Evaluation of tracks} \\
+\textbf{Evaluation of the tracks} \\
+After estimating the displacements for all patches over the specified time periods, the tracks (multiple displacements) need to be checked for errors. The estimation of the displacements is due to several reasons not perfect. Changes in the precipitation field like a strengthening or weakening rain rate can cause a wrong displacement detection. Furthermore, in case of stratiform precipitation, a very uniform precipitation pattern in the patch and in the 'search' area can lead to an erroneous displacement detection.\\
+To differentiate good from bad tracks a orthogonal distance regression (ODR) (Fig. \ref{fig:orthogonaldist}) for each track is performed. The ODR calculates a line through a dataset of points which minimizes the squared distances from the points to their anchor points on the line. For simplicity the movement of the precipitation fields is assumed to be a line and not a curve. 
 
 
-Least square correlation
+\begin{figure}[h]
+	\centering
+	\begin{tikzpicture}
+	\begin{axis}[
+		height = 0.25\textwidth,
+		width = 0.7\textwidth,
+		axis x line=center,
+		axis y line=center,
+		xtick={0,1,...,4},
+		ytick={0,1},
+		grid=major,
+		xmin=0,
+		ymin=0,
+		xmax=4,
+		ymax=1
+		]
+		\fill (0.5,0.5) circle[radius=2pt];
+		\fill (1.1,0.7) circle[radius=2pt];
+		\fill (1.4,0.3) circle[radius=2pt];
+		\fill (1.9,0.8) circle[radius=2pt];
+		\fill (2.5,0.2) circle[radius=2pt];
+		\fill (2.9,0.6) circle[radius=2pt];
+		\fill (3.5,0.5) circle[radius=2pt];
+		\draw (0.5,0.5) -- (3.5,0.5);
+		\draw[red] (1.1,0.7) -- (1.1,0.5);
+		\draw[red] (1.4,0.3) -- (1.4,0.5);		
+		\draw[red] (1.9,0.8) -- (1.9,0.5);
+		\draw[red] (2.5,0.2) -- (2.5,0.5);
+		\draw[red] (2.9,0.6) -- (2.9,0.5);
+		
+	\end{axis}
+	\end{tikzpicture}
+	\caption{Example for the orthogonal distance regression}
+	\label{fig:orthogonaldist}
+\end{figure}
+
+
+
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\textwidth]{maximaOverview.eps}
@@ -397,7 +438,7 @@ Least square correlation
 
 \begin{figure}[ht]
 	\includegraphics[width=\textwidth,trim={5mm 0 5mm 0},clip]{displacement.eps}
-	\caption{Correlation Matrix between the red area from \ref{fig:displacement_t0} and the total area of \ref{fig:displacment_t1}}
+	\caption{Tracks of several patches over 25 minutes.}
 	\label{fig:displacement}
 \end{figure}
 
@@ -414,7 +455,7 @@ With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 
 
 \subsection{Importance Sampling}
-	\begin{figure}[H]
+\begin{figure}[h]
 	\centering
 	\begin{tikzpicture}
     \begin{axis}[
@@ -456,6 +497,7 @@ With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 \begin{equation}
 	f_{t+1}(x,y) = \frac{1}{N}\sum_{s=0}^{N} f_{t}(x_s,y_s)
 \end{equation}
+\FloatBarrier
 \section{Evaluation Methods}
 \subsection{Point to Point Evaluation}
 A rain threshold is set. Rainrates above that value e.g. 0.5 are considered to be rain, thus represented with a 1. Rainrates below that value are no rain, thus represented with a 0. Applying this threshold for the total rainfield creates a matrix of 0s and 1s. Now rainfields of the forecast and the reference values are compared.
