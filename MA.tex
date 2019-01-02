@@ -362,44 +362,8 @@ This procedure is then applied over the total time and all patches. If the cente
 \\\\
 \textbf{Evaluation of the tracks} \\
 After estimating the displacements for all patches over the specified time periods, the tracks (multiple displacements) need to be checked for errors. The estimation of the displacements is due to several reasons not perfect. Changes in the precipitation field like a strengthening or weakening rain rate can cause a wrong displacement detection. Furthermore, in case of stratiform precipitation, a very uniform precipitation pattern in the patch and in the 'search' area can lead to an erroneous displacement detection.\\
-To differentiate good from bad tracks a orthogonal distance regression (ODR) (Fig. \ref{fig:orthogonaldist}) for each track is performed. The ODR calculates a line through a dataset of points which minimizes the squared distances from the points to their anchor points on the line. For simplicity the movement of the precipitation fields is assumed to be a line and not a curve. 
-
-
-\begin{figure}[h]
-	\centering
-	\begin{tikzpicture}
-	\begin{axis}[
-		height = 0.25\textwidth,
-		width = 0.7\textwidth,
-		axis x line=center,
-		axis y line=center,
-		xtick={0,1,...,4},
-		ytick={0,1},
-		grid=major,
-		xmin=0,
-		ymin=0,
-		xmax=4,
-		ymax=1
-		]
-		\fill (0.5,0.5) circle[radius=2pt];
-		\fill (1.1,0.7) circle[radius=2pt];
-		\fill (1.4,0.3) circle[radius=2pt];
-		\fill (1.9,0.8) circle[radius=2pt];
-		\fill (2.5,0.2) circle[radius=2pt];
-		\fill (2.9,0.6) circle[radius=2pt];
-		\fill (3.5,0.5) circle[radius=2pt];
-		\draw (0.5,0.5) -- (3.5,0.5);
-		\draw[red] (1.1,0.7) -- (1.1,0.5);
-		\draw[red] (1.4,0.3) -- (1.4,0.5);		
-		\draw[red] (1.9,0.8) -- (1.9,0.5);
-		\draw[red] (2.5,0.2) -- (2.5,0.5);
-		\draw[red] (2.9,0.6) -- (2.9,0.5);
-		
-	\end{axis}
-	\end{tikzpicture}
-	\caption{Example for the orthogonal distance regression}
-	\label{fig:orthogonaldist}
-\end{figure}
+To differentiate good from bad tracks a orthogonal distance regression (ODR) (Fig. \ref{fig:orthogonaldist}) for each track is performed. The ODR calculates a line through a dataset of points which minimizes the squared distances from the points to their foot points on the line. \\
+Now the squared distance of all points to their respective foot points on line (red lines in Fig. \ref{fig:orthogonaldist}) is summed up. If this sum is bigger than the halved distance between the first and last point (dotted line) the track is rejected. The example track in Fig \ref{fig:orthogonaldist} would be rejected.
 
 
 
@@ -441,7 +405,43 @@ To differentiate good from bad tracks a orthogonal distance regression (ODR) (Fi
 	\caption{Tracks of several patches over 25 minutes.}
 	\label{fig:displacement}
 \end{figure}
-
+\begin{figure}[h]
+	\centering
+	\begin{tikzpicture}[dot/.style={circle,inner sep=1pt,fill,name=#1},
+	extended line/.style={shorten >=-#1,shorten <=-#1},
+	extended line/.default=0.2cm]
+	\begin{axis}[
+	axis x line=center,
+	axis y line=center,
+	xtick={0,1,...,5},
+	ytick={0,1,...,5},
+	grid=major,
+	xmin=0,
+	ymin=0,
+	xmax=5.5,
+	ymax=5.5
+	]
+	\node [dot=A] at (1,0) {};
+	\node [dot=B] at (2,4) {};
+	\node [dot=C] at (4,3) {};
+	\node [dot=D] at (3,3) {};
+	\node [dot=E] at (4,5) {};
+	\node [dot=F] at (4,2) {};
+	\coordinate (G) at (0,0);
+	\coordinate (H) at (5,5);
+	\draw (G) -- (H);
+	\draw [red] ($(G)!(A)!(H)$) -- (A);
+	\draw [red] ($(G)!(B)!(H)$) -- (B);
+	\draw [red] ($(G)!(C)!(H)$) -- (C);
+	%\draw [red] ($(G)!(D)!(H)$) -- (D);
+	\draw [red] (E) -- ($(G)!(E)!(H)$);
+	\draw [red] (F) -- ($(G)!(F)!(H)$);
+	\draw [dotted] (A) -- (E);
+	\end{axis}
+	\end{tikzpicture}
+	\caption{Example for the orthogonal distance regression. The black line is the line which is calculated by the orthogonal distance regression. The red lines show the distance from the points to their respective foot points on the line. The dotted line shows the distance between the first and the last point of the tracks.}
+	\label{fig:orthogonaldist}
+\end{figure}
 \subsection{Bivariate Normal Densities}
 With $\sigma_1^2$ as $\sigma_{11}$ and $\sigma_1 \cdot\sigma_2$ as $\sigma_{12}$
 \begin{equation}
