@@ -427,7 +427,7 @@ class Totalfield:
 
         fieldNums = 0
         for field in reversed(self.activeFields):
-            if field.lifeTime < self.trainTime:
+            if field.lifeTime < self.trainTime-1:
                 self.rejectedFields.add(field)
                 self.activeFields.remove(field)
             else:

@@ -363,7 +363,7 @@ This procedure is then applied over the total time and all patches. If the cente
 \textbf{Evaluation of the tracks} \\
 After estimating the displacements for all patches over the specified time periods, the tracks (multiple displacements) need to be checked for errors. The estimation of the displacements is due to several reasons not perfect. Changes in the precipitation field like a strengthening or weakening rain rate can cause a wrong displacement detection. Furthermore, in case of stratiform precipitation, a very uniform precipitation pattern in the patch and in the 'search' area can lead to an erroneous displacement detection.\\
 To differentiate good from bad tracks a orthogonal distance regression (ODR) (Fig. \ref{fig:orthogonaldist}) for each track is performed. The ODR calculates a line through a dataset of points which minimizes the squared distances from the points to their foot points on the line. \\
-Now the squared distance of all points to their respective foot points on line (red lines in Fig. \ref{fig:orthogonaldist}) is summed up. If this sum is bigger than the halved distance between the first and last point (dotted line) the track is rejected. The example track in Fig \ref{fig:orthogonaldist} would be rejected.
+Now the squared distance of all points to their respective foot points on line (red lines in Fig. \ref{fig:orthogonaldist}) is summed up. If this sum is bigger than the halved distance between the first and last point (dotted line) the track is rejected. The example track in Fig \ref{fig:orthogonaldist} would be rejected. Furthermore tracks with less than 5 points are also rejected.
 
 
 
@@ -381,13 +381,13 @@ Now the squared distance of all points to their respective foot points on line (
 \end{figure}
 \begin{figure}[h]
 	\centering
-	\begin{minipage}{0.48\textwidth}
-		\includegraphics[width=\textwidth]{displacement_t0.eps}
+	\begin{minipage}{0.5\textwidth}
+		\includegraphics[width=\textwidth,trim={32mm 0 5mm 0},clip]{displacement_t0.eps}
 		\caption{Sector of the boostedt radar at timestep t}
 		\label{fig:displacement_t0}
 	\end{minipage}\hfill
-	\begin{minipage}{0.48\textwidth}
-		\includegraphics[width=\textwidth]{displacement_t1.eps}
+	\begin{minipage}{0.5\textwidth}
+		\includegraphics[width=\textwidth,trim={32mm 0 5mm 0},clip]{displacement_t1.eps}
 		\caption{Sector of the boostedt radar at timestep t+1}
 		\label{fig:displacement_t1}
 	\end{minipage}

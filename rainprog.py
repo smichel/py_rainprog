@@ -75,8 +75,9 @@ def prognosis(date, t):
         useRealData = 1
         prognosis = 1
         statistics = 0
-        livePlot = 1
+        livePlot = 0
         probabilityFlag = 1
+        trackingTime = 6
         samples = 16
         blobDisplacementX = -3
         blobDisplacementY = -1
@@ -85,7 +86,7 @@ def prognosis(date, t):
         booFileList = sorted(os.listdir(directoryPath))
         dwdTime = list((mon,day,hour,prog))
 
-        selectedFiles = fileSelector(directoryPath, dwdTime, 5)
+        selectedFiles = fileSelector(directoryPath, dwdTime, trackingTime)
 
 
 
