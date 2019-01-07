@@ -455,46 +455,53 @@ With $\mu_x$ and $\mu_y$ as the means of all x and y displacements the bivariate
 	\begin{multlined}
 		p_{xy}(x,y)=\dfrac{1}{2\pi\sigma_x\sigma_y\sqrt{1-\rho^2}} \times \\ e^{-\dfrac{1}{2(1-\rho^2)}\bigg[\bigg(\dfrac{x-\mu_x}{\sigma_x}\bigg)^2-2\rho\bigg(\dfrac{x-\mu_x}{\sigma_x}\bigg)\bigg(\dfrac{y-\mu_y}{\sigma_y}\bigg)+\bigg(\dfrac{y-\mu_y}{\sigma_y}\bigg)^2\bigg]}.
 	\end{multlined}
+	\label{eq:bivariate}
 \end{equation}
-Now with the 
+Now with the displacements in x and y direction from the tracks a two dimensional Gaussian distribution with \ref{eq:bivariate} is constructed. 
 \begin{figure}[h]
 	\centering
 	\begin{tikzpicture}[
-	declare function={mu1=1;},
-	declare function={mu2=1;},
-	declare function={sigma1=1;},
-	declare function={sigma2=1;},
-	declare function={normal(\m,\s)=1/(\s*sqrt(2*pi))*exp(-(x-\m)^2/(2*\s^2));},
-	declare function={bivar(\ma,\sa,\mb,\sb)= 1/(2*pi*\sa*\sb) * exp( -((x-\ma)^2/\sa^2 + (y-\mb)^2/\sb^2)/2 );}]
+	declare function={mu1=3.40909;},
+	declare function={mu2=-1.9545;},
+	declare function={sigma1=3.82178554;},
+	declare function={sigma2=0.53510949;},
+	declare function={sigma12=0.7623108;},
+	declare function={rho=0.3727546;},
+	%[ 3.82178554  0.7623108 ]
+	%[ 0.7623108   0.53510949]
+	%[3.4090909090909092, -1.9545454545454546]
+%	declare function={bivar(\ma,\sa,\mb,\sb,\corr)= 1/(2*pi*\sa*\sb) * exp( -((x-\ma)^2/(2*\sa^2)) - ((y-\mb)^2/(2*\sb^2)));}]
+		declare function={bivar(\ma,\sa,\mb,\sb,\corr)= 1/(2*pi*\sa*\sb*sqrt(1-\corr^2)) * exp(-1/(2*(1-\corr^2))*((x-\ma)^2/\sa^2-2*\corr*(x-\ma)*(y-\mb)/(\sa*\sb)+(y-\mb)^2/\sb^2));}]
 	\begin{axis}[
 	colormap name=whitered,
 	width=12cm,
-	view={45}{65},
-	enlargelimits=false,
+	view={45}{55},
+	enlargelimits=true,
 	grid=major,
-	domain=-1:3,
-	y domain=-1:3,
-	samples=26,
-	xlabel=$x_1$,
-	ylabel=$x_2$,
+	domain=-4:4,
+	y domain=-4:4,
+	samples=40,
+	xlabel=$x$,
+	ylabel=$y$,
 	zlabel={$P$},
 	colorbar,
 	colorbar style={
 		at={(1.1,0)},
+		%ytick={0.05,0.1,0.15},
 		anchor=south west,
 		height=0.2*\pgfkeysvalueof{/pgfplots/parent axis height},
 		title={$P(x,y)$}
 	}
 	]
-	\addplot3 [surf] {bivar(mu1,sigma1,mu2,sigma2)};
-	\addplot3 [domain=-1:3,samples=31, samples y=0, thick, smooth] (x,3,{normal(mu1,sigma1)});
-	\addplot3 [domain=-1:3,samples=31, samples y=0, thick, smooth] (-1,x,{normal(mu2,sigma2)});
+	\addplot3 [surf] {bivar(mu1,sigma1,mu2,sigma2,rho)};
+	%\addplot3 [domain=-1:3,samples=51, samples y=0, thick, smooth] (x,3,{normal(mu1,sigma1)});
+	%\addplot3 [domain=-1:3,samples=51, samples y=0, thick, smooth] (-1,x,{normal(mu2,sigma2)});
 	
 	\draw [black!50] (axis cs:-1,0,0) -- (axis cs:3,0,0);
 	\draw [black!50] (axis cs:0,-1,0) -- (axis cs:0,3,0);
 	
-	\node at (axis cs:-1,1,0.10) [pin=165:$P(x)$] {};
-	\node at (axis cs:1.5,3,0.0) [pin=-15:$P(y)$] {};
+	\node at (axis cs:3,3,0.2) [fill=black,circle,scale=0.3,pin=90:{$f(x,y)$}] {};
+	%\node at (axis cs:1.5,3,0.0) [pin=-15:$P(y)$] {};
 	\end{axis}
 	\end{tikzpicture}
 \end{figure}
