@@ -29,6 +29,7 @@ s.draw_all()
 ax.grid(linewidth=0.5)
 ax.set_xticklabels(ax.get_xticks()*0.25)
 ax.set_yticklabels(ax.get_yticks()*0.25)
+ax.invert_yaxis()
 plt.show()
 
 fig, ax = plt.subplots(1)
@@ -47,6 +48,7 @@ s.draw_all()
 ax.set_xticklabels(ax.get_xticks()*0.25)
 ax.set_yticklabels(ax.get_yticks()*0.25)
 ax.grid(linewidth=0.5)
+ax.invert_yaxis()
 plt.show()
 
 
@@ -64,6 +66,7 @@ plt.plot(cIdx[1],cIdx[0],marker='X',color='black',markersize=8)
 ax.set_xticklabels(ax.get_xticks()*0.25)
 ax.set_yticklabels(ax.get_yticks()*0.25)
 ax.grid(linewidth=0.5)
+ax.invert_yaxis()
 plt.show()
 
 
@@ -133,6 +136,7 @@ ax.grid(linewidth=0.5)
 s.draw_all()
 ax.set_xticklabels((ax.get_xticks()-50) * 0.25)
 ax.set_yticklabels((ax.get_yticks()-50) * 0.25)
+ax.invert_yaxis()
 
 t = 0
 fig, ax = plt.subplots(1, figsize=(10, 8))
@@ -141,7 +145,7 @@ plt.show(block=False)
 o, = plt.plot(*np.transpose(dwd.progField.return_maxima(t)[:, 2:0:-1]), 'rX')
 maxima = dwd.progField.return_maxima(t)[:, 2:0:-1]
 for u in range(len(maxima)):
-    proxCircle = mpatches.Circle((maxima[u,0],maxima[u,1]),3000/dwd.resolution,color='r',linewidth=1,fill=0)
+    proxCircle = mpatches.Circle((maxima[u,0],maxima[u,1]),3000/dwd.resolution,color='k',linewidth=1,fill=0)
     ax.add_patch(proxCircle)
 s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
 s.set_clim(0.1, 100)
@@ -152,6 +156,7 @@ ax.grid(linewidth=0.5)
 s.draw_all()
 ax.set_xticklabels(ax.get_xticks() * 0.25)
 ax.set_yticklabels(ax.get_yticks() * 0.25)
+ax.invert_yaxis()
 plt.rcParams.update({'font.size': 22})
 
 
@@ -174,3 +179,4 @@ ax.grid(linewidth=0.5)
 ax.set_xticklabels(ax.get_xticks() * 0.25)
 ax.set_yticklabels(ax.get_yticks() * 0.25)
 ax.legend((pnt,cross),('Accepted Track','Rejected Track'),numpoints=1)
+ax.invert_yaxis()

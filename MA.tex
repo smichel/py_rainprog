@@ -47,9 +47,7 @@
 \pgfmathdeclarefunction{gauss}{4}{%A,mu,sigma,x
 	\pgfmathparse{#1*(exp(-(pow((#4-#2),2))/(2*pow(#3,2))))}%
 }
-\pgfmathdeclarefunction{invgauss}{2}{%
-	\pgfmathparse{sqrt(-2*ln(#1))*cos(deg(2*pi*#2))}%
-}
+
 \pgfmathsetseed{12344}%
 
 %% Literaturverzeichnis (BibTex)
@@ -476,71 +474,95 @@ Now with the displacements in x and y direction from the tracks a two dimensiona
 	colormap name=whitered,
 	width=12cm,
 	view={45}{55},
-	enlargelimits=true,
+	enlargelimits=false,
+	scaled ticks = false,
 	grid=major,
-	domain=-4:4,
-	y domain=-4:4,
+	domain=-8:14,
+	y domain=-6:2,
 	samples=40,
 	xlabel=$x$,
 	ylabel=$y$,
 	zlabel={$P$},
 	colorbar,
 	colorbar style={
-		at={(1.1,0)},
+		at={(1,0)},
 		%ytick={0.05,0.1,0.15},
+		%every ytick scale label/.style={at={(1,0)},anchor=south east},
 		anchor=south west,
 		height=0.2*\pgfkeysvalueof{/pgfplots/parent axis height},
-		title={$P(x,y)$}
-	}
+		ylabel={$P(x,y)$},
+		yticklabel style={
+			%text width =2.5em,
+			%align=right,
+			scaled ticks = false,
+			/pgf/number format/fixed,
+			/pgf/number format/fixed zerofill,
+			/pgf/number format/precision=2
+			}
+		}
 	]
 	\addplot3 [surf] {bivar(mu1,sigma1,mu2,sigma2,rho)};
 	%\addplot3 [domain=-1:3,samples=51, samples y=0, thick, smooth] (x,3,{normal(mu1,sigma1)});
 	%\addplot3 [domain=-1:3,samples=51, samples y=0, thick, smooth] (-1,x,{normal(mu2,sigma2)});
 	
-	\draw [black!50] (axis cs:-1,0,0) -- (axis cs:3,0,0);
-	\draw [black!50] (axis cs:0,-1,0) -- (axis cs:0,3,0);
-	
-	\node at (axis cs:3,3,0.2) [fill=black,circle,scale=0.3,pin=90:{$f(x,y)$}] {};
+	\draw [black!80] (axis cs:-8,0,0) -- (axis cs:14,0,0);
+	\draw [black!80] (axis cs:0,-6,0) -- (axis cs:0,2,0);
+	\draw [blue!50] (axis cs:3.41,-6,0) -- (axis cs:3.41,2,0);
+	\draw [blue!50] (axis cs:-8,-1.95,0) -- (axis cs:14,-1.95,0);
+	\draw [blue!50] (axis cs:3.41,-1.95,0) -- (axis cs:3.41,-1.95,0.08);
+	\node at (axis cs:3.41,-1.95,0) [fill=blue,circle,scale=0.3] {};
+	\node at (axis cs:3.41,-1.95,0.08) [fill=blue,circle,scale=0.3,pin=15:{$P(\mu_x,\mu_y)$}] {};
 	%\node at (axis cs:1.5,3,0.0) [pin=-15:$P(y)$] {};
 	\end{axis}
 	\end{tikzpicture}
+	\caption{Bivariate Gaussian density, with $\mu_x=3.41$, $\mu_y=-1.95$, $\sigma_x = 3.82$, $\sigma_y=0.54$ and $\rho = 0.37$}
+	\label{fig:2dgauss}
 \end{figure}
 \subsection{Importance Sampling}
 \begin{figure}[h]
 	\centering
-	\begin{tikzpicture}
+	\begin{tikzpicture}[
+	declare function={mu1=3.40909;},
+	declare function={mu2=-1.9545;},
+	declare function={sigma1=3.82178554;},
+	declare function={sigma2=0.53510949;},
+	declare function={sigma12=0.7623108;},
+	declare function={rho=0.3727546;},
+	declare function={invgauss(\rnda,\rndb,\corr)=sqrt(-2*ln(\rnda))*sin(deg(2*pi*\rndb+asin(\corr)));}]%
     \begin{axis}[
 	axis x line=center,
 	axis y line=center,
-	xtick={0,1,...,4},
-	ytick={0,1,...,4},
+	width=0.7\textwidth,
+	height=0.4\textwidth,
+	xtick={-6,-4,...,6,8},
+	ytick={-4,-2,...,2,4},
 	grid=major,
-	xmin=0,
-	ymin=0,
-	xmax=4,
+	xmin=-6,
+	ymin=-4,
+	xmax=8,
 	ymax=4
     ]
-	\fill (3,3) circle[radius=2pt];
+	\fill (0,0) circle[radius=2pt];
 
-	\draw (3.32,3.3) node {$f(x,y)$};
+	\draw (1,0.5) node {$f_t(x,y)$};
 
 	\foreach \x in {0, ..., 24} {%A,mu,sigma,x
 		\pgfmathsetmacro{\xcoor}{rand}% x-coordinate
 		\edef\temp{
 			%\noexpand\coordinate (A) at ({gauss(1,0,1,\xcoor)},{gauss(1,0,1,\xcoor)});
-			\noexpand\coordinate (A) at ({invgauss(rnd,rnd)/4+1},{invgauss(rnd,rnd)/4+1});
-			\noexpand\draw (A) -- (3,3);	
+			\noexpand\coordinate (A) at ({invgauss(rnd,rnd,rho)*sigma1+mu1},{invgauss(rnd,rnd,rho)*sigma2+mu2});
+			\noexpand\draw (A) -- (0,0);	
 			\noexpand\fill (A) circle[radius=1pt];
 		}
 	\temp
 	}
 	%\draw (1.5,0.5) --(3,3);
 	%\fill (1.5,0.5) circle[radius=2pt];
-	\draw (1.5,0.5) node {$f(x_s,y_s)$};
+	\draw (6.75,-3) node {$f_{t+1}(x_s,y_s)$};
 
     \end{axis}
 	\end{tikzpicture}
-	\caption{Normal Distribution with $\mu$ = 1 and $\sigma$ = 1/4}
+	\caption{16 Drawn samples from the bivariate Gaussian Density function \ref{fig:2dgauss}}
 	\label{fig:importancesampling}
 \end{figure}
 
