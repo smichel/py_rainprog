@@ -70,7 +70,7 @@ def prognosis(date, t):
         rainThreshold = 0.5
         distThreshold = 19000
         prog = int(minute*2)
-        trainTime = 8
+        trainTime = 6
         numMaxes = 20
         useRealData = 1
         prognosis = 1
@@ -86,7 +86,7 @@ def prognosis(date, t):
         booFileList = sorted(os.listdir(directoryPath))
         dwdTime = list((mon,day,hour,prog))
 
-        selectedFiles = fileSelector(directoryPath, dwdTime, trackingTime)
+        selectedFiles = fileSelector(directoryPath, dwdTime, trainTime)
 
 
 
@@ -95,7 +95,7 @@ def prognosis(date, t):
         for i, file in enumerate(selectedFiles[1:]):
             dwd.addTimestep(directoryPath + '/' + file)
             #print(file)
-        dwd.initial_maxima(1)
+        dwd.initial_maxima(0)
         dwd.find_displacement(0)
 
 

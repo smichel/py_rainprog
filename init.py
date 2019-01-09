@@ -48,10 +48,10 @@ class radarData:
         delta = uv - temp[:, d]
         bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
         return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
-
+    ##TODO change start time explicit for dwd and pattern
     def initial_maxima(self,prog):
         self.progField = Totalfield(
-            Totalfield.findmaxima([], self.nested_data[prog, :, :], self.cRange, self.numMaxima,
+            Totalfield.findmaxima([], self.nested_data[-self.trainTime-prog-1, :, :], self.cRange, self.numMaxima,
                                   self.rainThreshold, self.distThreshold, self.dist_nested, self.resolution),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
             self.resolution, self.cRange, self.trainTime, self.d_s)
@@ -634,10 +634,9 @@ class DWDData(radarData, Totalfield):
 
         super().__init__(filePath)
         self.resolution = 250  # horizontal resolution in m
-        self.trainTime = 5  # 5 Timesteps for training to find the displacement vector (equals 25 minutes)
+        self.trainTime = 6  # 6 Timesteps for training to find the displacement vector (equals 25 minutes)
         self.numMaxima = 20  # number of tracked maxima
         self.distThreshold = 50000
-        self.trainTime = 5
         self.getGrid(self.resolution)
         self.offset = self.cRange * 2
         self.nested_data[0, self.offset:self.offset + self.d_s, self.offset:self.offset + self.d_s] = self.gridding()
