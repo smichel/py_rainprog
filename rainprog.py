@@ -108,7 +108,7 @@ def prognosis(date, t):
         lawr.initial_maxima(prog)
         lawr.find_displacement(prog)
 
-        if np.any(np.isnan(lawr.covNormAngle)) or lawr.normEqualOneSum>len(lawr.progField.activeIds):
+        if np.any(np.isnan(lawr.covNormAngle)) or lawr.normEqualOneSum<3*len(lawr.progField.activeIds):
             lawr.covNormAngle = dwd.covNormAngle
             lawr.gaussMeans = [x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans]
 

@@ -71,12 +71,13 @@ class radarData:
         self.meanXDisplacement = np.nanmean(self.progField.return_fieldHistX())
         self.meanYDisplacement = np.nanmean(self.progField.return_fieldHistY())
         allFieldsNorm = self.progField.return_fieldHistMeanNorm()
-        self.normEqualOneSum = np.sum(self.progField.return_fieldHistNorm()==1)
+        self.normEqualOneSum = np.sum(self.progField.return_fieldHistNorm()!=0)
         allFieldsAngle = self.progField.return_fieldHistMeanAngle()
         self.allFieldsNorm = allFieldsNorm[~np.isnan(allFieldsAngle)]
         self.allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
         try:
-            self.covNormAngle = np.cov(allFieldsNorm[~np.isnan(np.sin(allFieldsAngle * allFieldsNorm))], np.sin(allFieldsAngle * allFieldsNorm)[~np.isnan(np.sin(allFieldsAngle * allFieldsNorm))])
+            #self.covNormAngle = np.cov(allFieldsNorm[~np.isnan(np.sin(allFieldsAngle * allFieldsNorm))], np.sin(allFieldsAngle * allFieldsNorm)[~np.isnan(np.sin(allFieldsAngle * allFieldsNorm))])
+            self.covNormAngle = np.cov(self.progField.return_fieldHistX().flatten(),self.progField.return_fieldHistY().flatten())
             self.gaussMeans = [self.meanXDisplacement, self.meanYDisplacement]
         except ValueError:
             self.covNormAngle = np.nan
@@ -279,6 +280,15 @@ class Totalfield:
 
         return np.asarray(fieldHistMeanNorm)
 
+    def return_fieldHistNorm(self):
+        fieldHistNorm = []
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistNorm.extend(field.histNorm)
+
+        return np.asarray(fieldHistNorm)
+
     def return_fieldHistMeanAngle(self):
         fieldHistMeanAngle = []
 
@@ -287,6 +297,15 @@ class Totalfield:
                 fieldHistMeanAngle.extend(field.histMeanAngle)
 
         return np.asarray(fieldHistMeanAngle)
+
+    def return_fieldHistAngle(self):
+        fieldHistAngle = []
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistAngle.extend(field.histAngle)
+
+        return np.asarray(fieldHistAngle)
 
     def test_maxima(self, nestedData):
 
