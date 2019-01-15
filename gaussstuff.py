@@ -46,3 +46,4 @@ def KL(mu,epsilon,m,S,rho,r):
             rho * epsilon[0, 0] * epsilon[1, 1] - r * S[0, 0] * S[1, 1]) / (S[0, 0] * S[1, 1]) + (
                                                     epsilon[1, 1] ** 2 - S[1, 1] ** 2) / S[1, 1] ** 2) + np.log(
         (S[0, 0] * S[1, 1] * np.sqrt(1 - r ** 2)) / (epsilon[0, 0] * epsilon[1, 1] * np.sqrt(1 - rho ** 2)))
+

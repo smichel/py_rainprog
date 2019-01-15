@@ -11,7 +11,7 @@ import scipy.odr
 from sklearn.feature_extraction import image
 from numba import jit
 from wradlib_snips import make_2D_grid, reproject
-import numba
+import cv2
 from datetime import datetime
 import h5py
 import matplotlib
@@ -867,7 +867,13 @@ class LawrData(radarData, Totalfield):
 
     def extrapolation(self, dwd, progTimeSteps, prog,probabilityFlag):
         self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
-        self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, self.samples)
+        self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, 64)
+        i_gaussmeans = (np.int(self.gaussMeans[0]), np.int(self.gaussMeans[1]))
+        filtersize = 5
+        rho = self.covNormAngle[0,1]/(self.covNormAngle[0,0]*self.covNormAngle[1,1])
+        [x,y] = np.meshgrid(np.arange(-i_gaussmeans[0]-filtersize,i_gaussmeans[0]+filtersize),np.arange(-i_gaussmeans[1]-filtersize,i_gaussmeans[1]+filtersize))
+        self.kernel = twodgauss(x,y,self.covNormAngle[0,0],self.covNormAngle[1,1],-rho,self.gaussMeans[0],self.gaussMeans[1])
+
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.copy(self.prog_data)
         rainThreshold=0.5
@@ -885,10 +891,12 @@ class LawrData(radarData, Totalfield):
                                           dwd.prog_data[self.prog_start_idx, :, :], dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
-
+        self.prog_data2 = np.copy(self.prog_data)
         self.prog_data[0, :, :] = importance_sampling(self.prog_data[0, :, :], self.dist_nested, self.r[-1],
                                                       self.xy, self.yx, self.xSample, self.ySample, self.d_s,
                                                       self.cRange)
+        self.prog_data2[0,:,:] = cv2.filter2D(self.prog_data2[0,:,:],-1,self.kernel)
+
         if probabilityFlag:
             self.probabilities[0,:,:] = self.nested_data[prog,:,:]>rainThreshold
 
@@ -911,6 +919,16 @@ class LawrData(radarData, Totalfield):
             self.prog_data[t, :, :] = importance_sampling(self.prog_data[t, :, :], self.dist_nested, self.r[-1],
                                                           self.xy, self.yx, self.xSample, self.ySample, self.d_s,
                                                           self.cRange)
+
+
+            self.prog_data2[t, :, :] = self.prog_data2[t - 1, :, :]
+
+            self.prog_data2[t, :, :] = nesting(self.prog_data2[t, :, :], self.dist_nested, self.target_nested,
+                                              dwd.prog_data[self.prog_start_idx + t, :, :], dwd, self.r[-1],
+                                              self.rainThreshold, self,
+                                              self.Lat_nested, self.Lon_nested)
+
+            self.prog_data2[t, :, :] = cv2.filter2D(self.prog_data2[t, :, :], -1, self.kernel)
 
             if probabilityFlag:
                 self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
@@ -1168,6 +1186,12 @@ def leastsquarecorr(dataArea, corrArea):
 
     c_d = np.sum((image.extract_patches_2d(dataArea, corrArea.shape) - corrArea) ** 2, axis=(1, 2)).reshape(np.array(dataArea.shape) - corrArea.shape + 1)
     return c_d
+
+def twodgauss(x, y, sigma1, sigma2, rho, mu1, mu2):
+    return 1 / (2 * np.pi * sigma1 * sigma2 * np.sqrt(1 - rho ** 2)) * np.exp(-1 / (2 * (1 - rho ** 2)) * (
+           (x - mu1) ** 2 / sigma1 ** 2 - (2 * rho * (x - mu1) * (y - mu2) / (sigma1 * sigma2)) + (
+           y - mu2) ** 2 / sigma2 ** 2))
+
 
 def verification(prog_data, real_data):
     #function [BIAS,CSI,FAR,ORSS,PC,POD,hit,miss,f_alert,corr_zero]=verification(prog_data,real_data)
