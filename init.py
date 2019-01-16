@@ -783,7 +783,7 @@ class LawrData(radarData, Totalfield):
                 self.time = nc.variables['time'][:]
 
             except:
-                data = nc.variables['Att_Corr_Cband_Reflectivity'][:][:][:]
+                data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
                 if np.ma.is_masked(data):
                     data.fill_value = -32.5
                     self.z = data.filled()
@@ -869,10 +869,12 @@ class LawrData(radarData, Totalfield):
         self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
         self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, 64)
         i_gaussmeans = (np.int(self.gaussMeans[0]), np.int(self.gaussMeans[1]))
-        filtersize = 5
+        filtersize = 10
+        if np.any(filtersize < (3 * np.max(self.covNormAngle))):
+            filtersize = np.int(np.max(self.covNormAngle*3))
         rho = self.covNormAngle[0,1]/(self.covNormAngle[0,0]*self.covNormAngle[1,1])
-        [x,y] = np.meshgrid(np.arange(-i_gaussmeans[0]-filtersize,i_gaussmeans[0]+filtersize),np.arange(-i_gaussmeans[1]-filtersize,i_gaussmeans[1]+filtersize))
-        self.kernel = twodgauss(x,y,self.covNormAngle[0,0],self.covNormAngle[1,1],-rho,self.gaussMeans[0],self.gaussMeans[1])
+        [x,y] = np.meshgrid(np.arange(filtersize,-filtersize-1,-1),np.arange(filtersize,-filtersize-1,-1))
+        self.kernel = twodgauss(x,y,self.covNormAngle[0,0],self.covNormAngle[1,1],rho,self.gaussMeans[0],self.gaussMeans[1])
 
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.copy(self.prog_data)
@@ -891,11 +893,11 @@ class LawrData(radarData, Totalfield):
                                           dwd.prog_data[self.prog_start_idx, :, :], dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
-        self.prog_data2 = np.copy(self.prog_data)
-        self.prog_data[0, :, :] = importance_sampling(self.prog_data[0, :, :], self.dist_nested, self.r[-1],
-                                                      self.xy, self.yx, self.xSample, self.ySample, self.d_s,
-                                                      self.cRange)
-        self.prog_data2[0,:,:] = cv2.filter2D(self.prog_data2[0,:,:],-1,self.kernel)
+
+        #self.prog_data[0, :, :] = importance_sampling(self.prog_data[0, :, :], self.dist_nested, self.r[-1],
+        #                                              self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+        #                                              self.cRange)
+        self.prog_data[0,:,:] = cv2.filter2D(self.prog_data[0,:,:],-1,self.kernel)
 
         if probabilityFlag:
             self.probabilities[0,:,:] = self.nested_data[prog,:,:]>rainThreshold
@@ -905,9 +907,10 @@ class LawrData(radarData, Totalfield):
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
-            self.probabilities[0, :, :] = importance_sampling(self.probabilities[0, :, :], self.dist_nested, self.r[-1],
-                                                      self.xy, self.yx, self.xSample, self.ySample, self.d_s,
-                                                      self.cRange)
+            #self.probabilities[0, :, :] = importance_sampling(self.probabilities[0, :, :], self.dist_nested, self.r[-1],
+            #                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+            #                                          self.cRange)
+            self.probabilities[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel)
 
         for t in range(1,progTimeSteps):
             self.prog_data[t, :, :] = self.prog_data[t - 1, :, :]
@@ -916,19 +919,11 @@ class LawrData(radarData, Totalfield):
                                           dwd.prog_data[self.prog_start_idx + t, :, :], dwd, self.r[-1], self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
-            self.prog_data[t, :, :] = importance_sampling(self.prog_data[t, :, :], self.dist_nested, self.r[-1],
-                                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
-                                                          self.cRange)
+            #self.prog_data[t, :, :] = importance_sampling(self.prog_data[t, :, :], self.dist_nested, self.r[-1],
+            #                                              self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+            #                                              self.cRange)
 
-
-            self.prog_data2[t, :, :] = self.prog_data2[t - 1, :, :]
-
-            self.prog_data2[t, :, :] = nesting(self.prog_data2[t, :, :], self.dist_nested, self.target_nested,
-                                              dwd.prog_data[self.prog_start_idx + t, :, :], dwd, self.r[-1],
-                                              self.rainThreshold, self,
-                                              self.Lat_nested, self.Lon_nested)
-
-            self.prog_data2[t, :, :] = cv2.filter2D(self.prog_data2[t, :, :], -1, self.kernel)
+            self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t, :, :], -1, self.kernel)
 
             if probabilityFlag:
                 self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
@@ -938,10 +933,10 @@ class LawrData(radarData, Totalfield):
                                               self.rainThreshold, self,
                                               self.Lat_nested, self.Lon_nested)
 
-                self.probabilities[t, :, :] = importance_sampling(self.probabilities[t, :, :], self.dist_nested, self.r[-1],
-                                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
-                                                          self.cRange)
-
+                #self.probabilities[t, :, :] = importance_sampling(self.probabilities[t, :, :], self.dist_nested, self.r[-1],
+                #                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+                #                                          self.cRange)
+                self.probabilities[t, :, :] = cv2.filter2D(self.probabilities[t, :, :], -1, self.kernel)
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)

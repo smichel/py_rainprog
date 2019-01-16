@@ -75,8 +75,8 @@ def prognosis(date, t):
         useRealData = 1
         prognosis = 1
         statistics = 0
-        livePlot = 0
-        probabilityFlag = 1
+        livePlot = 1
+        probabilityFlag = 0
         trackingTime = 6
         samples = 16
         blobDisplacementX = -3
@@ -302,7 +302,7 @@ def prognosis(date, t):
 
         lawr.extrapolation(dwd,progTime,prog,probabilityFlag)
 
-        if 0:
+        if 1:
             if livePlot:
                 for t in range(progTime):
                     if t == 0:

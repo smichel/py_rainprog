@@ -349,6 +349,7 @@ Following a similiar approach as \cite{bilinear} the bilinear interpolation is i
 	\label{eq:bilinear}
 \end{equation}
 \subsection{Displacement Detection}
+\label{subsec:disdetect}
 In this thesis a combination of a cell and field-based algorithm is used.
 
 In order to make a prognosis on the movement of precipitation fields a displacement vector is needed and several approximations are necessary. 
@@ -363,10 +364,21 @@ To find displacement vectors the following procedure is applied to the precipita
 
 \textbf{Detection of suitable patches} \\
 In order to detect the displacement of the precipitation fields in the radar scans, suitable patches for tracking are needed. Selecting suitable patches is important for future tracking. Ideally the precipitation field inside each patch should remain Lagrangian persistent in the tracking time. Furthermore the precipitation field inside the patch should ideally have a distinguishable pattern so the  tracking via cross-correlation becomes more reliable (Fig. \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). 
-
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\textwidth]{maximaOverview.eps}
+	\caption{Boostedt radar, with the maxima marked with 'x'}
+	\label{fig:maximaOverview}
+\end{figure}
 The patches are then iteratively selected by the following procedure. First the pixel with the highest rain rate inside the precipitation field is chosen. That pixel is then set as the middle point of the patch. The patch is a square with a side length of 2\,km for the PATTERN radar and a 12\,km for the DWD radar. The next patch is then located around the pixel with the second highest rain rate inside the precipitation field. The center point of the next patch needs to have a  minimum distance of 3\,km to other center points to reduce the overlap of the patches (Fig. \ref{fig:maximaOverviewZoom}). The location of the third patch is then centered around the pixel with next highest rain rate, again with a minimum distance of 3\,km to any other center point. This procedure is then continued until a specific number of patches is chosen or no more pixels with a minimum rain rate of over 0.5\,mm and a minimum distance of 3\,km to all other center points can be found inside the radar image.\\\\
 \textbf{Tracking of the patches} \\
 To get information about the displacement of the precipitation fields the position of the patches in the radar scans is tracked for 8 minutes for the PATTERN radar and 25 minutes for the DWD radar. This is done by estimating the displacement of each patch between two time steps by calculating the squared euclidean distance (Fig \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). To estimate the displacement of one patch the patch in the radar image at the time $t$ (Fig. \ref{fig:displacement_t0}) is 'searched' in the radar image of the next time step $t + 1$ (Fig. \ref{fig:displacement_t1}). The search area is a square with double the side length of a patch, 4\,km for the PATTERN radar and 24\,km for the DWD radar. Then the squared euclidean distance is calculated between the patch and the total area of the 'search' area. The squared Euclidean distance is calculated with eq. \ref{eq:crosscorr} after \cite{crosscorr}. 
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\textwidth]{maximaOverviewZoom.eps}
+	\caption{Section of the Boostedt radar, with the maxima marked with 'x',and red circles for showing the minimum distance between the local maxima}
+	\label{fig:maximaOverviewZoom}
+\end{figure}
 %TODO hier noch ne abbildung mit nem suchquadrat in die abbildung displacement_t1
 %http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
 \begin{equation}
@@ -381,21 +393,11 @@ This procedure is then applied over the total time and all patches. If the cente
 \textbf{Evaluation of the tracks} \\
 After estimating the displacements for all patches over the specified time periods, the tracks (multiple displacements) need to be checked for errors. The estimation of the displacements is due to several reasons not perfect. Changes in the precipitation field like a strengthening or weakening rain rate can cause a wrong displacement detection. Furthermore, in case of stratiform precipitation, a very uniform precipitation pattern in the patch and in the 'search' area can lead to an erroneous displacement detection.\\
 To differentiate good from bad tracks a orthogonal distance regression (ODR) (Fig. \ref{fig:orthogonaldist}) for each track is performed. The ODR calculates a line through a dataset of points which minimizes the squared distances from the points to their foot points on the line. \\
-Now the squared distance of all points to their respective foot points on line (red lines in Fig. \ref{fig:orthogonaldist}) is summed up. If this sum is bigger than the halved distance between the first and last point (dotted line) the track is rejected. The example track in Fig \ref{fig:orthogonaldist} would be rejected.
-From all accepted tracks a mean displacement in $x$ and $y$ direction is now calculated. Additionally the covariances between all displacements, $x$ and $x$,  $x$ and $y$, $y$ and $x$ and $y$ and $y$ are calculated to know how the displacements vary with each other. 
+Now the squared distance of all points to their respective foot points on line (red lines in Fig. \ref{fig:orthogonaldist}) is summed up. If this sum is bigger than the halved distance between the first and last point (dotted line) the track is rejected. The example track in Fig \ref{fig:orthogonaldist} would be rejected. \\
+From all accepted tracks a mean displacement in $x$ and $y$ direction is now calculated. Additionally the covariances between all displacements, $x$ and $x$,  $x$ and $y$, $y$ and $x$ and $y$ and $y$ are calculated to know how the displacements vary with each other. These variables are calculated for the tracks of the DWD and the PATTERN precipitation fields. 
+If no acceptable displacements can be found for either one of the precipitation fields, the displacements from one of the precipitation fields are used for the other precipitation field.
 
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.9\textwidth]{maximaOverview.eps}
-	\caption{Boostedt radar, with the maxima marked with 'x'}
-	\label{fig:maximaOverview}
-\end{figure}
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.9\textwidth]{maximaOverviewZoom.eps}
-	\caption{Section of the Boostedt radar, with the maxima marked with 'x',and red circles for showing the minimum distance between the local maxima}
-	\label{fig:maximaOverviewZoom}
-\end{figure}
+
 \begin{figure}[h]
 	\centering
 	\begin{minipage}{0.48\textwidth}
@@ -459,6 +461,7 @@ From all accepted tracks a mean displacement in $x$ and $y$ direction is now cal
 	\caption{Example for the orthogonal distance regression. The black line is the line which is calculated by the orthogonal distance regression. The red lines show the distance from the points to their respective foot points on the line. The dotted line shows the distance between the first and the last point of the tracks.}
 	\label{fig:orthogonaldist}
 \end{figure}
+\FloatBarrier
 \subsection{Bivariate Normal Densities}
 After \cite{duda} a two dimensional Gaussian distribution, also called bivariate normal density, is defined in the following.
 With $\sigma_x \cdot\sigma_y = \sigma_{xy}$, where $\sigma_{xy}$ is the covariance of $x$ and $y$ and $\sigma_{x}$ is the variance of $x$, the correlation coefficient $\rho$ is defined by
@@ -496,10 +499,10 @@ Now with the displacements in x and y direction from the tracks a two dimensiona
 	grid=major,
 	domain=-5:5,
 	y domain=-5:5,
-	samples=40,
+	samples=41,
 	xlabel=$x$,
 	ylabel=$y$,
-	zlabel={$P$},
+	zlabel={$P(x,y)$},
 	colorbar,
 	colorbar style={
 		at={(1,0)},
@@ -532,25 +535,27 @@ Now with the displacements in x and y direction from the tracks a two dimensiona
 	%\node at (axis cs:1.5,3,0.0) [pin=-15:$P(y)$] {};
 	\end{axis}
 	\end{tikzpicture}
-	\caption{Bivariate Gaussian density, with $\mu_x=3.41$, $\mu_y=-1.95$, $\sigma_x = 3.82$, $\sigma_y=0.54$ and $\rho = 0.37$}
+	\caption{Bivariate Gaussian density, with $\mu_x=2.65$, $\mu_y=-1.61$, $\sigma_x = 0.74$, $\sigma_y=1.05$ and $\rho = -0.44$}
 	\label{fig:2dgauss}
 \end{figure}
+\FloatBarrier
 \subsection{Extrapolation}
-
+Once the $x$- and $y$ displacements are estimated and processed, they are applied to the precipitation fields of the DWD and PATTERN radar to perform the prognosis. The latest available DWD precipitation field is then simply displaced by the mean $x$- and $y$ displacements from \ref{subsec:disdetect}. This method is called Lagrangian persistence.\textbf{reference} Hereby the precipitation pattern does not change in itself and is merely moved by a constant factor. It is assumes that the precipitation does not change over the prognosis time. This obviously can lead to huge errors if the precipitation strengthens or weakens over time. Especially in convective situation this can cause a wrong prognosis. \\
+The prognosis of the DWD precipitation fields is used as a boundary condition for the PATTERN precipitation fields. The PATTERN precipitation field is nested inside the DWD precipitation field (Fig. \ref{fig:radarOverview}). By nesting the PATTERN radar area inside the DWD radar area, the possible prognosis time is greatly extended. When precipitation is on the boundary between the DWD and PATTERN radar it can get advected into the PATTERN radar area.\\
 
 \begin{equation*}
-	K =	\begin{brmatrix}[1.8em]
-	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0 	& 0 & 0 \\
-	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0	    & 0 & 0 \\
-	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0		& 0 & 0\\
-	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0 	& 0 	& 0 & 0 \\
-	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.01 	& 0 	& 0 & 0 \\
-	0 & 0 & 0 & 0 & 0 & 0 & 0.02 	& 0.07 	& 0.03 & 0 & 0\\
-	0 & 0 & 0 & 0 & 0 & 0 & 0.02& 0.15 	& 0.14 	& 0.01 & 0\\
-	0 & 0 & 0 & 0 & 0 & 0 & 0.01& 0.11	& 0.2 	& 0.04 & 0\\
-	0 & 0 & 0 & 0 & 0 & 0 & 0    & 0.03	&   0.1 & 0.04 & 0 \\
-	0 & 0 & 0 & 0 & 0 & 0 & 0    & 0    &	0.01& 0.01 & 0 \\
-	0 & 0 & 0 & 0 & 0 & 0 & 0    & 0    &	0   & 0 & 0
+	K =	\begin{brmatrix}[1.3em]
+	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0 	& 0 	& 0 \\
+	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0	    & 0 	& 0 \\
+	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0		& 0 	& 0\\
+	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0 	& 0 	& 0 	& 0 \\
+	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.01 	& 0 	& 0 	& 0 \\
+	0 & 0 & 0 & 0 & 0 & 0 & 0.02& 0.07 	& 0.03 	& 0 	& 0\\
+	0 & 0 & 0 & 0 & 0 & 0 & 0.02& 0.15 	& 0.14 	& 0.01 	& 0\\
+	0 & 0 & 0 & 0 & 0 & 0 & 0.01& 0.11	& 0.2 	& 0.04 	& 0\\
+	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.03	&   0.1 & 0.04 	& 0 \\
+	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	&	0.01& 0.01 	& 0 \\
+	0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	&	0   & 0 	& 0
 
 	\end{brmatrix}
 \end{equation*}
