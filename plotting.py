@@ -180,3 +180,23 @@ ax.set_xticklabels(ax.get_xticks() * 0.25)
 ax.set_yticklabels(ax.get_yticks() * 0.25)
 ax.legend((pnt,cross),('Accepted Track','Rejected Track'),numpoints=1)
 ax.invert_yaxis()
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+dummy=np.zeros([30,30])
+dummy[15:16,15:16]=1
+dummy[10:12,20:22]=1
+dummy[20:23,10:13]=1
+plt.rcParams.update({'font.size': 22})
+fig, ax1 = plt.subplots(1, figsize=(10, 8))
+im = ax1.imshow(dummy)
+cb = plt.colorbar(im)
+dummy2 = cv2.filter2D(dummy,-1,np.flipud(self.kernel))
+fig, ax2 = plt.subplots(1, figsize=(10, 8))
+ax2.imshow(dummy2)
+cb = plt.colorbar(im)
+ax2.set_xticks([0,5,10,15,20,25])
+ax1.set_xticks([0,5,10,15,20,25])
+ax1.grid()
+ax2.grid()
