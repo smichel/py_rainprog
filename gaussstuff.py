@@ -33,3 +33,17 @@ print('Fitted mean = ', coeffY[1])
 print('Fitted standard deviation = ', coeffY[2])
 
 plt.show(block=False)
+
+def gauss(x, *p):
+    A, mu, sigma = p
+    return A*np.exp(-(x-mu)**2/2.*sigma**2)
+
+
+def KL(mu,epsilon,m,S,rho,r):
+    return 1 / (2 * (1 - r ** 2)) * ((mu[0] - m[0]) ** 2 / S[0, 0] ** 2 - 2 * r * (
+            ((mu[0] - m[0]) * (mu[1] - m[1])) / (S[0, 0] * S[1, 1])) + (mu[1] - m[1]) ** 2 / S[1, 1] ** 2) + 1 / (
+                       2 * (1 - r ** 2)) * ((epsilon[0, 0] ** 2 - S[0, 0] ** 2) / S[0, 0] ** 2 - 2 * r * (
+            rho * epsilon[0, 0] * epsilon[1, 1] - r * S[0, 0] * S[1, 1]) / (S[0, 0] * S[1, 1]) + (
+                                                    epsilon[1, 1] ** 2 - S[1, 1] ** 2) / S[1, 1] ** 2) + np.log(
+        (S[0, 0] * S[1, 1] * np.sqrt(1 - r ** 2)) / (epsilon[0, 0] * epsilon[1, 1] * np.sqrt(1 - rho ** 2)))
+

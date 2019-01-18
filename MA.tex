@@ -1,0 +1,711 @@
+%% Zweiseitiges Layout
+\documentclass[11pt,twoside,a4paper,fleqn]{report}
+\usepackage[top=3cm, bottom=2.5cm, left=4cm, right=3cm]{geometry}
+
+%% Schriftbild
+\usepackage{lmodern}  % Latin Modern Zeichensatz
+\usepackage[utf8]{inputenc}  % Unterstützung von Umlauten im Quelltext
+\usepackage[T1]{fontenc}  % Korrekte Umlaute im PDF
+\usepackage[english]{babel}  % Silbentrennung nach neuer Rechtschreibung
+\renewcommand{\familydefault}{\sfdefault}  % Serifenlose Schrift
+\usepackage{setspace}\onehalfspacing  % 1.5-facher Zeilenabstand
+\renewcommand{\arraystretch}{1.5}  % 1.5-facher Zeilenabstand (Tabellen)
+\setlength{\parindent}{0pt}  % Keine Einrückung am Beginn von Absätzen
+\usepackage{emptypage}
+\usepackage{placeins} % plaziert figures in die richtige section
+\usepackage{multirow}
+\sloppy  % Weniger Silbentrennung
+
+% Kopfzeile: Section auf linker Seite, Subsection auf rechter Seite
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection\ #1}}
+\fancyhf{}
+\fancyhead[LE,RO]{\small{\thepage}}
+\fancyhead[LO]{\small{\rightmark}}
+\fancyhead[RE]{\small{\leftmark}}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{%
+  \fancyhead{}
+  \renewcommand{\headrulewidth}{0pt}
+}
+%% Drawing:
+
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usetikzlibrary{math} %needed tikz library
+\pgfplotsset{compat=newest}
+\pgfplotsset{
+	colormap={whitered}{color(0cm)=(white); color(1cm)=(orange!75!red)}
+}
+\usetikzlibrary{calc}
+%\pgfmathdeclarefunction{gauss}{3}{%
+%  \pgfmathparse{1/(sqrt(pow(#2,2)*2*pi))*exp(-(pow((#3-#1),2))/(2*pow(#2,2)))}%
+%}
+\pgfmathdeclarefunction{gauss}{4}{%A,mu,sigma,x
+	\pgfmathparse{#1*(exp(-(pow((#4-#2),2))/(2*pow(#3,2))))}%
+}
+
+\pgfmathsetseed{12344}%
+
+%% Literaturverzeichnis (BibTex)
+\usepackage{natbib}
+\bibliographystyle{apalike}  % Layout des Literaturverzeichnisses
+
+%% Verlinkung von Inhaltsverzeichnis, Bildern und Formeln
+\usepackage[pagebackref]{hyperref}  % Verlinkung von URLs und Referenzen
+\usepackage{color}  % Definition der Linkfarben
+\definecolor{DarkRed}{rgb}{0.5,0,0}
+\definecolor{Black}{rgb}{0,0,0}
+\hypersetup{
+  colorlinks,
+  citecolor=Black,
+  linkcolor=Black,
+  urlcolor=Black}
+
+%% Mathematikumgebung
+\usepackage{array}
+\usepackage{mathtools}
+\usepackage{amsmath}
+\usepackage{amssymb}  % Erweiterte Bibliothek mathematischer Symbole
+\newcolumntype{M}[1]{>{\hbox to #1\bgroup\hss$}l<{$\egroup}}
+%\usepackage{euler}  % Serifenlose Schrift in Formelumgebungen
+\usepackage[makeroom]{cancel}  % Durchstreichen von Termen
+\renewcommand{\deg}{\ensuremath{^{\circ}}}  % Grad Zeichen im Text
+\renewcommand{\epsilon}{\varepsilon}  % Nutze richtiges Epsilon
+\setcounter{MaxMatrixCols}{20}
+
+\makeatletter
+\newcommand\@brcolwidth{0.67em}
+\newenvironment{brmatrix}{%
+	\left[%
+	\hskip-\arraycolsep
+	\new@ifnextchar[\@brarray{\@brarray[\@brcolwidth]}%
+}{%
+	\endarray
+	\hskip -\arraycolsep
+	\right]%
+}
+\def\@brarray[#1]{\array{r*\c@MaxMatrixCols {M{#1}}}}
+\makeatother
+
+%% Grafikumgebungen
+\usepackage{graphicx}  % Erweiterte Grafikumgebung
+\usepackage{float}  % Automatische Positionierung von Bildern
+\usepackage{subcaption}  %  Bildunterschriften für subfigures
+
+%% Formeln, Bilder und Tabellen pro section nummerieren
+\numberwithin{equation}{chapter}
+\numberwithin{figure}{chapter}
+\numberwithin{table}{chapter}
+
+%% Listenumgebung
+\usepackage{enumerate}
+\usepackage{textcomp}  % Korrekte serifenlose Aufzählungszeichen
+
+%% Farbige Umrahmungen
+\usepackage{framed}
+\definecolor{shadecolor}{rgb}{0.9,0.9,0.9}
+
+%% Blindtext zum Testen des Layouts
+\usepackage{blindtext}
+
+%% Inhalt der Titelseite
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setcounter{section}{0}
+\begin{document}
+	\thispagestyle{empty}
+	\begin{center}
+		\hspace*{0pt}\vfill
+		\begin{Huge}
+			Probabilistic Radar-Based Precipitation Nowcasting
+		\end{Huge}
+		\vfill
+		\begin{minipage}{0.5\textwidth}
+			\centering
+			%\begin{flushleft}
+				\begin{large}
+					Masterthesis by
+				\end{large}
+				\\\vspace{0.5cm}
+				\begin{huge}
+					Simon Michel
+				\end{huge}
+			%\end{flushleft}
+		\end{minipage}
+		\vfill
+		
+		\begin{minipage}{0.5\textwidth}
+			\centering
+			%\begin{flushleft}
+				\begin{large}
+					%Matrikelnummer: 6353359\\
+					Universität Hamburg\\
+					Fachbereich Geowissenschaften
+				\end{large}
+			%\end{flushleft}
+		\end{minipage}
+		\vfill
+		
+		\begin{minipage}{0.5\textwidth}
+			\centering
+			%\begin{flushleft}
+				\begin{large}
+					%Matrikelnummer: 6353359\\
+					Erstgutachter: Dr. Marco Clemens\\
+					Zweitgutachter: Prof. Dr. Felix Ament
+				\end{large}
+			%\end{flushleft}
+		\end{minipage}
+		\vfill
+		\begin{minipage}{0.5\textwidth}
+			\centering
+			%\begin{flushleft}
+				\begin{large}
+					Hamburg, \today
+				\end{large}
+			%\end{flushleft}
+		\end{minipage}
+		\vfill
+	\end{center}
+	
+	\newpage
+	\thispagestyle{empty}
+	\null
+	\vfill
+	Masterthesis im Fachbereich Geowissenschaften der Universität Hamburg\\
+	Thema der Arbeit: \glqq Probabilistic Radar-Based Precipitation Nowcasting\grqq
+	
+	
+\newpage
+\renewcommand{\abstractname}{\huge \flushleft Abstract}
+\begin{abstract}
+\null
+\end{abstract}
+\thispagestyle{empty}
+\pagestyle{empty}
+\tableofcontents
+\listoffigures
+\listoftables
+\newpage\pagestyle{fancy}
+\chapter{Introduction}
+\pagenumbering{arabic}
+\chapter{Data}
+\section{DWD Radar Data}
+Boostedt DWD radar site: 54.0055° N, 10.04683° E, 124.6 m height
+
+Precipitation scan: 0.5° ,following orographie (150 km range)
+250m range gates, 1° azimuth steps
+5 minute time resolution
+C-Band
+100 km x 100 km box around PATTERN radar position taken from the whole radar image
+\section{PATTERN Radar Data}
+% https://wetterradar.uni-hamburg.de/index.php?id=4035
+PATTERN Hamburg radar position: 53.56833°N, 9.97997° E, ~80m height
+
+60m range gates, 1° azimuth steps (20 km range)
+30s time resolution
+X-Band
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth,trim={0 0 0 0}, clip]{radarOverview.eps}
+	\caption{Radaroverview. Red: Boostedt precip sweep, Black: Pattern precip sweep, Blue: Nesting area from boostedt radar sweep}
+	\label{fig:radarOverview}
+\end{figure}
+\chapter{Methodology}
+\section{Prognosis Model}
+\subsection{Setting of Parameters}
+Before the prognosis model is started several parameters (Table \ref{tab:parameter}) need to be adjusted. The parameters control crucial parts of the model. The parameters 'gridded resolution of DWD and PATTERN' control the resolution of the Cartesian grid to which the radar data gets interpolated on. The train time represents the time how long the algorithm looks back in time to track the displacements of the precipitation fields. A train time of 30\,minutes for the DWD radar data represents 6 timesteps due the temporal resolution of 5\,minutes. The train time of 5\,minutes for the PATTERN radar data are equal to 10 timesteps, where each timestep has a temporal resolution of 30\,seconds. \\
+The 'Maximum number of tracked patches' sets the maximum number of tracked patches. The number of patches is also limited by the amount of precipitation pixels inside the radar field. If no more pixels above 0.5\,mmh$^{-1}$, threshold determined by the parameter 'rain rate threshold', can be found no more patches are created. The parameter 'Distance threshold' determines how far away the centre of the patches are allowed to move from the centre of the radar area. This is introduced to reduce unwanted interactions of the displacement detection with the border of the radar area. For the PATTERN and the DWD radar this centre is the PATTERN radar location. \\
+For this prognosis model the maximum speed of clouds is assumed to be around 80\,kmh$^{-1}$(\textbf{Reference needed?}), so the 'speed threshold' is set to 80\,km$^{-1}$. This threshold limits the distance of single displacement. For the DWD radar this means the maximum distance of a single displacement is limited to approx. 6000\,m, for the PATTERN radar the maximum distance is approx. 1000\,m. The parameter 'lead time' sets the time for what duration the prognosis should run. \\
+The 'minimum distance between maxima' determines the distance between maxima for the initial maxima detection (section \ref{subsec:disdetect}). This is set to 3000\,m for both radars and is implemented to evenly spread the patches over the total radar area. Motivated by the speed threshold for clouds the 'displacement detection range for DWD and PATTERN' is set to 6000\,m and 1000\,m. \\
+The 'edge length of the patches for DWD and PATTERN' is set to 12000\,m and 2000\,m.
+\begin{table}[ht]
+	\centering
+	\caption[]{List of parameters for the prognosis algorithm.}
+	\label{tab:parameter}
+	\begin{tabular}{|l|l|l|}
+		\hline
+		Name of parameter &Value & Unit\\\hline
+		Gridded resolution of DWD & 250 & meters\\
+		Gridded resolution of PATTERN & 100 & meters\\
+		Train time of DWD & 30 & minutes\\
+		Train time of PATTERN & 5 & minutes\\
+		Maximum number of tracked patches DWD& 20 & number\\
+		Maximum number of tracked patches PATTERN& 20 & number\\
+		Distance threshold for DWD & 50000 & meters\\
+		Distance threshold for PATTERN &  19000 & meters\\
+		Rain rate threshold & 0.5 & mmh$^{-1}$ \\
+		Speed threshold & 80 & kmh$^{-1}$  \\
+		Lead time  & 60 & minutes \\
+		%Azimuth correction for PATTERN & -5 & degrees \\
+		Minimum distance between maxima & 3000 & meters \\
+		Displacement detection range for DWD & 6000 & meters\\
+		Displacement detection range for PATTERN & 1000 & meters\\
+		Edge length of patches for DWD & 12000 & meters\\
+		Edge length of patches for PATTERN & 2000 & meters\\
+		ODR squared distance threshold & 0.5 & fraction \\
+		Minimum kernel filter size & 20x20 & pixels \\\hline
+	\end{tabular}
+\end{table}
+\subsection{Gridding and Coordinate Transformation}
+Both the DWD and PATTERN radar data are initially in a polar grid around their respective radar stations. For simplicity, nesting/comparability between both radars and to regard the curvature of the earth, the polar data is transformed and gridded to a Cartesian grid. 
+
+This is done by using the Transverse Mercator projection transforming the polar grid coordinates to a Cartesian grid. The Transverse Mercator projection divides the Earth into 60 zones with  6° longitude in width. This reduces the distortion due to the curvature of the earth. Hamburg and its surrounding area lies in the EPSG zone 32632. 
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{EPSG2.eps}
+	\caption{EPSG Overview}
+\end{figure}
+
+Displacing the point of origin in the coordinate system from the point of the radar to the EPSG zone 32632.
+\begin{equation}
+	\begin{array}{lcl}
+		x = r \cdot \cos(azi)\\
+		y = r \cdot \sin(azi)
+	\end{array}	
+\end{equation}
+
+\begin{equation}
+	Z  = 10 \cdot \log _{10}(z)
+\end{equation}
+
+\begin{equation}
+	z = aR^{b}
+\end{equation}
+
+\begin{equation}
+	R = \frac{Z}{a}^{\frac{1}{b}}
+\end{equation}
+a and b are empirically-derived parameters. DWD and PATTERN use following values for the z-r relation for different radar reflectivities:
+
+\begin{equation}
+	\begin{array}{lcl}
+		Z \le 36.5 \text{dBZ}: & a = 320, b = 1.4 \\
+		36.5 \text{dBZ} < Z \le 44.0 \text{dBZ}: & a  = 200, b = 1.6 \\
+		Z > 44.0 \text{dBZ}: & a = 77, b = 1.9
+	\end{array}
+\end{equation}
+
+\subsection{Interpolation Methods}
+\subsubsection{Barycentric Interpolation}
+To transform the data from a polar grid to a Cartesian grid a Barycentric interpolation is applied to the radar data. The Barycentric interpolation is implemented following \cite{bary}. 
+
+For the two dimensional barycentric interpolation the first step is to arrange the initial grid, here a polar grid around the radar site, into triangles. A possible way to do this is using the Delaunay Triangulation after \cite{delaunay}. This triangulation triangulates a set of points \textbf{P} so that no point in \textbf{P} is inside of the circumcircle of any triangle. Now the surrounding triangle is known for each point of the Cartesian grid.
+
+In comparison to coordinate systems like Cartesian or polar coordinate systems where points are offsets to a origin, barycentric coordinates describe the position of points relative to a simplex (e.g. a line, a triangle or a tetrahedron) (\citealp{bary} and \citealp{baryBerrut}). In this case barycentric coordinates are used to compare positions of points to triangles. For triangles barycentric coordinates can be understood as area coordinates. The equations to calculate the barycentric coordinates $d,e,g$ of the point $P$ in the triangle $A,B,C$ are ratios of their respective triangles and the total triangle(Fig. \ref{fig:bary}). For example the coordinate $g$ is calculated by dividing the area of the triangle $CAP$ by the area of the triangle $ABC$ (\ref{eq:barycor}).
+
+Now to get the value $f(x_p,y_p)$, the values of the points $A,B,C$ are weighted by their respective coordinate $d,e,g$ and summed up (eq. \ref{eq:baryeq}).
+\begin{figure}
+	\centering
+	\begin{tikzpicture}
+	
+	\draw (0,0) -- (2,4) -- (4,0) -- (0,0);
+	\fill (1.5,1.5) circle[radius=2pt];
+	\fill (0,0) circle[radius=2pt];
+	\fill (2,4) circle[radius=2pt];	
+	\fill (4,0) circle[radius=2pt];	
+	\draw (0,0) -- (1.5,1.5);
+	\draw (2,4) -- (1.5,1.5);
+	\draw (4,0) -- (1.5,1.5);
+	
+%	\draw (-0.3,-0.3) node {$(x_1,y_1)$};
+%	\draw (4.3,-0.3) node {$(x_2,y_2)$};
+%	\draw (2,4.3) node {$(x_3,y_3)$};
+%	\draw (1.6,1) node {$(x,y)$};
+	\draw (-0.3,-0.3) node {$A$};
+	\draw (4.3,-0.3) node {$B$};
+	\draw (2,4.3) node {$C$};
+	\draw (1.8,1.7) node {$P$};
+	
+	\draw (1.6,0.5) node {$d$};
+	\draw (2.4,1.8) node {$e$};
+	\draw (1.2,1.8) node {$g$};
+				
+	\end{tikzpicture}
+	\caption{Barycentric interpolation in a triangle}
+	\label{fig:bary}
+\end{figure}
+
+
+\begin{equation}
+	\begin{aligned}
+		d = \dfrac{\Delta ABP}{\Delta ABC}\\
+		e = \dfrac{\Delta BCP}{\Delta ABC}\\
+		g = \dfrac{\Delta CAP}{\Delta ABC}
+	\end{aligned}
+	\label{eq:barycor}
+\end{equation}
+
+\begin{equation}
+f(x_P,y_P) = d\,f(x_A,y_A)+e\,f(x_B,y_B)+g\,f(x_C,y_C)
+\label{eq:baryeq}
+\end{equation}
+
+\subsubsection{Bilinear Interpolation}
+Following a similiar approach as \cite{bilinear} the bilinear interpolation is implemented as the equation \ref{eq:bilinear}. The bilinear interpolation is used for datapoints which lie inside of a square Cartesian grid. This is depicted in Fig. \ref{fig:bilinear}. The point $(x,y)$ is surrounded by the points $(x_1,y_1),(x_2,y_1),(x_2,y_2),(x_1,y_2)$. Now to calculate the value $f(x,y)$, the values of the surrounding points $f(x_1,y_1),f(x_2,y_1),f(x_2,y_2),f(x_1,y_2)$ are weighted with their respective opposite areas $m,n,o,p $ and are summed up. 
+
+
+\begin{figure}[H]
+	\centering
+	\begin{tikzpicture}
+	\draw (0,0) rectangle (4,4);
+	\draw (0,0) rectangle (1,1);
+	\draw (1,1) rectangle (4,4);
+	\fill (0,0) circle[radius=2pt];
+	\fill (0,4) circle[radius=2pt];
+	\fill (4,0) circle[radius=2pt];
+	\fill (4,4) circle[radius=2pt];
+	\fill (1,1) circle[radius=2pt];
+	\draw (-0.3,-0.3) node {$(x_1,y_1)$};
+	\draw (-0.3,4.3) node {$(x_1,y_2)$};
+	\draw (4.3,-0.3) node {$(x_2,y_1)$};
+	\draw (4.3,4.3) node {$(x_2,y_2)$};
+	\draw (1.5,1.3) node {$(x,y)$};
+	\draw (2.5,2.5) node {$m$};
+	\draw (0.5,2.5) node {$n$};
+	\draw (0.5,0.5) node {$o$};
+	\draw (2.5,0.5) node {$p$};
+	\end{tikzpicture}
+	\caption{Bilinear Interpolation}
+	\label{fig:bilinear}	
+\end{figure}
+
+\begin{equation}
+	f(x,y) = m\,f(x_1,y_1)+n\,f(x_2,y_1)+o\,f(x_2,y_2)+p\,f(x_1,y_2)
+	\label{eq:bilinear}
+\end{equation}
+\subsection{Displacement Detection}
+\label{subsec:disdetect}
+In this thesis a combination of a cell and field-based algorithm is used.
+
+In order to make a prognosis on the movement of precipitation fields a displacement vector is needed and several approximations are necessary. 
+
+To find displacement vectors the following procedure is applied to the precipitation fields of the PATTERN and DWD radar.
+\begin{enumerate}
+	\item Detection of suitable patches in the precipitation field for tracking (Fig. \ref{fig:maximaOverview} and Fig. \ref{fig:maximaOverviewZoom}).
+	\item Tracking of the patches (Fig. \ref{fig:displacement_t0} and Fig. \ref{fig:displacement_t1}) over the evolution of several timesteps.
+	\item If patches move out of the frame or tracking becomes undesirable new patches are searched in the current time step.
+	\item Tracks of each patch are evaluated.
+\end{enumerate}
+
+\textbf{Detection of suitable patches} \\
+In order to detect the displacement of the precipitation fields in the radar scans, suitable patches for tracking are needed. Selecting suitable patches is important for future tracking. Ideally the precipitation field inside each patch should remain Lagrangian persistent in the tracking time. Furthermore the precipitation field inside the patch should ideally have a distinguishable pattern so the  tracking via cross-correlation becomes more reliable (Fig. \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). 
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\textwidth]{maximaOverview.eps}
+	\caption{Boostedt radar, with the maxima marked with 'x'}
+	\label{fig:maximaOverview}
+\end{figure}
+The patches are then iteratively selected by the following procedure. First the pixel with the highest rain rate inside the precipitation field is chosen. That pixel is then set as the middle point of the patch. The patch is a square with a side length of 2\,km for the PATTERN radar and a 12\,km for the DWD radar. The next patch is then located around the pixel with the second highest rain rate inside the precipitation field. The centre of the next patch needs to have a  minimum distance of 3\,km to other centres to reduce the overlap of the patches (Fig. \ref{fig:maximaOverviewZoom}). The location of the third patch is then centered around the pixel with next highest rain rate, again with a minimum distance of 3\,km to any other centre. This procedure is then continued until a specific number of patches is chosen or no more pixels with a minimum rain rate of over 0.5\,mm and a minimum distance of 3\,km to all other centres can be found inside the radar image.\\\\
+\textbf{Tracking of the patches} \\
+To get information about the displacement of the precipitation fields the position of the patches in the radar scans is tracked for 8 minutes for the PATTERN radar and 25 minutes for the DWD radar. This is done by estimating the displacement of each patch between two timesteps by calculating the squared euclidean distance (Fig \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). To estimate the displacement of one patch the patch in the radar image at the time $t$ (Fig. \ref{fig:displacement_t0}) is 'searched' in the radar image of the next time step $t + 1$ (Fig. \ref{fig:displacement_t1}). The search area is a square with double the side length of a patch, 4\,km for the PATTERN radar and 24\,km for the DWD radar. Then the squared euclidean distance is calculated between the patch and the total area of the 'search' area. The squared Euclidean distance is calculated with eq. \ref{eq:crosscorr} after \cite{crosscorr}. 
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\textwidth]{maximaOverviewZoom.eps}
+	\caption{Section of the Boostedt radar, with the maxima marked with 'x',and red circles for showing the minimum distance between the local maxima}
+	\label{fig:maximaOverviewZoom}
+\end{figure}
+%TODO hier noch ne abbildung mit nem suchquadrat in die abbildung displacement_t1
+%http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
+\begin{equation}
+d^2_{q,p}(u,v) = \sum_{x,y}^{}\big[q(x,y)-p(x-u,y-v)\big]^2
+\label{eq:crosscorr}
+\end{equation}
+In eq. \ref{eq:crosscorr} $q$ is the patch, the sum is over $x$, $y$ of the window containing the 'search' area $p$ positioned at $u$, $v$.\\
+By calculating the squared Euclidean distance for every possible position of the patch over the 'search' area, you get a matrix of squared Euclidean distances for all possible positions (Fig. \ref{fig:corr_matrix}). Low values indicate a low Euclidean distance and high values a high Euclidean distance. A low Euclidean distance indicates a high similarity between the patch and the corresponding window used for the calculation of the squared Euclidean distance and a high Euclidean distance vice versa a low similarity.\\
+The lowest squared Euclidean distance here is indicated by the black cross. The original position of the centre of the patch is indicated by the white cross. Thus the estimated displacement of the patch over one time step is the displacement between the white and black cross.\\
+This procedure is then applied over the total time and all patches. If the centre of a patch moves out of the radar frame or the total number of rain pixels become lower than $xy$, then the patch is discarded and a new patch is selected by the procedure described before. 
+\\\\
+\textbf{Evaluation of the tracks} \\
+After estimating the displacements for all patches over the specified time periods, the tracks (multiple displacements) need to be checked for errors. The estimation of the displacements is due to several reasons not perfect. Changes in the precipitation field like a strengthening or weakening rain rate can cause a wrong displacement detection. Furthermore, in case of stratiform precipitation, a very uniform precipitation pattern in the patch and in the 'search' area can lead to an erroneous displacement detection.\\
+To differentiate good from bad tracks a orthogonal distance regression (ODR) (Fig. \ref{fig:orthogonaldist}) for each track is performed. The ODR calculates a line through a dataset of points which minimizes the squared distances from the points to their foot points on the line. \\
+Now the squared distance of all points to their respective foot points on line (red lines in Fig. \ref{fig:orthogonaldist}) is summed up. If this sum is bigger than the halved distance between the first and last point (dotted line) the track is rejected. The example track in Fig \ref{fig:orthogonaldist} would be rejected. \\
+From all accepted tracks a mean displacement in $x$ and $y$ direction is now calculated. Additionally the covariances between all displacements, $x$ and $x$,  $x$ and $y$, $y$ and $x$ and $y$ and $y$ are calculated to know how the displacements vary with each other. These variables are calculated for the tracks of the DWD and the PATTERN precipitation fields. 
+If no acceptable displacements can be found for either one of the precipitation fields, the displacements from one of the precipitation fields are used for the other precipitation field.
+
+
+\begin{figure}[h]
+	\centering
+	\begin{minipage}{0.48\textwidth}
+		\includegraphics[width=\textwidth,trim={32mm 0 5mm 0},clip]{displacement_t0.eps}
+		\caption{Sector of the boostedt radar at timestep t}
+		\label{fig:displacement_t0}
+	\end{minipage}\hfill
+	\begin{minipage}{0.48\textwidth}
+		\includegraphics[width=\textwidth,trim={32mm 0 5mm 0},clip]{displacement_t1.eps}
+		\caption{Sector of the boostedt radar at timestep t+1}
+		\label{fig:displacement_t1}
+	\end{minipage}
+
+\end{figure}
+
+\begin{figure}[ht]
+	\includegraphics[width=\textwidth,trim={5mm 0 5mm 0},clip]{Correlation_Matrix.eps}
+	\caption{Correlation Matrix between the red area from \ref{fig:displacement_t0} and the total area of \ref{fig:displacement_t1}}
+	\label{fig:corr_matrix}
+\end{figure}
+
+\begin{figure}[ht]
+	\includegraphics[width=\textwidth,trim={0 0 5mm 0},clip]{displacement.eps}
+	\caption{Tracks of several patches over 25 minutes.}
+	\label{fig:displacement}
+\end{figure}
+\begin{figure}[h]
+	\centering
+	\begin{tikzpicture}[dot/.style={circle,inner sep=1pt,fill,name=#1},
+	extended line/.style={shorten >=-#1,shorten <=-#1},
+	extended line/.default=0.2cm]
+	\begin{axis}[
+	axis x line=center,
+	axis y line=center,
+	xtick={0,1,...,5},
+	ytick={0,1,...,5},
+	grid=major,
+	xmin=0,
+	ymin=0,
+	xmax=5.5,
+	ymax=5.5
+	]
+	\node [dot=A] at (1,0) {};
+	\node [dot=B] at (2,4) {};
+	\node [dot=C] at (4,3) {};
+	\node [dot=D] at (3,3) {};
+	\node [dot=E] at (4,5) {};
+	\node [dot=F] at (4,2) {};
+	\coordinate (G) at (0,0);
+	\coordinate (H) at (5,5);
+	\draw (G) -- (H);
+	\draw [red] ($(G)!(A)!(H)$) -- (A);
+	\draw [red] ($(G)!(B)!(H)$) -- (B);
+	\draw [red] ($(G)!(C)!(H)$) -- (C);
+	%\draw [red] ($(G)!(D)!(H)$) -- (D);
+	\draw [red] (E) -- ($(G)!(E)!(H)$);
+	\draw [red] (F) -- ($(G)!(F)!(H)$);
+	\draw [dotted] (A) -- (E);
+	\end{axis}
+	\end{tikzpicture}
+	\caption{Example for the orthogonal distance regression. The black line is the line which is calculated by the orthogonal distance regression. The red lines show the distance from the points to their respective foot points on the line. The dotted line shows the distance between the first and the last point of the tracks.}
+	\label{fig:orthogonaldist}
+\end{figure}
+\FloatBarrier
+\subsection{Bivariate Normal Densities}
+\label{subsec:bivar}
+After \cite{duda} a two dimensional Gaussian distribution, also called bivariate normal density, is defined in the following.
+With $\sigma_x \cdot\sigma_y = \sigma_{xy}$, where $\sigma_{xy}$ is the covariance of $x$ and $y$ and $\sigma_{x}$ is the variance of $x$, the correlation coefficient $\rho$ is defined by
+\begin{equation}
+	\rho = \dfrac{\sigma_{xy}}{\sigma_x\sigma_y}.
+\end{equation}
+With $\mu_x$ and $\mu_y$ as the means of all $x$- and $y$ displacements the bivariate normal density has the form
+\begin{equation}
+	\begin{multlined}
+		p_{xy}(x,y)=\dfrac{1}{2\pi\sigma_x\sigma_y\sqrt{1-\rho^2}} \times \\ e^{-\dfrac{1}{2(1-\rho^2)}\bigg[\bigg(\dfrac{x-\mu_x}{\sigma_x}\bigg)^2-2\rho\bigg(\dfrac{x-\mu_x}{\sigma_x}\bigg)\bigg(\dfrac{y-\mu_y}{\sigma_y}\bigg)+\bigg(\dfrac{y-\mu_y}{\sigma_y}\bigg)^2\bigg]}.
+	\end{multlined}
+	\label{eq:bivariate}
+\end{equation}
+Now with \ref{eq:bivariate} the $x$- and $y$ displacements from the tracks (Fig. \ref{fig:displacement}) are used to construct a bivariate normal density distribution. Here it is assumed that the $x$- and $y$ displacements are normal distributed.
+\begin{figure}[h]
+	\centering
+	\begin{tikzpicture}[
+	declare function={mu1=2.65;},
+	declare function={mu2=-1.61;},
+	declare function={sigma1=0.74;},
+	declare function={sigma2=1.05;},
+	declare function={sigma12=-0.34;},
+	declare function={rho=-0.438;},
+	%[ 3.82178554  0.7623108 ]
+	%[ 0.7623108   0.53510949]
+	%[3.4090909090909092, -1.9545454545454546]
+%	declare function={bivar(\ma,\sa,\mb,\sb,\corr)= 1/(2*pi*\sa*\sb) * exp( -((x-\ma)^2/(2*\sa^2)) - ((y-\mb)^2/(2*\sb^2)));}]
+		declare function={bivar(\ma,\sa,\mb,\sb,\corr)= 1/(2*pi*\sa*\sb*sqrt(1-\corr^2)) * exp(-1/(2*(1-\corr^2))*((x-\ma)^2/\sa^2-2*\corr*(x-\ma)*(y-\mb)/(\sa*\sb)+(y-\mb)^2/\sb^2));}]
+	\begin{axis}[
+	colormap name=whitered,
+	width=12cm,
+	view={45}{55},
+	enlargelimits=false,
+	scaled ticks = false,
+	grid=major,
+	domain=-5:5,
+	y domain=-5:5,
+	samples=41,
+	xlabel=$x$,
+	ylabel=$y$,
+	zlabel={$P(x,y)$},
+	colorbar,
+	colorbar style={
+		at={(1,0)},
+		%ytick={0.05,0.1,0.15},
+		%every ytick scale label/.style={at={(1,0)},anchor=south east},
+		anchor=south west,
+		height=0.2*\pgfkeysvalueof{/pgfplots/parent axis height},
+		ylabel={$P(x,y)$},
+		yticklabel style={
+			%text width =2.5em,
+			%align=right,
+			scaled ticks = false,
+			/pgf/number format/fixed,
+			/pgf/number format/fixed zerofill,
+			/pgf/number format/precision=2
+			}
+		}
+	]
+	\addplot3 [surf] {bivar(mu1,sigma1,mu2,sigma2,rho)};
+	%\addplot3 [domain=-1:3,samples=51, samples y=0, thick, smooth] (x,3,{normal(mu1,sigma1)});
+	%\addplot3 [domain=-1:3,samples=51, samples y=0, thick, smooth] (-1,x,{normal(mu2,sigma2)});
+	
+	\draw [black!80] (axis cs:-5,0,0) -- (axis cs:5,0,0);
+	\draw [black!80] (axis cs:0,-5,0) -- (axis cs:0,5,0);
+	\draw [blue!50] (axis cs:mu1,-5,0) -- (axis cs:mu1,5,0);
+	\draw [blue!50] (axis cs:-5,mu2,0) -- (axis cs:5,mu2,0);
+	\draw [blue!50] (axis cs:mu1,mu2,0) -- (axis cs:mu1,mu2,0.2);
+	\node at (axis cs:mu1,mu2,0) [fill=blue,circle,scale=0.3] {};
+	\node at (axis cs:mu1,mu2,0.2) [fill=blue,circle,scale=0.3,pin=15:{$P(\mu_x,\mu_y)$}] {};
+	%\node at (axis cs:1.5,3,0.0) [pin=-15:$P(y)$] {};
+	\end{axis}
+	\end{tikzpicture}
+	\caption{Bivariate Gaussian density, with $\mu_x=2.65$, $\mu_y=-1.61$, $\sigma_x = 0.74$, $\sigma_y=1.05$ and $\rho = -0.44$}
+	\label{fig:2dgauss}
+\end{figure}
+\subsection{Extrapolation}
+Once the $x$- and $y$ displacements are estimated and processed, they are applied to the precipitation fields of the DWD and PATTERN radar to perform the prognosis. \\
+The latest available DWD precipitation field is simply displaced by the mean $x$- and $y$ displacements estimated in \ref{subsec:disdetect}. This method is called Lagrangian persistence \citep{Germann}. Hereby it is assumed that the precipitation field does not change over the prognosis time and is merely advected horizontally. This obviously can lead to huge errors if the precipitation strengthens or weakens over time. Especially in convective situations this can cause faults in the prognosis. \\
+The prognosis of the DWD precipitation fields is used as a boundary condition for the PATTERN precipitation fields. The PATTERN precipitation field is nested inside the DWD precipitation field (Fig. \ref{fig:radarOverview}). By nesting the PATTERN radar area inside the DWD radar area, the possible prognosis time is greatly extended. When precipitation is on the boundary between the DWD and PATTERN radar it can get advected into the PATTERN radar area.\\
+The PATTERN precipitation field is extrapolated by a different approach than the DWD precipitation field. Here the properties of the bivariate normal density (Fig. \ref{fig:2dgauss}) constructed in section \ref{subsec:bivar} are used. The displacement detection from section \ref{subsec:disdetect}) shows that the past displacements of the precipitation fields are not unequivocally and do not deliver a clear value for using the past displacements for a prognosis. This uncertainty is now used to perform a probabilistic precipitation forecast. \\
+This is done by applying the bivariate normal density on the latest available PATTERN precipitation field. The procedure is similar to applying a Gaussian filter on an image to smooth the image. But here a shifted asymmetric bivariate normal density is used to apply a displacement and a smoothing onto the precipitation field. The smoothing represents the uncertainty in the displacement detection. A high uncertainty in the displacement detection, e.g. big differences within the distribution of the $x$- and $y$ displacements, leads to bigger variances and covariances which leads to a flatter bivariate normal density distribution. Higher certainties in the displacements detection obviously lead to a sharper density distribution. The mean of the $x$- and $y$ displacements controls the direction and speed of the precipitation fields in the prognosis. This is visible in the Figures \ref{fig:2dgauss}, \ref{fig:extrapolation_t0} and \ref{fig:extrapolation_t1}. A mean of $\mu_x=2.65$ and $\mu_y=-1.61$ means that the average of the $x$- and $y$ displacements goes from the south-east to the north-west.\\
+To apply the bivariate normal density distribution from \ref{fig:2dgauss} on the precipitation field a kernel matrix (eq. \ref{eq:gausskernel}) from the values of the density distribution is constructed. The kernel shows how the new value for the pixel in the middle, depicted with a thick \textbf{0}, is calculated by the values around it weighted with the bivariate normal density. The filter is applied to every pixel in the image.\\
+An example for this is shown in Figures \ref{fig:extrapolation_t0} and \ref{fig:extrapolation_t1}. Fig. \ref{fig:extrapolation_t0} shows an example matrix with zeros and ones. Three quadrates with different sizes and a values of one are present in the matrix at the timestep $t=0$. Now the kernel  $K$ from eq. \ref{eq:gausskernel} is applied on the Figure \ref{fig:extrapolation_t0} to perform the extrapolation. In Figure \ref{fig:extrapolation_t1} it is visible how the kernel works. All pixels were shifted to the top left. By looking closely at the pixel in the middle and comparing the shift of the maximum, you can observe that the maximum has moved two pixels to the top and three pixels to the left. This is caused by the maximum of the bivariate normal density at $\mu_x = 2.65$ and $\mu_y = -1.61$. Furthermore the smoothing of the kernel is also visible. The initial value of one of the pixel in the middle (Fig. \ref{fig:extrapolation_t0}) is now smoothed to the pixels around it (Fig. \ref{fig:extrapolation_t1}). \\
+For extrapolating the PATTERN precipitation fields this procedure is now applied for the desired amount of timesteps. Since the temporal resolution of the PATTERN radar data is 30 seconds, each kernel filtering represents a prognosis 30 seconds in the future. 
+\begin{equation}
+	K =	\begin{brmatrix}[1.3em]
+		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0 	& 0 	& 0 \\
+		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0	    & 0 	& 0 \\
+		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0		& 0 	& 0\\
+		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0 	& 0 	& 0 	& 0 \\
+		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.01 	& 0 	& 0 	& 0 \\
+		0 & 0 & 0 & 0 & 0 & \textbf{0} & 0.02& 0.07 	& 0.03 	& 0 	& 0\\
+		0 & 0 & 0 & 0 & 0 & 0 & 0.02& 0.15 	& 0.14 	& 0.01 	& 0\\
+		0 & 0 & 0 & 0 & 0 & 0 & 0.01& 0.11	& 0.2 	& 0.04 	& 0\\
+		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.03	&   0.1 & 0.04 	& 0 \\
+		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	&	0.01& 0.01 	& 0 \\
+		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	&	0   & 0 	& 0
+	\end{brmatrix}
+	\label{eq:gausskernel}
+\end{equation}
+
+%	0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+%0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 &	0 & 0 & 0 \\
+%0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+%0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 &	0.01 & 0.01 & 0\\
+%0 & 0 & 0 & 0 & 0 & 0 & 0 & 0.02 & 0.07 & 0.03 & 0\\
+%0 & 0 & 0 & 0 & 0 & 0 & 0 & 0.09 & 0.19 & 0.04 & 0\\
+%0 & 0 & 0 & 0 & 0 & 0 & 0.02 & 0.15 & 0.17 & 0.02 & 0 \\
+%0 & 0 & 0 & 0 & 0 & 0 & 0.02 & 0.09 & 0.05 & 0 & 0 \\
+%0 & 0 & 0 & 0 & 0 & 0 & 0.01 & 0.02 & 0 & 0 & 0\\
+%0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 &	0 & 0 & 0 
+\begin{figure}[h]
+	\centering
+	\begin{minipage}{0.48\textwidth}
+		\includegraphics[width=\textwidth,trim={38mm 0 10mm 5mm},clip]{Extrapolation_t0.eps}
+		\caption{Example plot with quadrates with sizes of 1px, 2px and 3px with a arbitrary value of 1, at timestep $t=0$. Gray colours show values of 0.}
+		\label{fig:extrapolation_t0}
+	\end{minipage}\hfill
+	\begin{minipage}{0.48\textwidth}
+		\includegraphics[width=\textwidth,trim={38mm 0 10mm 5mm},clip]{Extrapolation_t1.eps}
+		\caption{Example plot where the pixels from Fig. \ref{fig:extrapolation_t0} are displaced and smoothed by eq. \ref{eq:gausskernel} at timestep $t=1$. Gray colours show values of 0.}
+		\label{fig:extrapolation_t1}
+	\end{minipage}
+\end{figure}
+
+
+%\begin{figure}[h]
+%	\centering
+%	\begin{tikzpicture}[
+%	declare function={mu1=2.65;},
+%	declare function={mu2=-1.61;},
+%	declare function={sigma1=0.74;},
+%	declare function={sigma2=1.05;},
+%	declare function={sigma12=-0.34;},
+%	declare function={rho=-0.438;},
+%	declare function={invgauss(\rnda,\rndb,\corr)=sqrt(-2*ln(\rnda))*sin(deg(2*pi*\rndb+asin(\corr)));}]%
+%    \begin{axis}[
+%	axis x line=center,
+%	axis y line=center,
+%	width=0.7\textwidth,
+%	height=0.4\textwidth,
+%	xtick={-6,-4,...,6,8},
+%	ytick={-4,-2,...,2,4},
+%	grid=major,
+%	xmin=-6,
+%	ymin=-4,
+%	xmax=8,
+%	ymax=4
+%    ]
+%	\fill (0,0) circle[radius=2pt];
+%
+%	\draw (1,0.5) node {$f_t(x,y)$};
+%
+%	\foreach \x in {0, ..., 24} {%A,mu,sigma,x
+%		\pgfmathsetmacro{\xcoor}{rand}% x-coordinate
+%		\edef\temp{
+%			%\noexpand\coordinate (A) at ({gauss(1,0,1,\xcoor)},{gauss(1,0,1,\xcoor)});
+%			\noexpand\coordinate (A) at ({invgauss(rnd,rnd,rho)*sigma1+mu1},{invgauss(rnd,rnd,rho)*sigma2+mu2});
+%			\noexpand\draw (A) -- (0,0);	
+%			\noexpand\fill (A) circle[radius=1pt];
+%		}
+%	\temp
+%	}
+%	%\draw (1.5,0.5) --(3,3);
+%	%\fill (1.5,0.5) circle[radius=2pt];
+%	\draw (6.75,-3) node {$f_{t+1}(x_s,y_s)$};
+%
+%    \end{axis}
+%	\end{tikzpicture}
+%	\caption{16 Drawn samples from the bivariate Gaussian Density function \ref{fig:2dgauss}}
+%	\label{fig:importancesampling}
+%\end{figure}
+
+
+%\begin{equation}
+%	f_{t+1}(x,y) = \frac{1}{N}\sum_{s=0}^{N} f_{t}(x_s,y_s)
+%\end{equation}
+\FloatBarrier
+\section{Evaluation Methods}
+\subsection{Point to Point Evaluation}
+A rain threshold is set. Rainrates above that value e.g. 0.5 are considered to be rain, thus represented with a 1. Rainrates below that value are no rain, thus represented with a 0. Applying this threshold for the total rainfield creates a matrix of 0s and 1s. Now rainfields of the forecast and the reference values are compared.
+\begin{enumerate}
+	\item Hit(\textbf{H}): Both forecast and reference points show rain
+	\item Miss(\textbf{M}): Reference point shows rain, forecast shows no rain
+	\item False Alert(\textbf{FA}): Forecast shows rain, reference shows no rain
+	\item Correct Rejection(\textbf{CR}): Both forecast and reference points show no rain
+\end{enumerate}
+From the ratios of these 4 cases it is possible to derive several skill scores:
+\begin{equation}
+\begin{array}{lcl}
+	PC = \dfrac{H+CR}{H+M+FA+CR}\\
+	POD = \dfrac{H}{H+M}\\
+	FAR = \dfrac{FA}{FA+H}\\
+	CSI = \dfrac{H}{H+M+FA}\\
+	ORSS = \dfrac{H\cdot CR-FA\cdot M}{H\cdot CR+FA\cdot M}
+\end{array}
+\end{equation}
+\chapter{Results and Discussion}
+\chapter{Conclusion and Outlook}
+\chapter{Acknowledgement}
+\bibliography{References}
+\chapter{Eidesstattliche Versicherung}
+Ich versichere an Eides statt, dass ich diese Arbeit selbstständig verfasst und keine anderen als die angegebenen Hilfsmittel benutzt habe. Insbesondere habe ich keine im Literaturverzeichnis nicht genannten Internet-Quellen benutzt. Diese Arbeit habe ich vorher nicht in einem anderen Prüfungsverfahren eingereicht und die eingereichte schriftliche Fassung entspricht der Fassung auf dem elektronischen Speichermedium. Ich stimme einer Veröffentlichung dieser Arbeit zu.
+\\
+\\
+\\
+\\
+\\
+Simon Michel\\
+Hamburg, \today
+\end{document}
+

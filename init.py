@@ -1,14 +1,93 @@
+import os
 import numpy as np
 import numpy.ma as ma
+import netCDF4
 import scipy.spatial.qhull as qhull
+from osgeo import osr
 from scipy.interpolate import griddata, RegularGridInterpolator, interp1d
 from scipy.ndimage import map_coordinates
+from skimage.feature import match_template
+import scipy.odr
 from sklearn.feature_extraction import image
 from numba import jit
-import numba
+from wradlib_snips import make_2D_grid, reproject
+import cv2
 from datetime import datetime
 import h5py
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+
+
+class radarData:
+
+    def __init__(self, path):
+        self.rainThreshold = 0.5
+
+    def set_auxillary_geoData(self, dwd, lawr, HHGposition):
+        dwd.HHGdist = np.sqrt(np.square(dwd.XCar_nested - dwd.XCar_nested.min() - HHGposition[0] * dwd.resolution) +
+                              np.square(dwd.YCar_nested - dwd.YCar_nested.min() - HHGposition[1] * dwd.resolution))
+
+        #dwd.HHG_cart_points = np.concatenate((np.reshape(dwd.XCar - dwd.XCar.min() - HHGposition[0] * dwd.resolution,
+        #                                                 (dwd.d_s * dwd.d_s, 1)),
+        #                                      np.reshape(dwd.YCar - dwd.YCar.min() - HHGposition[1] * dwd.resolution,
+        #                                                 (dwd.d_s * dwd.d_s, 1))), axis=1)
+
+
+    def interpolate(self, values, vtx, wts, fill_value=np.nan):
+        ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
+        ret[np.any(wts < -1e5, axis=1)] = fill_value
+        return ret
+
+    def interp_weights(self, xy, uv, d=2):
+        #  from https://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
+        tri = qhull.Delaunay(xy)
+        simplex = tri.find_simplex(uv)
+        vertices = np.take(tri.simplices, simplex, axis=0)
+        temp = np.take(tri.transform, simplex, axis=0)
+        delta = uv - temp[:, d]
+        bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+        return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+    ##TODO change start time explicit for dwd and pattern
+    def initial_maxima(self,prog):
+        self.progField = Totalfield(
+            Totalfield.findmaxima([], self.nested_data[-self.trainTime-prog-1, :, :], self.cRange, self.numMaxima,
+                                  self.rainThreshold, self.distThreshold, self.dist_nested, self.resolution),
+            self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
+            self.resolution, self.cRange, self.trainTime, self.d_s)
+
+
+    def find_displacement(self,prog):
+        for t in range(self.trainTime):
+            if len(self.progField.activeFields) < self.numMaxima:
+                self.progField.assign_ids()
+            self.progField.test_maxima(self.nested_data[prog-self.trainTime + t,:,:])
+            self.progField.prog_step(prog-self.trainTime + t)
+            self.progField.update_fields()
+
+        self.progField.test_angles2()
+        #self.progField.test_angles()
+
+        self.meanXDisplacement = np.nanmean(self.progField.return_fieldHistX())
+        self.meanYDisplacement = np.nanmean(self.progField.return_fieldHistY())
+        allFieldsNorm = self.progField.return_fieldHistMeanNorm()
+        self.normEqualOneSum = np.sum(self.progField.return_fieldHistNorm()!=0)
+        allFieldsAngle = self.progField.return_fieldHistMeanAngle()
+        self.allFieldsNorm = allFieldsNorm[~np.isnan(allFieldsAngle)]
+        self.allFieldsAngle = allFieldsAngle[~np.isnan(allFieldsAngle)]
+        try:
+            #self.covNormAngle = np.cov(allFieldsNorm[~np.isnan(np.sin(allFieldsAngle * allFieldsNorm))], np.sin(allFieldsAngle * allFieldsNorm)[~np.isnan(np.sin(allFieldsAngle * allFieldsNorm))])
+            self.covNormAngle = np.cov(self.progField.return_fieldHistX().flatten(),self.progField.return_fieldHistY().flatten())
+            self.gaussMeans = [self.meanXDisplacement, self.meanYDisplacement]
+        except ValueError:
+            self.covNormAngle = np.nan
+            self.gaussMeans = np.nan
+
+
+
+
+
+
 class Square:
 
     def __init__(self, cRange, maxima, status, rainThreshold, distThreshold, dist):
@@ -67,17 +146,17 @@ class Square:
     def get_id(self, inactiveIds):
         self.id = inactiveIds[-1]
 
-class totalField:
+class Totalfield:
 
-    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, R, res, cRange, trainTime):
+    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime,d_s):
         self.activeFields = fields
+        self.rejectedFields = []
         self.inactiveFields = []
         self.rainThreshold = rainThreshold  # minimal rainthreshold
         self.distThreshold = distThreshold  # distance threshold to radarboundary
         self.dist = dist  # global distancefield
         self.numMaxes = numMaxes  # number of maxima
         self.nested_data = nested_data
-        self.R = R
         self.shiftX = []
         self.shiftY = []
         self.meanX = []
@@ -90,7 +169,11 @@ class totalField:
         self.ids = np.arange(self.numMaxes*self.trainTime, 0, -1)
         self.activeIds = []  # ids in use (active and inactive fields)
         self.inactiveIds = list(self.ids)  # ids not in use
-
+        self.deltas = []
+        self.sum_square_delta = []
+        self.sum_square = []
+        self.betas = []
+        self.d_s = d_s
         self.assign_ids()
     def return_maxima(self, time):
         maxima = np.empty([len(self.activeFields), 3])
@@ -127,6 +210,14 @@ class totalField:
 
         return np.asarray(fieldHistX)
 
+    def return_fieldHistNorm(self):
+        fieldHistNorm = []
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistNorm.append(field.histNorm[-self.trainTime:-1])
+
+        return np.asarray(fieldHistNorm)
+
     def return_fieldHistY(self):
         fieldHistY = []
         for field in self.activeFields:
@@ -153,6 +244,24 @@ class totalField:
 
         return np.asarray(fieldStdY)
 
+    def return_fieldSumSquare(self):
+        fieldSumSquare=[]
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldSumSquare.append(field.sum_square)
+
+        return np.asarray(fieldSumSquare)
+
+    def return_fieldTotalLength(self):
+        fieldTotalLength=[]
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldTotalLength.append(field.totalLength)
+
+        return np.asarray(fieldTotalLength)
+
     def return_fieldRelStdNorm(self):
         fieldRelStdNorm = []
 
@@ -171,6 +280,15 @@ class totalField:
 
         return np.asarray(fieldHistMeanNorm)
 
+    def return_fieldHistNorm(self):
+        fieldHistNorm = []
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistNorm.extend(field.histNorm)
+
+        return np.asarray(fieldHistNorm)
+
     def return_fieldHistMeanAngle(self):
         fieldHistMeanAngle = []
 
@@ -180,7 +298,18 @@ class totalField:
 
         return np.asarray(fieldHistMeanAngle)
 
+    def return_fieldHistAngle(self):
+        fieldHistAngle = []
+
+        for field in self.activeFields:
+            if field.lifeTime >= self.trainTime:
+                fieldHistAngle.extend(field.histAngle)
+
+        return np.asarray(fieldHistAngle)
+
     def test_maxima(self, nestedData):
+
+
         maxima = np.empty([len(self.activeFields), 3])
         status = np.arange(len(self.activeFields))
 
@@ -218,27 +347,58 @@ class totalField:
     def prog_step(self,t):
 
         for field in self.activeFields:
-            corrArea = self.nested_data[t, (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
+
+            corrArea = self.nested_data[t,
+                       (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
                        (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
-            dataArea = self.nested_data[t + 1, (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+            dataArea = self.nested_data[t + 1,
+                       (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
                        (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
             # maybe consider using "from skimage.feature import match_template" template matching
+            # or using shift,error,diffphase = register_translation(self.nested_data[t+5,:,:],self.nested_data[t,:,:])
+            # print("Detected pixel offset (y, x): {}".format(shift))
             # http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_template.html
             c = leastsquarecorr(dataArea, corrArea)
             cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
             field.shiftX = int(cIdx[0] - 0.5 * len(c))
             field.shiftY = int(cIdx[1] - 0.5 * len(c))
             field.norm = np.linalg.norm([field.shiftX, field.shiftY])
+
             field.angle = get_metangle(field.shiftX, field.shiftY)
             field.angle = field.angle.filled()
             field.add_norm(field.norm)
             field.add_angle(field.angle)
             field.add_maximum(np.copy(field.maxima))
             field.add_shift(field.shiftX, field.shiftY)
-            field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c)),
-                                             int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))]
-            field.maxima[0, 1] = int(field.maxima[0, 1] + cIdx[0] - 0.5 * len(c))
-            field.maxima[0, 2] = int(field.maxima[0, 2] + cIdx[1] - 0.5 * len(c))
+            field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + field.shiftX),
+                                                  int(field.maxima[0, 2] + field.shiftY)]
+            field.maxima[0, 1] = int(field.maxima[0, 1] + field.shiftX)
+            field.maxima[0, 2] = int(field.maxima[0, 2] + field.shiftY)
+
+
+            # if field.norm == 1:
+            #     corrArea = self.nested_data[t,
+            #                (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
+            #                (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
+            #     dataArea = self.nested_data[t + 2,
+            #                (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+            #                (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+            #     c = leastsquarecorr(dataArea, corrArea)
+            #     cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
+            #     field.shiftX = int(cIdx[0] - 0.5 * len(c))*0.5
+            #     field.shiftY = int(cIdx[1] - 0.5 * len(c))*0.5
+            #     field.norm = np.linalg.norm([field.shiftX, field.shiftY])
+            #     field.angle = get_metangle(field.shiftX, field.shiftY)
+            #     field.angle = field.angle.filled()
+            #     field.add_norm(field.norm)
+            #     field.add_angle(field.angle)
+            #     field.add_maximum(np.copy(field.maxima))
+            #     field.add_shift(field.shiftX, field.shiftY)
+            #     field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + field.shiftX),
+            #                                           int(field.maxima[0, 2] + field.shiftY)]
+            #     field.maxima[0, 1] = (field.maxima[0, 1] + field.shiftX)
+            #     field.maxima[0, 2] = (field.maxima[0, 2] + field.shiftY)
+
 
     def update_fields(self):
 
@@ -279,6 +439,44 @@ class totalField:
                 self.inactiveFields.remove(field)
 
         #do that
+    def test_angles2(self):
+
+        def f(B, x):
+            return B[0] * x + B[1]
+
+        fieldNums = 0
+        for field in reversed(self.activeFields):
+            if field.lifeTime < self.trainTime-1:
+                self.rejectedFields.add(field)
+                self.activeFields.remove(field)
+            else:
+                fieldNums += 1
+
+
+        linear = scipy.odr.Model(f)
+        for i,field in enumerate(self.activeFields):
+            mydata = scipy.odr.Data([x[0,1] for x in field.histMaxima],[x[0,2] for x in field.histMaxima])
+            myodr = scipy.odr.ODR(mydata, linear, beta0=[0,0])
+            myoutput = myodr.run()
+            field.beta = myoutput.beta
+            field.delta = myoutput.delta
+            field.sum_square = myoutput.sum_square
+            field.sum_square_delta = myoutput.sum_square_delta
+            field.totalLength = np.sqrt(np.square(field.histMaxima[0].squeeze()[1]-field.histMaxima[-1].squeeze()[1])+np.square(field.histMaxima[0].squeeze()[2]-field.histMaxima[-1].squeeze()[2]))
+            # plt.figure()
+            # plt.scatter([x[0, 1] for x in self.activeFields[i].histMaxima],
+            #             [x[0, 2] for x in self.activeFields[i].histMaxima])
+            # plt.plot(np.asarray([x[0, 1] for x in self.activeFields[i].histMaxima]),
+            #          f(self.betas[i], np.asarray([x[0, 1] for x in self.activeFields[i].histMaxima])))
+            # plt.title(str(i))
+            # plt.show(block=False)
+        for i in reversed(range(len(self.activeFields))):
+
+            if self.activeFields[i].sum_square>self.activeFields[i].totalLength/2:
+
+                self.inactiveFields.append(self.activeFields[i])
+                self.inactiveFields[-1].lifeTime = -1
+                del self.activeFields[i]
 
     def test_angles(self):
         fieldNums = 0
@@ -286,11 +484,11 @@ class totalField:
             if field.lifeTime < self.trainTime:
                 self.activeFields.remove(field)
             else:
-                fieldNums = fieldNums + 1
+                fieldNums += 1
 
         angleFilter = list(range(fieldNums))
         lengthFilter = list(range(fieldNums))
-
+        maxDist = self.cRange * self.res * 1.2
         for t in range(self.trainTime):
             shiftX = np.empty([len(self.activeFields)])
             shiftY = np.empty([len(self.activeFields)])
@@ -306,14 +504,16 @@ class totalField:
 
             shiftX = shiftX[lengths != 0]
             shiftY = shiftY[lengths != 0]
+            zero = status[lengths == 0]
             status = status[lengths != 0]
             lengths = lengths[lengths != 0]
 
-            shiftXex = shiftX[lengths <= 1000]
-            shiftYex = shiftY[lengths <= 1000]
-            lengthFilter.extend(status[lengths <= 1000])
+            shiftXex = shiftX[lengths <= maxDist]
+            shiftYex = shiftY[lengths <= maxDist]
+            lengthFilter.extend(status[lengths <= maxDist])
+            lengthFilter.extend(zero)
 
-            status = status[lengths <= 1000]
+            status = status[lengths <= maxDist]
 
             meanXex = np.empty([len(shiftXex)])
             meanYex = np.empty([len(shiftYex)])
@@ -331,8 +531,8 @@ class totalField:
 
         lengthUnique, lengthCounts = np.unique(np.array(lengthFilter), return_counts=True)
         angleUnique, angleCounts = np.unique(np.array(angleFilter), return_counts=True)
-        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) > 4 # angleFilter
-        lFilter = (np.full_like(lengthCounts, self.trainTime) - lengthCounts) > 1 # lengthFilter
+        aFilter = (np.full_like(angleCounts, self.trainTime) - angleCounts) > int(self.trainTime/2) # angleFilter
+        lFilter = (np.full_like(lengthCounts, self.trainTime+1) - lengthCounts) > 1 # lengthFilter
 
         for i in reversed(range(len(self.activeFields))):
             if aFilter[i] | lFilter[i]:
@@ -347,6 +547,397 @@ class totalField:
                 self.activeIds.append(self.inactiveIds[-1])
                 del self.inactiveIds[-1]
 
+    def findmaxima(fields, nestedData, cRange, numMaxes, rainThreshold, distThreshold, dist, resolution):
+        grid = len(nestedData[1])
+        dims = nestedData.shape
+        nestedData = nestedData.flatten()
+        distFlat = dist.flatten()
+        sorted = np.empty([grid * grid, 3])
+        minDistance = 3000/resolution
+
+        sortedIdx = np.argsort(nestedData)
+        distFlat = distFlat[sortedIdx]
+        sorted[:, 0] = nestedData[sortedIdx]
+        sorted[:, 1:3] = np.transpose(np.unravel_index(sortedIdx, dims))
+        sorted = sorted[distFlat < distThreshold, :]
+
+        if not len(fields):
+            fields.append(Square(cRange, np.reshape(sorted[-1, :], (1, 3)), 1, rainThreshold, distThreshold, dist))
+
+        dummy = sorted
+        for i in range(numMaxes - len(fields)):
+            distance = np.zeros([len(dummy), len(fields)])
+            for j in range(0, len(fields)):
+                distance[:, j] = np.sqrt(
+                    np.square(fields[j].maxima[0, 1] - dummy[:, 1]) + np.square(fields[j].maxima[0, 2] - dummy[:, 2]))
+            potPoints = np.flatnonzero(np.prod(distance >= minDistance, axis=1))
+            if not len(potPoints):
+                return fields
+            if dummy[potPoints[-1], 0] > rainThreshold:
+                fields.append(
+                    Square(cRange, np.reshape(dummy[potPoints[-1], :], (1, 3)), 1, rainThreshold, distThreshold, dist))
+                dummy = dummy[potPoints, :]
+            else:
+                return fields
+        return fields
+
+class Results:
+    def __init__(self, hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS,year,mon,day,hour,minute):
+        self.hit = hit
+        self.miss = miss
+        self.f_alert = f_alert
+        self.corr_zero = corr_zero
+        self.BIAS = BIAS
+        self.PC = PC
+        self.POD = POD
+        self.FAR = FAR
+        self.CSI = CSI
+        self.ORSS = ORSS
+        self.year = year
+        self.mon = mon
+        self.day = day
+        self.hour = hour
+        self.minute = minute
+
+class DWDData(radarData, Totalfield):
+
+    def __init__(self, filePath):
+
+        '''Read in DWD radar data.
+
+        Reads DWD radar data and saves data to object. Only attributes
+        needed for my calculations are read in. If more information
+        about the file and the attributes is wished, check out the
+        `hdf5 <https://support.hdfgroup.org/HDF5/>`_-file with hdfview
+        or hd5dump -H.
+
+        Args:
+            filename (str): Name of radar data file.
+
+        '''
+        with h5py.File(filePath, 'r') as boo:
+            # radar site coordinates and elevation
+            lon_site = boo.get('where').attrs['lon']
+            lat_site = boo.get('where').attrs['lat']
+            alt_site = boo.get('where').attrs['height']
+            self.sitecoords = (lon_site, lat_site, alt_site)
+            self.elevation = boo.get('dataset1/where').attrs['elangle']
+
+            # Number of azimuth rays, start azimuth, azimuth steps
+            az_rays = boo.get('dataset1/where').attrs['nrays']
+            az_start = boo.get('dataset1/where').attrs['startaz']
+            az_steps = boo.get('dataset1/how').attrs['angle_step']
+
+            # Number of range bins, start range, range steps
+            r_bins = boo.get('dataset1/where').attrs['nbins']
+            r_start = boo.get('dataset1/where').attrs['rstart']
+            r_steps = boo.get('dataset1/where').attrs['rscale']
+
+            # Azimuth and range arrays
+            self.r = np.arange(r_start, r_start + r_bins*r_steps, r_steps)
+            self.azi = np.arange(az_start, az_start + az_rays*az_steps, az_steps)
+
+            # Corrected reflectivity data
+            gain = boo.get('dataset1/data1/what').attrs['gain']
+            offset = boo.get('dataset1/data1/what').attrs['offset']
+            refl = boo.get('dataset1/data1/data')
+            self.refl = refl*gain + offset
+            self.time = boo.get('what').attrs['time']
+            self.hour = []
+            self.minute = []
+            self.second = []
+            self.hour.append(int("".join(map(chr, self.time))[0:2]))
+            self.minute.append(int("".join(map(chr, self.time))[2:4]))
+            self.second.append(int("".join(map(chr, self.time))[4:6]))
+
+
+        super().__init__(filePath)
+        self.resolution = 250  # horizontal resolution in m
+        self.trainTime = 6  # 6 Timesteps for training to find the displacement vector (equals 25 minutes)
+        self.numMaxima = 20  # number of tracked maxima
+        self.distThreshold = 50000
+        self.getGrid(self.resolution)
+        self.offset = self.cRange * 2
+        self.nested_data[0, self.offset:self.offset + self.d_s, self.offset:self.offset + self.d_s] = self.gridding()
+        # self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
+
+    def getGrid(self, booresolution):
+        mett_azi = met2math_angle(self.azi)
+        aziCos = np.cos(np.radians(mett_azi))
+        aziSin = np.sin(np.radians(mett_azi))
+        xPolar = np.outer(self.r, aziCos)
+        yPolar = np.outer(self.r, aziSin)
+        xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
+        yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
+        points = np.concatenate((xPolar, yPolar), axis=1)
+        proj_cart = osr.SpatialReference()
+        proj_cart.ImportFromEPSG(32632)
+        proj_geo = osr.SpatialReference()
+        proj_geo.ImportFromEPSG(4326)
+        lawr_sitecoords = [9.973997, 53.56833]
+        #lawr_cartcoords = reproject(lawr_sitecoords, projection_target=proj_cart)
+        boo_cartcoords = reproject(self.sitecoords[0:2], projection_target=proj_cart)
+        max_dist = 50000
+        self.polar_grid= reproject(points+boo_cartcoords, projection_source=proj_cart, projection_target=proj_geo)
+        self.cRange = int(6000 / self.resolution)
+
+        self.xCar = np.arange(-max_dist, max_dist + 1, self.resolution).squeeze()
+        self.xCar_nested = np.arange(-max_dist - self.cRange * 2 * self.resolution,
+                                     max_dist + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+
+        self.yCar = np.arange(-max_dist, max_dist + 1, self.resolution).squeeze()
+        self.yCar_nested = np.arange(-max_dist- self.cRange * 2 * self.resolution,
+                                     max_dist+ self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+        self.d_s = len(self.xCar)
+        self.d_s_nested = len(self.xCar_nested)
+        [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
+        [self.XCar_nested, self.YCar_nested] = np.meshgrid(self.xCar_nested, self.yCar_nested)
+
+        self.dist = np.sqrt(np.square(self.XCar) + np.square(self.YCar))
+        self.dist_nested = np.sqrt(np.square(self.XCar_nested) + np.square(self.YCar_nested))
+
+
+        self.Lon, self.Lat = get_Grid(lawr_sitecoords, max_dist, self.resolution)
+        self.Lon_nested, self.Lat_nested = get_Grid(lawr_sitecoords, max_dist+ self.cRange * 2 * self.resolution, self.resolution)
+
+        target = np.zeros([self.Lon.shape[0] * self.Lat.shape[1], 2])
+        target[:, 0] = self.Lon.flatten()
+        target[:, 1] = self.Lat.flatten()
+
+
+
+
+        self.vtx, self.wts = super().interp_weights(self.polar_grid, target)
+        self.nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+
+        # self.cart_points = np.concatenate((np.reshape(self.Lon_nested, (self.d_s * self.d_s, 1)),
+        #                                   np.reshape(self.Lat_nested, (self.d_s * self.d_s, 1))), axis=1)
+        # cart_points = points + boo_cartcoords
+        # target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
+        # target[:, 0] = self.XCar.flatten()+lawr_cartcoords[0]
+        # target[:, 1] = self.YCar.flatten()+lawr_cartcoords[1]
+        # plt.figure()
+        # plt.scatter(cart_points[:, 0], cart_points[:, 1])
+        # plt.scatter(target[:, 0], target[:, 1], c='r')
+
+    def gridding(self):
+
+        rPolar = z2rainrate(self.refl).T
+        rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
+        return np.reshape(super().interpolate(rPolar.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
+
+
+
+    def addTimestep(self, filePath):
+        with h5py.File(filePath, 'r') as boo:
+            gain = boo.get('dataset1/data1/what').attrs['gain']
+            offset = boo.get('dataset1/data1/what').attrs['offset']
+            refl = boo.get('dataset1/data1/data')
+            self.refl = refl * gain + offset
+            time = boo.get('what').attrs['time']
+            self.hour.append(int("".join(map(chr, time))[0:2]))
+            self.minute.append(int("".join(map(chr, time))[2:4]))
+            self.second.append(int("".join(map(chr, time))[4:6]))
+            nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+            nested_data[0, self.offset: self.d_s + self.offset,
+            self.offset: self.d_s + self.offset] = self.gridding()
+            self.nested_data = np.vstack((self.nested_data, nested_data))
+
+    def timeInterpolation(self, timeSteps):
+        # faster implementation of the timeInterpolation
+        z = np.arange(self.R.shape[2])
+        interpolating_function = RegularGridInterpolator((z,), self.R.transpose())
+        z_ = np.linspace(0, z[-1], timeSteps)
+        self.R = interpolating_function(z_).transpose()
+
+
+    def extrapolation(self, progTimeSteps):
+
+        self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
+
+        for t in range(progTimeSteps):
+            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.meanXDisplacement/10)*t, (self.meanYDisplacement/10)*t)
+
+            self.second.append(self.second[-1]+30)
+            self.hour.append(self.hour[-1])
+            self.minute.append(self.minute[-1])
+            if self.second[-1] >= 60:
+                self.second[-1] = self.second[-1] % 60
+                self.minute[-1] += 1
+                if self.minute[-1] >= 60:
+                    self.hour[-1] += 1
+                    self.minute[-1] = 0
+
+
+class LawrData(radarData, Totalfield):
+
+    def __init__(self, filepath):
+
+        with netCDF4.Dataset(filepath) as nc:
+
+            try:
+                data = nc.variables['dbz_ac1'][:][:][:]
+                self.dbz = data
+                self.azi = nc.variables['azi'][:]
+                self.r = nc.variables['range'][:]
+                self.time = nc.variables['time'][:]
+
+            except:
+                data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
+                if np.ma.is_masked(data):
+                    data.fill_value = -32.5
+                    self.z = data.filled()
+                else:
+                    self.z = data
+
+                self.azi = nc.variables['Azimuth'][:]
+                self.r = nc.variables['Distance'][:]
+                self.time = nc.variables['Time'][:]
+
+            super().__init__(filepath)
+            self.trainTime = 10  # 8 Timesteps for training to find the displacement vector (equals 4 minutes)
+            self.numMaxima = 20  # number of tracked maxima
+            self.resolution = 100
+            self.timeSteps = len(self.time)
+            self.distThreshold = 19000
+            aziCorr = -5
+            self.azi = np.mod(self.azi + aziCorr, 360)
+            self.cRange = int(
+                1000 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
+            mett_azi = met2math_angle(self.azi)
+
+            self.lon = 9.973997  # location of the hamburg radar
+            self.lat = 53.56833
+            self.zsl = 100  # altitude of the hamburg radar
+            self.samples = 16  # number of samples for the importance sampling
+            self.sitecoords = [self.lon, self.lat]
+
+            aziCos = np.cos(np.radians(mett_azi))
+            aziSin = np.sin(np.radians(mett_azi))
+            xPolar = np.outer(self.r, aziCos)
+            xPolar = np.reshape(xPolar, (333 * 360, 1))
+            yPolar = np.outer(self.r, aziSin)
+            yPolar = np.reshape(yPolar, (333 * 360, 1))
+            self.points = np.concatenate((xPolar, yPolar), axis=1)
+
+            self.xCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
+            self.yCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
+
+            [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
+
+            self.Lon,self.Lat = get_Grid(self.sitecoords,20000,self.resolution)
+            self.Lon_nested, self.Lat_nested = get_Grid(self.sitecoords, 20000 + self.cRange * 2 * self.resolution, self.resolution)
+
+            self.dist = np.sqrt(np.square(self.xCar) + np.square(self.YCar))
+
+            xCar_nested = np.arange(-20000 - self.cRange * 2 * self.resolution,
+                                    20000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+            yCar_nested = np.copy(xCar_nested)
+
+            [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
+
+            self.dist_nested = np.sqrt(np.square(xCar_nested) + np.square(YCar_nested))
+
+            self.target_nested = np.zeros([XCar_nested.shape[0] * XCar_nested.shape[1], 2])
+            self.target_nested[:, 0] = XCar_nested.flatten()
+            self.target_nested[:, 1] = YCar_nested.flatten()
+
+            self.target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
+            self.target[:, 0] = self.XCar.flatten()
+            self.target[:, 1] = self.YCar.flatten()
+
+            self.d_s = len(self.XCar)
+
+            self.R = np.empty([self.timeSteps, self.d_s, self.d_s])
+            self.rPolar = z2rainrate(self.z)
+
+            self.nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+            self.vtx, self.wts = self.interp_weights(self.points, self.target)
+
+            for t in range(self.timeSteps):
+                rPolarT = self.rPolar[t, :, :].T
+                rPolarT = np.reshape(rPolarT, (333 * 360, 1)).squeeze()
+                self.R[t, :, :] = np.reshape(self.interpolate(rPolarT.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
+                self.R[t, (self.dist >= np.max(self.r))] = 0
+                self.nested_data[t, 2 * self.cRange: 2 * self.cRange + self.d_s,
+                2 * self.cRange: 2 * self.cRange + self.d_s] = self.R[t, :, :]
+
+            self.nested_data = np.nan_to_num(self.nested_data)
+            self.R = np.nan_to_num(self.R)
+
+    def extrapolation(self, dwd, progTimeSteps, prog,probabilityFlag):
+        self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
+        self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, 64)
+        i_gaussmeans = (np.int(self.gaussMeans[0]), np.int(self.gaussMeans[1]))
+        filtersize = 10
+        if np.any(filtersize < (3 * np.max(self.covNormAngle))):
+            filtersize = np.int(np.max(self.covNormAngle*3))
+        rho = self.covNormAngle[0,1]/(self.covNormAngle[0,0]*self.covNormAngle[1,1])
+        [x,y] = np.meshgrid(np.arange(filtersize,-filtersize-1,-1),np.arange(filtersize,-filtersize-1,-1))
+        self.kernel = twodgauss(x,y,self.covNormAngle[0,0],self.covNormAngle[1,1],rho,self.gaussMeans[0],self.gaussMeans[1])
+
+        self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+        self.probabilities = np.copy(self.prog_data)
+        rainThreshold=0.5
+        self.prog_data[0, :, :] = self.nested_data[prog, :, :]
+        self.prog_start = 3 * ['']
+        self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[0:2])
+        self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[2:4])
+        self.prog_start[2] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[4:6])
+        self.prog_start_idx = np.where((np.asarray(dwd.hour[dwd.trainTime:]) == self.prog_start[0]) & (
+                    np.asarray(dwd.minute[dwd.trainTime:]) == self.prog_start[1]) & (
+                                                   np.asarray(dwd.second[dwd.trainTime:]) - 3 == self.prog_start[2]))[
+            0][0]
+
+        self.prog_data[0, :, :] = nesting(self.prog_data[0, :, :], self.dist_nested, self.target_nested,
+                                          dwd.prog_data[self.prog_start_idx, :, :], dwd, self.r[-1],
+                                          self.rainThreshold, self,
+                                          self.Lat_nested, self.Lon_nested)
+
+        #self.prog_data[0, :, :] = importance_sampling(self.prog_data[0, :, :], self.dist_nested, self.r[-1],
+        #                                              self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+        #                                              self.cRange)
+        self.prog_data[0,:,:] = cv2.filter2D(self.prog_data[0,:,:],-1,self.kernel)
+
+        if probabilityFlag:
+            self.probabilities[0,:,:] = self.nested_data[prog,:,:]>rainThreshold
+
+            self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
+                                          dwd.prog_data[self.prog_start_idx, :, :]>rainThreshold, dwd, self.r[-1],
+                                          self.rainThreshold, self,
+                                          self.Lat_nested, self.Lon_nested)
+
+            #self.probabilities[0, :, :] = importance_sampling(self.probabilities[0, :, :], self.dist_nested, self.r[-1],
+            #                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+            #                                          self.cRange)
+            self.probabilities[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel)
+
+        for t in range(1,progTimeSteps):
+            self.prog_data[t, :, :] = self.prog_data[t - 1, :, :]
+
+            self.prog_data[t,:,:] = nesting(self.prog_data[t, :, :], self.dist_nested, self.target_nested,
+                                          dwd.prog_data[self.prog_start_idx + t, :, :], dwd, self.r[-1], self.rainThreshold, self,
+                                          self.Lat_nested, self.Lon_nested)
+
+            #self.prog_data[t, :, :] = importance_sampling(self.prog_data[t, :, :], self.dist_nested, self.r[-1],
+            #                                              self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+            #                                              self.cRange)
+
+            self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t, :, :], -1, self.kernel)
+
+            if probabilityFlag:
+                self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
+
+                self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
+                                              dwd.prog_data[self.prog_start_idx + t, :, :]>rainThreshold, dwd, self.r[-1],
+                                              self.rainThreshold, self,
+                                              self.Lat_nested, self.Lon_nested)
+
+                #self.probabilities[t, :, :] = importance_sampling(self.probabilities[t, :, :], self.dist_nested, self.r[-1],
+                #                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
+                #                                          self.cRange)
+                self.probabilities[t, :, :] = cv2.filter2D(self.probabilities[t, :, :], -1, self.kernel)
+
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
     b = np.full_like(z, 1.9, dtype=np.double)
@@ -357,6 +948,30 @@ def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are em
     a[cond2] = 320
     b[cond2] = 1.4
     return ((10 ** (z / 10)) / a) ** (1. / b)
+
+def get_Grid(sitecoords, maxrange, horiz_res):
+    #  spatialRef = osr.SpatialReference()
+    #  spatialRef.ImportFromEPSG(4326) # lon lat
+    #  32632
+
+    proj_cart = osr.SpatialReference()
+    proj_cart.ImportFromEPSG(32632)
+    proj_geo = osr.SpatialReference()
+    proj_geo.ImportFromEPSG(4326)
+
+    trgxyz, trgshape = make_2D_grid(sitecoords, proj_cart, maxrange, 0, horiz_res, 9999)
+    trgxy = trgxyz[:, 0:2]
+    trgx = trgxyz[:, 0].reshape(trgshape)[0, :, :]
+    trgy = trgxyz[:, 1].reshape(trgshape)[0, :, :]
+    lon,lat = reproject(trgx,trgy, projection_source=proj_cart, projection_target=proj_geo)
+    return lon,lat
+
+def findRadarSite(lawr, dwd):
+    lat = np.abs(dwd.Lat_nested - lawr.lat)
+    lon = np.abs(dwd.Lon_nested - lawr.lon)
+    latIdx = np.unravel_index(np.argmin(lat),lat.shape)[0]
+    lonIdx = np.unravel_index(np.argmin(lon),lon.shape)[1]
+    return lonIdx, latIdx
 
 def get_metangle(x, y):
     '''Get meteorological angle of input vector.
@@ -374,20 +989,48 @@ def get_metangle(x, y):
                                   fill_value=np.nan)
     return met_ang
 
-def interp_weights(xy, uv, d=2):
-    #  from https://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
-    tri = qhull.Delaunay(xy)
-    simplex = tri.find_simplex(uv)
-    vertices = np.take(tri.simplices, simplex, axis=0)
-    temp = np.take(tri.transform, simplex, axis=0)
-    delta = uv - temp[:, d]
-    bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
-    return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+def met2math_angle(met_angle):
+    '''Convert meteorological to mathematical angles.
 
-def interpolate(values, vtx, wts, fill_value=np.nan):
-    ret = np.einsum('nj,nj->n', np.take(values, vtx), wts)
-    ret[np.any(wts < -1e5, axis=1)] = fill_value
-    return ret
+    Args:
+        met_angle (numpy.ndarray): Meteorological angles.
+
+    Returns:
+        (numpy.ndarray): Mathematical angles.
+
+    '''
+    if np.logical_or(np.any(met_angle > 360),  np.any(met_angle < 0)):
+        raise ValueError('Meteorological angles must be between 0 and 360')
+    math_angle = (90 - met_angle + 360) % 360
+    return math_angle
+
+def polar2xy(r, az):
+    '''Transform polar to cartesian x,y-values.
+
+    Transform azimuth angle to mathematical angles and uses trigonometric
+    functions to obtain cartesian x,y - values out of angle and radius.
+
+    Note:
+        This function does not calculate Cartesian coordinates, but simple x,y
+        values. For coordinates, a Cartesian grid object is needed.
+exi
+    Args:
+        r (numpy.ndarray): Array of ranges in m.
+        az (numpy.ndarray): Corresponding array of azimuths angles.
+
+    Returns:
+        (numpy.ndarray): Array of cartesian x, y-values in m.
+
+    '''
+    if np.logical_or(np.any(az < 0), np.any(az > 360)):
+        raise ValueError('Azimuth angles must be between 0 and 360')
+    if np.any(r < 0):
+        raise ValueError('Range values must be greater than 0')
+    math_az = met2math_angle(az)  # Transform meteo. to mathematical angles.
+    y = np.sin(np.radians(math_az))*r
+    x = np.cos(np.radians(math_az))*r
+    return np.stack((x, y), axis=-1)
+
 
 def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample, d_s, cRange):
     nested_data_ = ma.array(nested_data, mask=nested_dist >= rMax, dtype=float,fill_value=np.nan)
@@ -399,9 +1042,37 @@ def importance_sampling(nested_data, nested_dist, rMax, xy, yx, xSample, ySample
     return prog_data
 
 def create_sample(gaussMeans, covNormAngle, samples):
+    '''Draw random samples from a multivariate normal distribution which is specified by the input gaussMeans and covariances.
+
+    Note:
+        https://docs.scipy.org/doc/numpy-1.15.1/reference/generated/numpy.random.multivariate_normal.html
+
+    Args:
+        gaussMeans(list): Mean of the distribution
+        covNormAngle (numpy.ndarray): 2d array containing the covariances
+        samples (int): Number of samples to be drawn
+
+    Returns:
+        vals (numpy.ndarray): interpolated data 2d array at new x,y coordinates
+    '''
     return np.random.multivariate_normal(gaussMeans, covNormAngle, samples).T
 
-def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
+def get_values(xSample, ySample, x, y, nested_data):
+    '''Returns an interpolated array of the x and y coordinated from the input data array (nested_data).
+
+    Note:
+        The new and x and y coordinates need to be positive and within range of the dimensions of nested_data.
+        There is no extrapolation implemented.
+
+    Args:
+        xSample(numpy.ndarray): data array in 2d
+        ySample (numpy.ndarray): 2d array containing new x coordinates
+        x (numpy.ndarray): 2d array containing new y coordinates
+        y (numpy.ndarray):
+
+    Returns:
+        vals (numpy.ndarray): interpolated data 2d array at new x,y coordinates
+    '''
     x = np.full((len(xSample), len(x)), x).T
     y = np.full((len(ySample), len(y)), y).T
     x_= x - xSample
@@ -410,7 +1081,21 @@ def get_values(xSample, ySample, x, y, nested_data):  # nested_data should be 2d
     return vals
 
 @jit(nopython=True)
-def interp2d(nested_data, x, y):  # nested_data in 2d
+def interp2d(nested_data, x, y):
+    '''Returns an interpolated(bilinear interpolation) array of the x and y coordinated from the input data array (nested_data).
+
+    Note:
+        The new and x and y coordinates need to be positive and within range of the dimensions of nested_data.
+        There is no extrapolation implemented.
+
+    Args:
+        nested_data (numpy.ndarray): data array in 2d
+        x (numpy.ndarray): 2d array containing new x coordinates
+        y (numpy.ndarray): 2d array containing new y coordinates
+
+    Returns:
+        vals (numpy.ndarray): interpolated data 2d array at new x,y coordinates
+    '''
     vals = np.empty_like(x)
     for idx, xx in np.ndenumerate(x):
         xi = int(xx)
@@ -425,62 +1110,58 @@ def interp2d(nested_data, x, y):  # nested_data in 2d
              nested_data[xi+1, yi] * ((xmod) * (1 - ymod))
     return vals
 
-def findRadarSite(HHGlat, HHGlon, BOO):
-    lat = np.abs(BOO.lat - HHGlat)
-    lon = np.abs(BOO.lon - HHGlon)
-    latIdx = np.where(lat == lat.min())
-    lonIdx = np.where(lon == lon.min())
-    return latIdx[1][0], lonIdx[0][0]
 
 def getFiles(filelist, time):
     files = []
     for i, file in enumerate(filelist):
         if (np.abs(int(file[41:43])- time) <= 0):
             files.append(file)
-        if ((np.abs(int(file[41:43]) - (time + 1)) <= 0) & (int(file[43:45]) == 0)):
-            files.append(file)
+        #if ((np.abs(int(file[41:43]) - (time + 1)) <= 0) & (int(file[43:45]) == 0)):
+        #    files.append(file)
 
     return files
 
-def nesting(prog_data, nested_dist, nested_points, boo_prog_data, boo, rMax, rainthreshold, HHGlat, HHGlon):
-    boo_pixels = ((boo.HHGdist >= rMax) & (boo.HHGdist <= nested_dist.max()))
-    hhg_pixels = ((nested_dist >= rMax) & (nested_dist <= nested_dist.max()))
-    lat1 = boo.lat - HHGlat.min()
-    lat2 = boo.lat - HHGlat.max()
-    latstart = lat1[lat1 < 0].argmax()
-    latend= lat2[lat2 < 0].argmax()
+def fileSelector(directoryPath, time, trainTime = 5):
+    booFileList = sorted(os.listdir(directoryPath))
+    year = np.asarray([int(x[33:37]) for x in booFileList])
+    mon = np.asarray([int(x[37:39]) for x in booFileList])
+    day = np.asarray([int(x[39:41]) for x in booFileList])
+    hour = np.asarray([int(x[41:43]) for x in booFileList])
+    min = np.asarray([int(x[43:45]) for x in booFileList])
+    idx = np.where((time[2]==hour)&((time[3]/2)-(time[3]/2)%5==min))[0][0]
+    selectedFiles = booFileList[idx-trainTime:idx+1]
+    return selectedFiles
 
-    HHGLatInBOO = (HHGlat[:, :] - boo.lat[0, latstart]) / (
-            boo.lat[0, latend] - boo.lat[0, latstart]) * (latend - latstart) + latstart
+def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rainthreshold, lawr, HHGlat, HHGlon):
+    boo_pixels = ((dwd.dist_nested>= rMax) & (dwd.dist_nested<= lawr.dist_nested.max()))
+    hhg_pixels = ((lawr.dist_nested >= rMax) & (lawr.dist_nested<= lawr.dist_nested.max()))
 
-    lon1 = boo.lon - HHGlon.min()
-    lon2 = boo.lon - HHGlon.max()
-    lonstart = np.unravel_index(lon1[lon1 < 0].argmax(), boo.lat.shape)
-    lonend = np.unravel_index(lon2[lon2 < 0].argmax(), boo.lat.shape)
+    lat1 = dwd.Lat_nested - lawr.Lat_nested.min()
+    lat2 = dwd.Lat_nested - lawr.Lat_nested.max()
+    latstart = np.unravel_index(np.abs(lat1).argmin(),lat1.shape)
+    latend= np.unravel_index(np.abs(lat2).argmin(),lat2.shape)
 
-    HHGLonInBOO = np.flipud(np.rot90((HHGlon[:, :] - boo.lon[lonstart]) / (
-            boo.lon[lonend] - boo.lon[lonstart]) * (lonend[0] - lonstart[0]) + lonstart[0],1,(0,1)))
+    HHGLatInBOO = (lawr.Lat_nested[:, :] - dwd.Lat_nested[latstart]) / (
+            dwd.Lat_nested[latend] - dwd.Lat_nested[latstart]) * (latend[0] - latstart[0]) + latstart[0]
 
+    lon1 = dwd.Lon_nested - lawr.Lon_nested.min()
+    lon2 = dwd.Lon_nested - lawr.Lon_nested.max()
+    lonstart = np.unravel_index(np.abs(lon1).argmin(), lon1.shape)
+    lonend = np.unravel_index(np.abs(lon2).argmin(), lon2.shape)
+    HHGLonInBOO = (lawr.Lon_nested[:, :] - dwd.Lon_nested[lonstart[0], lonstart[1]]) / (
+        dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1]
 
     if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
-        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLonInBOO[hhg_pixels], HHGLatInBOO[hhg_pixels]) # new method, using the 2d interpolation method, is 10x faster than gridding
-        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
+        prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[
+            hhg_pixels])        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
 
 def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
-    paddingNaNs = int(1500/boo.resolution)
 
-    x = np.arange(paddingNaNs, boo.d_s + paddingNaNs) - displacementX/boo.resolution
-    y = np.arange(paddingNaNs, boo.d_s + paddingNaNs) - displacementY/boo.resolution
-
+    x = np.arange(boo_prog_data.shape[0]) - displacementX
+    y = np.arange(boo_prog_data.shape[1]) - displacementY
     [Y, X] = np.meshgrid(y,x)
-    # padding boo data with nans to prevent errors, this should equal a distance of 1500m with a resolution of 500m. This
-    # is far over the possible maximum movespeed of clouds (1500m in 30s equals 180 km/h)
-
-    boo_data = np.empty([boo.d_s + paddingNaNs*2, boo.d_s + paddingNaNs*2])
-    boo_data.fill(np.nan)
-    boo_data[paddingNaNs : boo.d_s+ paddingNaNs, paddingNaNs : boo.d_s + paddingNaNs] = boo_prog_data
-    boo_prog_data = interp2d(boo_data, X, Y)
+    boo_prog_data = interp2d(boo_prog_data, X, Y)
     return boo_prog_data
 
 def leastsquarecorr(dataArea, corrArea):
@@ -500,6 +1181,12 @@ def leastsquarecorr(dataArea, corrArea):
 
     c_d = np.sum((image.extract_patches_2d(dataArea, corrArea.shape) - corrArea) ** 2, axis=(1, 2)).reshape(np.array(dataArea.shape) - corrArea.shape + 1)
     return c_d
+
+def twodgauss(x, y, sigma1, sigma2, rho, mu1, mu2):
+    return 1 / (2 * np.pi * sigma1 * sigma2 * np.sqrt(1 - rho ** 2)) * np.exp(-1 / (2 * (1 - rho ** 2)) * (
+           (x - mu1) ** 2 / sigma1 ** 2 - (2 * rho * (x - mu1) * (y - mu2) / (sigma1 * sigma2)) + (
+           y - mu2) ** 2 / sigma2 ** 2))
+
 
 def verification(prog_data, real_data):
     #function [BIAS,CSI,FAR,ORSS,PC,POD,hit,miss,f_alert,corr_zero]=verification(prog_data,real_data)
@@ -543,106 +1230,4 @@ def verification(prog_data, real_data):
 
 
     return  hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS
-class DWDData:
-
-    def read_dwd_file(self, filepath):
-
-        '''Read in DWD radar data.
-
-        Reads DWD radar data and saves data to object. Only attributes
-        needed for my calculations are read in. If more information
-        about the file and the attributes is wished, check out the
-        `hdf5 <https://support.hdfgroup.org/HDF5/>`_-file with hdfview
-        or hd5dump -H.
-
-        Args:
-            filename (str): Name of radar data file.
-
-        '''
-        with h5py.File(filepath, 'r') as boo:
-            # radar site coordinates and elevation
-            lon_site = boo.get('where').attrs['lon']
-            lat_site = boo.get('where').attrs['lat']
-            alt_site = boo.get('where').attrs['height']
-            self.sitecoords = (lon_site, lat_site, alt_site)
-            self.elevation = boo.get('dataset1/where').attrs['elangle']
-
-            # Number of azimuth rays, start azimuth, azimuth steps
-            az_rays = boo.get('dataset1/where').attrs['nrays']
-            az_start = boo.get('dataset1/where').attrs['startaz']
-            az_steps = boo.get('dataset1/how').attrs['angle_step']
-
-            # Number of range bins, start range, range steps
-            r_bins = boo.get('dataset1/where').attrs['nbins']
-            r_start = boo.get('dataset1/where').attrs['rstart']
-            r_steps = boo.get('dataset1/where').attrs['rscale']
-
-            # Azimuth and range arrays
-            self.r = np.arange(r_start, r_start + r_bins*r_steps, r_steps)
-            self.azi = np.arange(az_start, az_start + az_rays*az_steps, az_steps)
-
-            # Corrected reflectivity data
-            gain = boo.get('dataset1/data1/what').attrs['gain']
-            offset = boo.get('dataset1/data1/what').attrs['offset']
-            refl = boo.get('dataset1/data1/data')
-            self.refl = refl*gain + offset
-            self.time = []
-
-    def getGrid(self, booresolution):
-
-        latDeg = 110540  # one degree equals 110540 m
-        lonDeg = 113200  # one degree * cos(lat*pi/180) equals 113200 m
-        aziCos = np.cos(np.radians(self.azi+90))
-        aziSin = np.sin(np.radians(self.azi+90))
-        xPolar = np.outer(self.r, aziCos)
-        xPolar = np.reshape(xPolar, (len(self.azi) * len(self.r), 1))
-        yPolar = np.outer(self.r, aziSin)
-        yPolar = np.reshape(yPolar, (len(self.azi) * len(self.r), 1))
-        points = np.concatenate((xPolar, yPolar), axis=1)
-
-        self.resolution = booresolution
-        self.xCar = np.arange(-60000, 60000 + 1, self.resolution).squeeze()
-        self.yCar = np.arange(-110000, 10000 + 1, self.resolution).squeeze()
-        self.d_s = len(self.xCar)
-
-        [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
-        self.dist = np.sqrt(np.square(self.XCar) + np.square(self.YCar))
-        self.lat = self.sitecoords[0] + self.XCar / latDeg
-        self.lon = self.sitecoords[1] + self.YCar / (lonDeg * (np.cos(self.lat * np.pi / 180)))
-        target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
-        target[:, 0] = self.XCar.flatten()
-        target[:, 1] = self.YCar.flatten()
-
-        self.cart_points = np.concatenate((np.reshape(self.XCar, (self.d_s * self.d_s, 1)),
-                                          np.reshape(self.YCar, (self.d_s * self.d_s, 1))), axis=1)
-
-
-        self.vtx, self.wts = interp_weights(points, target)
-
-    def gridding(self, vtx, wts, d_s):
-
-        rPolar = z2rainrate(self.refl).T
-        rPolar = np.reshape(rPolar, (len(self.azi) * len(self.r), 1)).squeeze()
-
-        self.R = np.reshape(interpolate(rPolar.flatten(), vtx, wts), (d_s, d_s))
-
-    def addTimestep(self, R):
-        self.R = np.dstack((self.R, R))
-
-    def timeInterpolation(self, timeSteps):
-        # faster implementation of the timeInterpolation
-        z = np.arange(self.R.shape[2])
-        interpolating_function = RegularGridInterpolator((z,), self.R.transpose())
-        z_ = np.linspace(0, z[-1], timeSteps)
-        self.R = interpolating_function(z_).transpose()
-
-    # def timeInterpolation3(self,timeSteps):
-    #     #https://docs.scipy.org/doc/scipy-0.16.1/reference/generated/scipy.interpolate.RegularGridInterpolator.html
-    #     x = np.arange(self.d_s)
-    #     y = np.arange(self.d_s)
-    #     z = np.arange(self.R.shape[2])
-    #     interpolating_function = RegularGridInterpolator((x,y,z),self.R)
-    #     z_ = np.linspace(0,z[-1],timeSteps)
-    #     pts = np.array(np.meshgrid(x, y, z_)).reshape(3,self.d_s*self.d_s*timeSteps).transpose()
-    #     self.R = interpolating_function(pts).reshape(self.d_s,self.d_s,timeSteps)
 
