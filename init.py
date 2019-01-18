@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 class radarData:
 
     def __init__(self, path):
-        self.rainThreshold = 0.1
+        self.rainThreshold = 0.5
 
     def set_auxillary_geoData(self, dwd, lawr, HHGposition):
         dwd.HHGdist = np.sqrt(np.square(dwd.XCar_nested - dwd.XCar_nested.min() - HHGposition[0] * dwd.resolution) +

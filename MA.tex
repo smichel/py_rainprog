@@ -220,6 +220,39 @@ X-Band
 \chapter{Methodology}
 \section{Prognosis Model}
 \subsection{Setting of Parameters}
+Before the prognosis model is started several parameters (Table \ref{tab:parameter}) need to be adjusted. The parameters control crucial parts of the model. The parameters 'gridded resolution of DWD and PATTERN' control the resolution of the Cartesian grid to which the radar data gets interpolated on. The train time represents the time how long the algorithm looks back in time to track the displacements of the precipitation fields. A train time of 30\,minutes for the DWD radar data represents 6 timesteps due the temporal resolution of 5\,minutes. The train time of 5\,minutes for the PATTERN radar data are equal to 10 timesteps, where each timestep has a temporal resolution of 30\,seconds. \\
+The 'Maximum number of tracked patches' sets the maximum number of tracked patches. The number of patches is also limited by the amount of precipitation pixels inside the radar field. If no more pixels above 0.5\,mmh$^{-1}$, threshold determined by the parameter 'rain rate threshold', can be found no more patches are created. The parameter 'Distance threshold' determines how far away the centre of the patches are allowed to move from the centre of the radar area. This is introduced to reduce unwanted interactions of the displacement detection with the border of the radar area. For the PATTERN and the DWD radar this centre is the PATTERN radar location. \\
+For this prognosis model the maximum speed of clouds is assumed to be around 80\,kmh$^{-1}$(\textbf{Reference needed?}), so the 'speed threshold' is set to 80\,km$^{-1}$. This threshold limits the distance of single displacement. For the DWD radar this means the maximum distance of a single displacement is limited to approx. 6000\,m, for the PATTERN radar the maximum distance is approx. 1000\,m. The parameter 'lead time' sets the time for what duration the prognosis should run. \\
+The 'minimum distance between maxima' determines the distance between maxima for the initial maxima detection (section \ref{subsec:disdetect}). This is set to 3000\,m for both radars and is implemented to evenly spread the patches over the total radar area. Motivated by the speed threshold for clouds the 'displacement detection range for DWD and PATTERN' is set to 6000\,m and 1000\,m. \\
+The 'edge length of the patches for DWD and PATTERN' is set to 12000\,m and 2000\,m.
+\begin{table}[ht]
+	\centering
+	\caption[]{List of parameters for the prognosis algorithm.}
+	\label{tab:parameter}
+	\begin{tabular}{|l|l|l|}
+		\hline
+		Name of parameter &Value & Unit\\\hline
+		Gridded resolution of DWD & 250 & meters\\
+		Gridded resolution of PATTERN & 100 & meters\\
+		Train time of DWD & 30 & minutes\\
+		Train time of PATTERN & 5 & minutes\\
+		Maximum number of tracked patches DWD& 20 & number\\
+		Maximum number of tracked patches PATTERN& 20 & number\\
+		Distance threshold for DWD & 50000 & meters\\
+		Distance threshold for PATTERN &  19000 & meters\\
+		Rain rate threshold & 0.5 & mmh$^{-1}$ \\
+		Speed threshold & 80 & kmh$^{-1}$  \\
+		Lead time  & 60 & minutes \\
+		%Azimuth correction for PATTERN & -5 & degrees \\
+		Minimum distance between maxima & 3000 & meters \\
+		Displacement detection range for DWD & 6000 & meters\\
+		Displacement detection range for PATTERN & 1000 & meters\\
+		Edge length of patches for DWD & 12000 & meters\\
+		Edge length of patches for PATTERN & 2000 & meters\\
+		ODR squared distance threshold & 0.5 & fraction \\
+		Minimum kernel filter size & 20x20 & pixels \\\hline
+	\end{tabular}
+\end{table}
 \subsection{Gridding and Coordinate Transformation}
 Both the DWD and PATTERN radar data are initially in a polar grid around their respective radar stations. For simplicity, nesting/comparability between both radars and to regard the curvature of the earth, the polar data is transformed and gridded to a Cartesian grid. 
 
@@ -357,7 +390,7 @@ In order to make a prognosis on the movement of precipitation fields a displacem
 To find displacement vectors the following procedure is applied to the precipitation fields of the PATTERN and DWD radar.
 \begin{enumerate}
 	\item Detection of suitable patches in the precipitation field for tracking (Fig. \ref{fig:maximaOverview} and Fig. \ref{fig:maximaOverviewZoom}).
-	\item Tracking of the patches (Fig. \ref{fig:displacement_t0} and Fig. \ref{fig:displacement_t1}) over the evolution of several time steps.
+	\item Tracking of the patches (Fig. \ref{fig:displacement_t0} and Fig. \ref{fig:displacement_t1}) over the evolution of several timesteps.
 	\item If patches move out of the frame or tracking becomes undesirable new patches are searched in the current time step.
 	\item Tracks of each patch are evaluated.
 \end{enumerate}
@@ -370,9 +403,9 @@ In order to detect the displacement of the precipitation fields in the radar sca
 	\caption{Boostedt radar, with the maxima marked with 'x'}
 	\label{fig:maximaOverview}
 \end{figure}
-The patches are then iteratively selected by the following procedure. First the pixel with the highest rain rate inside the precipitation field is chosen. That pixel is then set as the middle point of the patch. The patch is a square with a side length of 2\,km for the PATTERN radar and a 12\,km for the DWD radar. The next patch is then located around the pixel with the second highest rain rate inside the precipitation field. The center point of the next patch needs to have a  minimum distance of 3\,km to other center points to reduce the overlap of the patches (Fig. \ref{fig:maximaOverviewZoom}). The location of the third patch is then centered around the pixel with next highest rain rate, again with a minimum distance of 3\,km to any other center point. This procedure is then continued until a specific number of patches is chosen or no more pixels with a minimum rain rate of over 0.5\,mm and a minimum distance of 3\,km to all other center points can be found inside the radar image.\\\\
+The patches are then iteratively selected by the following procedure. First the pixel with the highest rain rate inside the precipitation field is chosen. That pixel is then set as the middle point of the patch. The patch is a square with a side length of 2\,km for the PATTERN radar and a 12\,km for the DWD radar. The next patch is then located around the pixel with the second highest rain rate inside the precipitation field. The centre of the next patch needs to have a  minimum distance of 3\,km to other centres to reduce the overlap of the patches (Fig. \ref{fig:maximaOverviewZoom}). The location of the third patch is then centered around the pixel with next highest rain rate, again with a minimum distance of 3\,km to any other centre. This procedure is then continued until a specific number of patches is chosen or no more pixels with a minimum rain rate of over 0.5\,mm and a minimum distance of 3\,km to all other centres can be found inside the radar image.\\\\
 \textbf{Tracking of the patches} \\
-To get information about the displacement of the precipitation fields the position of the patches in the radar scans is tracked for 8 minutes for the PATTERN radar and 25 minutes for the DWD radar. This is done by estimating the displacement of each patch between two time steps by calculating the squared euclidean distance (Fig \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). To estimate the displacement of one patch the patch in the radar image at the time $t$ (Fig. \ref{fig:displacement_t0}) is 'searched' in the radar image of the next time step $t + 1$ (Fig. \ref{fig:displacement_t1}). The search area is a square with double the side length of a patch, 4\,km for the PATTERN radar and 24\,km for the DWD radar. Then the squared euclidean distance is calculated between the patch and the total area of the 'search' area. The squared Euclidean distance is calculated with eq. \ref{eq:crosscorr} after \cite{crosscorr}. 
+To get information about the displacement of the precipitation fields the position of the patches in the radar scans is tracked for 8 minutes for the PATTERN radar and 25 minutes for the DWD radar. This is done by estimating the displacement of each patch between two timesteps by calculating the squared euclidean distance (Fig \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). To estimate the displacement of one patch the patch in the radar image at the time $t$ (Fig. \ref{fig:displacement_t0}) is 'searched' in the radar image of the next time step $t + 1$ (Fig. \ref{fig:displacement_t1}). The search area is a square with double the side length of a patch, 4\,km for the PATTERN radar and 24\,km for the DWD radar. Then the squared euclidean distance is calculated between the patch and the total area of the 'search' area. The squared Euclidean distance is calculated with eq. \ref{eq:crosscorr} after \cite{crosscorr}. 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\textwidth]{maximaOverviewZoom.eps}
@@ -387,8 +420,8 @@ d^2_{q,p}(u,v) = \sum_{x,y}^{}\big[q(x,y)-p(x-u,y-v)\big]^2
 \end{equation}
 In eq. \ref{eq:crosscorr} $q$ is the patch, the sum is over $x$, $y$ of the window containing the 'search' area $p$ positioned at $u$, $v$.\\
 By calculating the squared Euclidean distance for every possible position of the patch over the 'search' area, you get a matrix of squared Euclidean distances for all possible positions (Fig. \ref{fig:corr_matrix}). Low values indicate a low Euclidean distance and high values a high Euclidean distance. A low Euclidean distance indicates a high similarity between the patch and the corresponding window used for the calculation of the squared Euclidean distance and a high Euclidean distance vice versa a low similarity.\\
-The lowest squared Euclidean distance here is indicated by the black cross. The original position of the center point of the patch is indicated by the white cross. Thus the estimated displacement of the patch over one time step is the displacement between the white and black cross.\\
-This procedure is then applied over the total time and all patches. If the center point of a patch moves out of the radar frame or the total number of rain pixels become lower than $xy$, then the patch is discarded and a new patch is selected by the procedure described before. 
+The lowest squared Euclidean distance here is indicated by the black cross. The original position of the centre of the patch is indicated by the white cross. Thus the estimated displacement of the patch over one time step is the displacement between the white and black cross.\\
+This procedure is then applied over the total time and all patches. If the centre of a patch moves out of the radar frame or the total number of rain pixels become lower than $xy$, then the patch is discarded and a new patch is selected by the procedure described before. 
 \\\\
 \textbf{Evaluation of the tracks} \\
 After estimating the displacements for all patches over the specified time periods, the tracks (multiple displacements) need to be checked for errors. The estimation of the displacements is due to several reasons not perfect. Changes in the precipitation field like a strengthening or weakening rain rate can cause a wrong displacement detection. Furthermore, in case of stratiform precipitation, a very uniform precipitation pattern in the patch and in the 'search' area can lead to an erroneous displacement detection.\\
@@ -541,12 +574,13 @@ Now with \ref{eq:bivariate} the $x$- and $y$ displacements from the tracks (Fig.
 \end{figure}
 \subsection{Extrapolation}
 Once the $x$- and $y$ displacements are estimated and processed, they are applied to the precipitation fields of the DWD and PATTERN radar to perform the prognosis. \\
-The latest available DWD precipitation field is then simply displaced by the mean $x$- and $y$ displacements estimated in \ref{subsec:disdetect}. This method is called Lagrangian persistence.\textbf{reference} Hereby it is assumed that the precipitation field does not change over the prognosis time and is merely advected horizontally. This obviously can lead to huge errors if the precipitation strengthens or weakens over time. Especially in convective situations this can cause faults in the prognosis. \\
+The latest available DWD precipitation field is simply displaced by the mean $x$- and $y$ displacements estimated in \ref{subsec:disdetect}. This method is called Lagrangian persistence \citep{Germann}. Hereby it is assumed that the precipitation field does not change over the prognosis time and is merely advected horizontally. This obviously can lead to huge errors if the precipitation strengthens or weakens over time. Especially in convective situations this can cause faults in the prognosis. \\
 The prognosis of the DWD precipitation fields is used as a boundary condition for the PATTERN precipitation fields. The PATTERN precipitation field is nested inside the DWD precipitation field (Fig. \ref{fig:radarOverview}). By nesting the PATTERN radar area inside the DWD radar area, the possible prognosis time is greatly extended. When precipitation is on the boundary between the DWD and PATTERN radar it can get advected into the PATTERN radar area.\\
 The PATTERN precipitation field is extrapolated by a different approach than the DWD precipitation field. Here the properties of the bivariate normal density (Fig. \ref{fig:2dgauss}) constructed in section \ref{subsec:bivar} are used. The displacement detection from section \ref{subsec:disdetect}) shows that the past displacements of the precipitation fields are not unequivocally and do not deliver a clear value for using the past displacements for a prognosis. This uncertainty is now used to perform a probabilistic precipitation forecast. \\
 This is done by applying the bivariate normal density on the latest available PATTERN precipitation field. The procedure is similar to applying a Gaussian filter on an image to smooth the image. But here a shifted asymmetric bivariate normal density is used to apply a displacement and a smoothing onto the precipitation field. The smoothing represents the uncertainty in the displacement detection. A high uncertainty in the displacement detection, e.g. big differences within the distribution of the $x$- and $y$ displacements, leads to bigger variances and covariances which leads to a flatter bivariate normal density distribution. Higher certainties in the displacements detection obviously lead to a sharper density distribution. The mean of the $x$- and $y$ displacements controls the direction and speed of the precipitation fields in the prognosis. This is visible in the Figures \ref{fig:2dgauss}, \ref{fig:extrapolation_t0} and \ref{fig:extrapolation_t1}. A mean of $\mu_x=2.65$ and $\mu_y=-1.61$ means that the average of the $x$- and $y$ displacements goes from the south-east to the north-west.\\
-To apply the bivariate normal density distribution from \ref{fig:2dgauss} on the precipitation field a kernel matrix (eq. \ref{eq:gausskernel}) is constructed. The kernel shows how the new value for the pixel in the middle, depicted with a thick \textbf{0}, is calculated by the values around it weighted with the bivariate normal density. The filter is applied to every pixel in the image.\\
-An example for this is shown in Figures \ref{fig:extrapolation_t0} and \ref{fig:extrapolation_t1}. Fig. \ref{fig:extrapolation_t0} shows a matrix with zeros and ones. Three quadrates with different sizes and a values of one are present in the matrix at the timestep $t=0$. Now the kernel  $K$ from eq. \ref{eq:gausskernel} is applied on the Figure \ref{fig:extrapolation_t0} to perform the extrapolation. In Figure \ref{fig:extrapolation_t1} it is visible how the kernel works. All pixels were shifted to the top left. By looking closely at the pixel in the middle and comparing the shift of the maximum, you can observe that the maximum has moved two pixels to the top and three pixels to the left. This is caused by the maximum of the bivariate normal density at $\mu_x = 2.65$ and $\mu_y = -1.61$. Furthermore the smoothing of the kernel is also visible. The initial value of one of the pixel in the middle (Fig. \ref{fig:extrapolation_t0}) is now smoothed to the pixels around it (Fig. \ref{fig:extrapolation_t1}).
+To apply the bivariate normal density distribution from \ref{fig:2dgauss} on the precipitation field a kernel matrix (eq. \ref{eq:gausskernel}) from the values of the density distribution is constructed. The kernel shows how the new value for the pixel in the middle, depicted with a thick \textbf{0}, is calculated by the values around it weighted with the bivariate normal density. The filter is applied to every pixel in the image.\\
+An example for this is shown in Figures \ref{fig:extrapolation_t0} and \ref{fig:extrapolation_t1}. Fig. \ref{fig:extrapolation_t0} shows an example matrix with zeros and ones. Three quadrates with different sizes and a values of one are present in the matrix at the timestep $t=0$. Now the kernel  $K$ from eq. \ref{eq:gausskernel} is applied on the Figure \ref{fig:extrapolation_t0} to perform the extrapolation. In Figure \ref{fig:extrapolation_t1} it is visible how the kernel works. All pixels were shifted to the top left. By looking closely at the pixel in the middle and comparing the shift of the maximum, you can observe that the maximum has moved two pixels to the top and three pixels to the left. This is caused by the maximum of the bivariate normal density at $\mu_x = 2.65$ and $\mu_y = -1.61$. Furthermore the smoothing of the kernel is also visible. The initial value of one of the pixel in the middle (Fig. \ref{fig:extrapolation_t0}) is now smoothed to the pixels around it (Fig. \ref{fig:extrapolation_t1}). \\
+For extrapolating the PATTERN precipitation fields this procedure is now applied for the desired amount of timesteps. Since the temporal resolution of the PATTERN radar data is 30 seconds, each kernel filtering represents a prognosis 30 seconds in the future. 
 \begin{equation}
 	K =	\begin{brmatrix}[1.3em]
 		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0 	& 0 	& 0 \\
@@ -578,12 +612,12 @@ An example for this is shown in Figures \ref{fig:extrapolation_t0} and \ref{fig:
 	\centering
 	\begin{minipage}{0.48\textwidth}
 		\includegraphics[width=\textwidth,trim={38mm 0 10mm 5mm},clip]{Extrapolation_t0.eps}
-		\caption{Example plot with pixels of 1px, 2px and 3px width with a arbitrary value of 1, at timestep $t=0$.}
+		\caption{Example plot with quadrates with sizes of 1px, 2px and 3px with a arbitrary value of 1, at timestep $t=0$. Gray colours show values of 0.}
 		\label{fig:extrapolation_t0}
 	\end{minipage}\hfill
 	\begin{minipage}{0.48\textwidth}
 		\includegraphics[width=\textwidth,trim={38mm 0 10mm 5mm},clip]{Extrapolation_t1.eps}
-		\caption{Example plot where the pixels from Fig. \ref{fig:extrapolation_t0} are displaced and smoothed by eq. \ref{eq:gausskernel} at timestep $t=1$.}
+		\caption{Example plot where the pixels from Fig. \ref{fig:extrapolation_t0} are displaced and smoothed by eq. \ref{eq:gausskernel} at timestep $t=1$. Gray colours show values of 0.}
 		\label{fig:extrapolation_t1}
 	\end{minipage}
 \end{figure}
