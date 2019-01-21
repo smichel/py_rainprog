@@ -1,5 +1,5 @@
 %% Zweiseitiges Layout
-\documentclass[11pt,twoside,a4paper,fleqn]{report}
+\documentclass[11pt,twoside,a4paper,fleqn,x11names]{report}
 \usepackage[top=3cm, bottom=2.5cm, left=4cm, right=3cm]{geometry}
 
 %% Schriftbild
@@ -35,6 +35,8 @@
 
 \usepackage{tikz}
 \usepackage{pgfplots}
+\usetikzlibrary{shapes,arrows,chains}
+\usetikzlibrary{arrows.meta}
 \usetikzlibrary{math} %needed tikz library
 \pgfplotsset{compat=newest}
 \pgfplotsset{
@@ -49,7 +51,17 @@
 }
 
 \pgfmathsetseed{12344}%
-
+\pgfdeclarelayer{marx}
+\pgfsetlayers{main,marx}
+% A macro for marking coordinates (specific to the coordinate naming
+% scheme used here). Swap the following 2 definitions to deactivate
+% marks.
+\providecommand{\cmark}[2][]{%
+	\begin{pgfonlayer}{marx}
+		\node [nmark] at (c#2#1) {#2};
+	\end{pgfonlayer}{marx}
+} 
+\providecommand{\cmark}[2][]{\relax} 
 %% Literaturverzeichnis (BibTex)
 \usepackage{natbib}
 \bibliographystyle{apalike}  % Layout des Literaturverzeichnisses
@@ -64,6 +76,10 @@
   citecolor=Black,
   linkcolor=Black,
   urlcolor=Black}
+
+\colorlet{lcfree}{Green3}
+\colorlet{lcnorm}{Blue3}
+\colorlet{lccong}{Red3}
 
 %% Mathematikumgebung
 \usepackage{array}
@@ -195,6 +211,7 @@
 \chapter{Introduction}
 \pagenumbering{arabic}
 \chapter{Data}
+\label{chap:data}
 \section{DWD Radar Data}
 Boostedt DWD radar site: 54.0055° N, 10.04683° E, 124.6 m height
 
@@ -219,12 +236,91 @@ X-Band
 \end{figure}
 \chapter{Methodology}
 \section{Prognosis Model}
+The prognosis model is a combination of a linear advection model and a probabilistic nowcasting model. It is based on field based motion detection motivated by identifying local maxima in the precipitation field. \\
+A first short general overview of the model is given in Figure \ref{fig:model}. In the following sections a more detailed description for the model and the used methods is given. Before the model can be launched, several parameters and paths to the input fields need to be set (section \ref{subsec:param}). Then the radar data for DWD and PATTERN (section \ref{chap:data}) is read. This radar data is then gridded and interpolated to their respective grids (section \ref{subsec:grid}). Now both the DWD and PATTERN radar data is on a Cartesian grid and ready for further usage. \\
+At first the displacement detection algorithm (section \ref{subsec:disdetect}) is applied to both the DWD and PATTERN precipitation field. The displacements of the precipitation fields of DWD and PATTERN are then evaluated separately to identify erroneous displacements. In case no valid displacements can be detected in the DWD or PATTERN precipitation fields, the results from the displacement detection from one radar is used for the other radar. If no valid displacements at all can be detected the model stops and the prognosis fails. \\
+Now the displacement parameters from the DWD and PATTERN precipitation fields are used to perform the extrapolation for both precipitation fields (section \ref{subsec:extrapolation}). The Cartesian DWD precipitation fields are extrapolated with Lagrangian persistence. This extrapolation of the DWD precipitation fields is then used as the parent domain for the PATTERN extrapolation. \\
+The nested PATTERN precipitation data is then extrapolated via Gauss filtering using the properties of a bivariate normal density distribution (section \ref{subsec:bivar}) constructed from the previously determined parameters of the displacement distribution (section \ref{subsec:extrapolation}). This extrapolation is then the result for the total prognosis. With reference data the skill of the prognosis is evaluated by calculating several forecast skill scores (section \ref{subsec:eval}).
+\begin{figure}
+\centering
+	\begin{tikzpicture}[%
+		>=triangle 60,              % Nice arrows; your taste may be different
+		start chain=going below,    % General flow is top-to-bottom
+		node distance=10mm and 10mm, % Global setup of box spacing
+		every join/.style={norm},   % Default linetype for connecting boxes
+		]
+		\tikzset{
+			>={Latex[width=2mm,length=2mm]},
+			base/.style={draw, on chain, on grid, align=center, minimum height=4ex},
+			proc/.style={base, rectangle, text width=8em},
+			test/.style={base, diamond, aspect=2, text width=5em},
+			term/.style={proc, rounded corners},
+			% coord node style is used for placing corners of connecting lines
+			coord/.style={coordinate, on chain, on grid},
+			% nmark node style is used for coordinate debugging marks
+			nmark/.style={draw, cyan, circle, font={\sffamily\bfseries}},
+			% -------------------------------------------------
+			% Connector line styles for different parts of the diagram
+			norm/.style={->, draw, lcnorm},
+			free/.style={->, draw, lcfree},
+			cong/.style={->, draw, lccong},
+			it/.style={font={\small\itshape}}
+		}
+	
+	\node [proc, densely dotted] (b0) {Setting of input and parameters};
+	\node [term,lcnorm,left of=b0,xshift=-3cm]  (p1)    {PATTERN Input};
+	\node [term,lccong,right of=b0,xshift=3cm]  (d1)    {DWD Input};
+	\node [proc,densely dotted,below of=b0,yshift=-1cm] (b1) {Gridding and Interpolation};
+	\node [term,lcnorm,below of=b1,xshift=-2cm]  (p2)    {Cartesian data of PATTERN};
+	\node [term,lccong,below of=b1,xshift=2cm]  (d2)    {Cartesian data of DWD};
+	\node [proc,densely dotted,below of=b1,yshift=-2cm] (b3) {Displacement detection};
+	\node [proc,densely dotted,below of=b3] (b4) {Displacement evaluation};
+	\node [proc,densely dotted,below of=b4] (b5) {Exchange of parameters if necessary};
+	\node [term,lcnorm,below of=b5,xshift=-2cm]  (p3)    {PATTERN displacement parameters};
+	\node [term,lccong,below of=b5,xshift=2cm]  (d3)    {DWD displacement parameters};
+	\node [proc,lccong,densely dotted,below of=d3] (d4) {Extrapolation of DWD via Lagrangian persistence};
+	\node [term,lccong,below of=d4] (d5) {Parent domain for PATTERN};
+	\node [proc,densely dotted, below of=b5,yshift=-6cm] (b6) {Extrapolation of nested PATTERN via Gauss filtering};
+	\node [term, below of=b6] (b7) {Prognosis for nested PATTERN};
+	\node [term, below of=b6,xshift=4cm] (b8) {Scores};
+	\node [coordinate,right of=d2,xshift = 2cm] (dummy0) {};
+	\node [coordinate,right of=d4,xshift = 2cm] (dummy1) {};
+	\node [coordinate,left of=p2,xshift = -2cm] (pummy0) {};
+	\node [coordinate,left of=b6,xshift = -4cm] (pummy1) {};
+	\path[->, to path={-| (\tikztotarget)}] (b0) edge (p1);
+	\path[->, to path={-| (\tikztotarget)}] (b0) edge (d1);
+	\path[->, to path={|- (\tikztotarget)}] (p1) edge (b1);
+	\path[->, to path={|- (\tikztotarget)}] (d1) edge (b1);
+	\draw[->] (b1)--(p2);
+	\draw[->] (b1)--(d2);
+	\draw[->] (p2)--(b3);
+	\draw[->] (d2)--(b3);
+	\draw[->] (b3)--(b4);
+	\draw[->] (b4)--(b5);
+	\draw[->] (b5)--(p3);
+	\draw[->] (b5)--(d3);
+	\draw[->] (d3)--(d4);
+	\draw[->] (d3)--(d4);
+	\draw[->] (d4)--(d5);
+	\path[->, to path={-| (\tikztotarget)}] (d5) edge (b6);
+	\path[->, to path={-| (\tikztotarget)}] (p3) edge (b6);
+	\draw[->] (b6)--(b7);
+	\draw[->] (b7)--(b8);
+
+	%\path[->, to path={|- (\tikztotarget)}] (d2) edge (d4);
+	\draw[->] (d2)--(dummy0)--(dummy1)--(d4);
+	\draw[->] (p2)--(pummy0)--(pummy1)--(b6);
+	\end{tikzpicture}
+	\caption[Modelflowchart]{Flowchart for the model structure. Rectangular boxes show methods and algorithms. Rounded boxes show data output. Red coloured boxes show methods, algorithms and data output for the DWD data. Blue respectively for PATTERN. Black coloured boxes are used for methods, algorithm and data output which involve data from both DWD and PATTERN.}
+	\label{fig:model}
+\end{figure}
 \subsection{Setting of Parameters}
+\label{subsec:param}
 Before the prognosis model is started several parameters (Table \ref{tab:parameter}) need to be adjusted. The parameters control crucial parts of the model. The parameters 'gridded resolution of DWD and PATTERN' control the resolution of the Cartesian grid to which the radar data gets interpolated on. The train time represents the time how long the algorithm looks back in time to track the displacements of the precipitation fields. A train time of 30\,minutes for the DWD radar data represents 6 timesteps due the temporal resolution of 5\,minutes. The train time of 5\,minutes for the PATTERN radar data are equal to 10 timesteps, where each timestep has a temporal resolution of 30\,seconds. \\
-The 'Maximum number of tracked patches' sets the maximum number of tracked patches. The number of patches is also limited by the amount of precipitation pixels inside the radar field. If no more pixels above 0.5\,mmh$^{-1}$, threshold determined by the parameter 'rain rate threshold', can be found no more patches are created. The parameter 'Distance threshold' determines how far away the centre of the patches are allowed to move from the centre of the radar area. This is introduced to reduce unwanted interactions of the displacement detection with the border of the radar area. For the PATTERN and the DWD radar this centre is the PATTERN radar location. \\
+The 'maximum number of tracked patches' sets the maximum number of tracked patches. The number of patches is also limited by the amount of precipitation pixels inside the radar field. If no more pixels above 0.5\,mmh$^{-1}$, threshold determined by the parameter 'rain rate threshold', can be found no more patches are created. The parameter 'distance threshold' determines how far away the centre of the patches are allowed to move from the centre of the radar area. This is introduced to reduce unwanted interactions of the displacement detection with the border of the radar area. For the PATTERN and the DWD radar this centre is the PATTERN radar location. \\
 For this prognosis model the maximum speed of clouds is assumed to be around 80\,kmh$^{-1}$(\textbf{Reference needed?}), so the 'speed threshold' is set to 80\,km$^{-1}$. This threshold limits the distance of single displacement. For the DWD radar this means the maximum distance of a single displacement is limited to approx. 6000\,m, for the PATTERN radar the maximum distance is approx. 1000\,m. The parameter 'lead time' sets the time for what duration the prognosis should run. \\
 The 'minimum distance between maxima' determines the distance between maxima for the initial maxima detection (section \ref{subsec:disdetect}). This is set to 3000\,m for both radars and is implemented to evenly spread the patches over the total radar area. Motivated by the speed threshold for clouds the 'displacement detection range for DWD and PATTERN' is set to 6000\,m and 1000\,m. \\
-The 'edge length of the patches for DWD and PATTERN' is set to 12000\,m and 2000\,m.
+The 'edge length of the patches for DWD and PATTERN' is set to 12000\,m and 2000\,m. This results in patch sizes of 12000\,m x 12000\,m for DWD and 2000\,m x 2000\,m for PATTERN.
 \begin{table}[ht]
 	\centering
 	\caption[]{List of parameters for the prognosis algorithm.}
@@ -254,6 +350,7 @@ The 'edge length of the patches for DWD and PATTERN' is set to 12000\,m and 2000
 	\end{tabular}
 \end{table}
 \subsection{Gridding and Coordinate Transformation}
+\label{subsec:grid}
 Both the DWD and PATTERN radar data are initially in a polar grid around their respective radar stations. For simplicity, nesting/comparability between both radars and to regard the curvature of the earth, the polar data is transformed and gridded to a Cartesian grid. 
 
 This is done by using the Transverse Mercator projection transforming the polar grid coordinates to a Cartesian grid. The Transverse Mercator projection divides the Earth into 60 zones with  6° longitude in width. This reduces the distortion due to the curvature of the earth. Hamburg and its surrounding area lies in the EPSG zone 32632. 
@@ -573,6 +670,7 @@ Now with \ref{eq:bivariate} the $x$- and $y$ displacements from the tracks (Fig.
 	\label{fig:2dgauss}
 \end{figure}
 \subsection{Extrapolation}
+\label{subsec:extrapolation}
 Once the $x$- and $y$ displacements are estimated and processed, they are applied to the precipitation fields of the DWD and PATTERN radar to perform the prognosis. \\
 The latest available DWD precipitation field is simply displaced by the mean $x$- and $y$ displacements estimated in \ref{subsec:disdetect}. This method is called Lagrangian persistence \citep{Germann}. Hereby it is assumed that the precipitation field does not change over the prognosis time and is merely advected horizontally. This obviously can lead to huge errors if the precipitation strengthens or weakens over time. Especially in convective situations this can cause faults in the prognosis. \\
 The prognosis of the DWD precipitation fields is used as a boundary condition for the PATTERN precipitation fields. The PATTERN precipitation field is nested inside the DWD precipitation field (Fig. \ref{fig:radarOverview}). By nesting the PATTERN radar area inside the DWD radar area, the possible prognosis time is greatly extended. When precipitation is on the boundary between the DWD and PATTERN radar it can get advected into the PATTERN radar area.\\
@@ -676,6 +774,7 @@ For extrapolating the PATTERN precipitation fields this procedure is now applied
 %\end{equation}
 \FloatBarrier
 \section{Evaluation Methods}
+\label{subsec:eval}
 \subsection{Point to Point Evaluation}
 A rain threshold is set. Rainrates above that value e.g. 0.5 are considered to be rain, thus represented with a 1. Rainrates below that value are no rain, thus represented with a 0. Applying this threshold for the total rainfield creates a matrix of 0s and 1s. Now rainfields of the forecast and the reference values are compared.
 \begin{enumerate}
