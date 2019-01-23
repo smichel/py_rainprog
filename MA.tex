@@ -367,19 +367,23 @@ The polar coordinates of the radar data are described by the azimuth angle $azi$
 	\end{array}	
 	\label{eq:trans}
 \end{equation}
-The Cartesian distances to the radar are then transformed to Cartesian coordinates within the Transverse Mercator projection \footnote{For the Transverse Mercator projection the 'Geospatial Data Abstraction Library' (GDAL) and the python module 'osgeo' was used \citep{Warmerdam}.}.
+The Cartesian distances to the radar are then transformed to Cartesian coordinates with the Transverse Mercator projection \footnote{For the Transverse Mercator projection the 'Geospatial Data Abstraction Library' (GDAL) and the python module 'osgeo' is used \citep{Warmerdam}.}. Documentation for GDAL: 'gdal.org/python'. This is done for the coordinates of the DWD and PATTERN radars. From the DWD radar only a square with an edge length of 100\,km with the centre at the position of the PATTERN radar is used(Fig. \ref{fig:radarOverview}). This immensely reduces the computational work. \\ % hier vielleicht noch was über verlängerung der prognosezeit.
+The DWD and PATTERN radar data is available in clutter corrected radar reflectivity.%Hier noch den typ der daten, CLT corrected,xband,cband
+Reflectivity $z$ is a measure for the energy intensity which is backscattered by remote objects. The reflectivity $z$ is given in [mm$^{6}$m$^3$] and is proportional to the number of droplets and the size of the droplets. The reflectivity is more often used in its logarithmic form $Z$ in [dBZ] and calculated with eq. \ref{eq:dBZ}. The logarithmic form of the reflectivity is mostly used to make it easier to read.
 \begin{equation}
 	Z  = 10 \cdot \log _{10}(z)
+	\label{eq:dBZ}
 \end{equation}
-
+From the reflectivity $z$ the precipitation rate $R$ in [mmh$^{-1}$] can be derived via a common empirical Z-R-relation:
 \begin{equation}
 	z = aR^{b}
+	\label{eq:zr}
 \end{equation}
+where a and b are empirically-derived parameters. DWD and PATTERN use following values for the z-r relation for different radar reflectivities \citep{Lengfeld2014}:
 
-\begin{equation}
-	R = \frac{Z}{a}^{\frac{1}{b}}
-\end{equation}
-a and b are empirically-derived parameters. DWD and PATTERN use following values for the z-r relation for different radar reflectivities:
+%\begin{equation}
+%	R = \frac{z}{a}^{\frac{1}{b}}
+%\end{equation}
 
 \begin{equation}
 	\begin{array}{lcl}
