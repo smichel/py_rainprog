@@ -210,6 +210,10 @@
 \newpage\pagestyle{fancy}
 \chapter{Introduction}
 \pagenumbering{arabic}
+\chapter{Precipitation Nowcasting}
+\section{General}
+\section{Fieldbased}
+\section{Cellbased}
 \chapter{Data}
 \label{chap:data}
 \section{DWD Radar Data}
@@ -234,9 +238,9 @@ X-Band
 	\caption{Radaroverview. Red: Boostedt precip sweep, Black: Pattern precip sweep, Blue: Nesting area from boostedt radar sweep}
 	\label{fig:radarOverview}
 \end{figure}
-\chapter{Methodology}
-\section{Prognosis Model}
-The prognosis model is a combination of a linear advection model and a probabilistic nowcasting model. It is based on field based motion detection motivated by identifying local maxima in the precipitation field. \\
+\chapter{Prognosis Model}
+The developed prognosis model is a combination of a linear advection model and a probabilistic nowcasting model. It uses radar precipitation fields from DWD and PATTERN to perform a short-term precipitation forecast. The prognosis is based on field based motion detection between two consecutive radar scans, motivated by identifying local maxima and their movement over time in the precipitation field.
+\section{Overview}
 The general workflow of the model is given in Figure \ref{fig:model}. In the following sections a more detailed description for the model and the used methods is given. Before the model can be launched, several parameters and paths to the input fields need to be set (section \ref{subsec:param}). Then the radar data for DWD and PATTERN (section \ref{chap:data}) is read. This radar data is then gridded and interpolated to their respective grids (section \ref{subsec:grid}). Now both the DWD and PATTERN radar data is on a Cartesian grid and ready for further usage. \\
 At first the displacement detection algorithm (section \ref{subsec:disdetect}) is applied to both the DWD and PATTERN precipitation field. The displacements of the precipitation fields of DWD and PATTERN are then evaluated separately to identify erroneous displacements. In case no valid displacements can be detected in the DWD or PATTERN precipitation fields, the results from the displacement detection from one radar is used for the other radar. If no valid displacements at all can be detected the model stops and the prognosis fails. \\
 Now the displacement parameters from the DWD and PATTERN precipitation fields are used to perform the extrapolation for both precipitation fields (section \ref{subsec:extrapolation}). The Cartesian DWD precipitation fields are extrapolated with Lagrangian persistence. This extrapolation of the DWD precipitation fields is then used as the parent domain for the PATTERN extrapolation. \\
@@ -314,90 +318,53 @@ The nested PATTERN precipitation data is then extrapolated via Gauss filtering u
 	\caption[Modelflowchart]{Flowchart for the model structure. Rectangular boxes show methods and algorithms. Rounded boxes show data output. Red coloured boxes show methods, algorithms and data output for the DWD data. Blue respectively for PATTERN. Black coloured boxes are used for methods, algorithm and data output which involve data from both DWD and PATTERN.}
 	\label{fig:model}
 \end{figure}
-\subsection{Setting of Parameters}
-\label{subsec:param}
-Before the prognosis model is started several parameters (Table \ref{tab:parameter}) need to be adjusted. The parameters control crucial parts of the model. The parameters 'gridded resolution of DWD and PATTERN' control the resolution of the Cartesian grid to which the radar data gets interpolated on. The train time represents the time how long the algorithm looks back in time to track the displacements of the precipitation fields. A train time of 30\,minutes for the DWD radar data represents 6 timesteps due the temporal resolution of 5\,minutes. The train time of 5\,minutes for the PATTERN radar data are equal to 10 timesteps, where each timestep has a temporal resolution of 30\,seconds. \\
-The 'maximum number of tracked patches' sets the maximum number of tracked patches. The number of patches is also limited by the amount of precipitation pixels inside the radar field. If no more pixels above 0.5\,mmh$^{-1}$, threshold determined by the parameter 'rain rate threshold', can be found no more patches are created. The parameter 'distance threshold' determines how far away the centre of the patches are allowed to move from the centre of the radar area. This is introduced to reduce unwanted interactions of the displacement detection with the border of the radar area. For the PATTERN and the DWD radar this centre is the PATTERN radar location. \\
-For this prognosis model the maximum speed of clouds is assumed to be around 80\,kmh$^{-1}$(\textbf{Reference needed?}), so the 'speed threshold' is set to 80\,km$^{-1}$. This threshold limits the distance of single displacement. For the DWD radar this means the maximum distance of a single displacement is limited to approx. 6000\,m, for the PATTERN radar the maximum distance is approx. 1000\,m. The parameter 'lead time' sets the time for what duration the prognosis should run. \\
-The 'minimum distance between maxima' determines the distance between maxima for the initial maxima detection (section \ref{subsec:disdetect}). This is set to 3000\,m for both radars and is implemented to evenly spread the patches over the total radar area. Motivated by the speed threshold for clouds the 'displacement detection range for DWD and PATTERN' is set to 6000\,m and 1000\,m. \\
-The 'edge length of the patches for DWD and PATTERN' is set to 12000\,m and 2000\,m. This results in patch sizes of 12000\,m x 12000\,m for DWD and 2000\,m x 2000\,m for PATTERN. The 'ODR squared distance threshold' determines how far single displacements are allowed to stray from their respective regression line. With a higher value for this threshold higher variations are allowed. This parameter is relevant for the displacement evaluation in section \ref{subsec:disdetect}.
-\begin{table}[ht]
-	\centering
-	\caption[]{List of parameters for the prognosis algorithm.}
-	\label{tab:parameter}
-	\begin{tabular}{|l|l|l|}
-		\hline
-		Name of parameter &Value & Unit\\\hline
-		Gridded resolution of DWD & 250 & meters\\
-		Gridded resolution of PATTERN & 100 & meters\\
-		Train time of DWD & 30 & minutes\\
-		Train time of PATTERN & 5 & minutes\\
-		Maximum number of tracked patches DWD& 20 & number\\
-		Maximum number of tracked patches PATTERN& 20 & number\\
-		Distance threshold for DWD & 50000 & meters\\
-		Distance threshold for PATTERN &  19000 & meters\\
-		Rain rate threshold & 0.5 & mmh$^{-1}$ \\
-		Speed threshold & 80 & kmh$^{-1}$  \\
-		Lead time  & 60 & minutes \\
-		%Azimuth correction for PATTERN & -5 & degrees \\
-		Minimum distance between maxima & 3000 & meters \\
-		Displacement detection range for DWD & 6000 & meters\\
-		Displacement detection range for PATTERN & 1000 & meters\\
-		Edge length of patches for DWD & 12000 & meters\\
-		Edge length of patches for PATTERN & 2000 & meters\\
-		ODR squared distance threshold & 0.5 & fraction \\\hline
-		%Minimum kernel filter size & 20x20 & pixels \\\hline
-	\end{tabular}
-\end{table}
-\subsection{Gridding and Coordinate Transformation}
+
+\section{Gridding and Coordinate Transformation}
 \label{subsec:grid}
-Initially both the DWD and PATTERN radar data are on a polar grid around their respective radar stations. For simpler grid operations the polar radar data of DWD and PATTERN is transformed and gridded to a Cartesian grid. To perform a coordinate transformation from a spheroid to a plane a sophisticated map projection is needed. For the nesting of the radars the map projection needs to have a high accuracy which regards earth's curvature. This is done by using the Transverse Mercator projection, which transforms the polar grid coordinates to Cartesian grid coordinates. The Transverse Mercator projection is a very highly accurate map projection \citep{Karney2011}, which divides the Earth into 60 zones with 6° longitude in width \citep{TMP}. Hamburg and its surrounding area lies in the EPSG zone 32632 (Fig. \ref{fig:EPSG})
-\begin{figure}
-	\centering
-	\includegraphics[width=\textwidth]{EPSG2.eps}
-	\caption{EPSG Overview}
-	\label{fig:EPSG}
-\end{figure}
-%Displacing the point of origin in the coordinate system from the point of the radar to the EPSG zone 32632.
-The polar coordinates of the radar data are described by the azimuth angle $azi$ and distance from the radar $r$. With \ref{eq:trans} the polar coordinates are transformed to Cartesian distances to the radar.
+The DWD and PATTERN radar data is available as radar reflectivity. Reflectivity $z$ is a measure for the energy intensity which is backscattered by remote objects. The reflectivity $z$ is given in [mm$^{6}$m$^{-3}$] and is proportional to the number of droplets and the size of the droplets. The reflectivity is more often used in its logarithmic form $Z$ in [dBZ] and calculated from $z$ with eq. \ref{eq:dBZ}. The logarithmic form of the reflectivity is mostly used to make it more readable.
 \begin{equation}
-	\begin{array}{lcl}
-		x = r \cdot \cos(azi)\\
-		y = r \cdot \sin(azi)
-	\end{array}	
-	\label{eq:trans}
+Z  = 10 \cdot \log _{10}(z)
+\label{eq:dBZ}
 \end{equation}
-The Cartesian distances to the radar are then transformed to Cartesian coordinates with the Transverse Mercator projection \footnote{For the Transverse Mercator projection the 'Geospatial Data Abstraction Library' (GDAL) and the python module 'osgeo' is used \citep{Warmerdam}.}. Documentation for GDAL: 'gdal.org/python'. This is done for the coordinates of the DWD and PATTERN radars. From the DWD radar only a square with an edge length of 100\,km with the centre at the position of the PATTERN radar is used(Fig. \ref{fig:radarOverview}). This immensely reduces the computational work. \\ % hier vielleicht noch was über verlängerung der prognosezeit.
-The DWD and PATTERN radar data is available in clutter corrected radar reflectivity.%Hier noch den typ der daten, CLT corrected,xband,cband
-Reflectivity $z$ is a measure for the energy intensity which is backscattered by remote objects. The reflectivity $z$ is given in [mm$^{6}$m$^3$] and is proportional to the number of droplets and the size of the droplets. The reflectivity is more often used in its logarithmic form $Z$ in [dBZ] and calculated with eq. \ref{eq:dBZ}. The logarithmic form of the reflectivity is mostly used to make it easier to read.
+From the reflectivity $z$ the precipitation rate $R$ in [mmh$^{-1}$] can be derived via a common empirical z-R-relation:
 \begin{equation}
-	Z  = 10 \cdot \log _{10}(z)
-	\label{eq:dBZ}
+z = aR^{b},
+\label{eq:zr}
 \end{equation}
-From the reflectivity $z$ the precipitation rate $R$ in [mmh$^{-1}$] can be derived via a common empirical Z-R-relation:
-\begin{equation}
-	z = aR^{b}
-	\label{eq:zr}
-\end{equation}
-where a and b are empirically-derived parameters. DWD and PATTERN use following values for the z-r relation for different radar reflectivities \citep{Lengfeld2014}:
+where a and b are empirically-derived parameters. DWD and PATTERN use following values for the z-r-relation for different radar reflectivities \citep{Lengfeld2014}:
 
 %\begin{equation}
 %	R = \frac{z}{a}^{\frac{1}{b}}
 %\end{equation}
 
 \begin{equation}
-	\begin{array}{lcl}
-		Z \le 36.5 \text{dBZ}: & a = 320, b = 1.4 \\
-		36.5 \text{dBZ} < Z \le 44.0 \text{dBZ}: & a  = 200, b = 1.6 \\
-		Z > 44.0 \text{dBZ}: & a = 77, b = 1.9
-	\end{array}
+\begin{array}{lcl}
+Z \le 36.5 \text{dBZ}: & a = 320, b = 1.4 \\
+36.5 \text{dBZ} < Z \le 44.0 \text{dBZ}: & a  = 200, b = 1.6 \\
+Z > 44.0 \text{dBZ}: & a = 77, b = 1.9
+\end{array}
 \end{equation}
-
+Initially both the DWD and PATTERN radar data are on a polar grid around their respective radar stations. For simpler grid operations and easier comparability the polar radar data of DWD and PATTERN is transformed and gridded to Cartesian grids. To perform a coordinate transformation from a spheroid to a plane a sophisticated map projection is needed. For the nesting of the radars the map projection needs to have a high accuracy which regards earth's curvature. This is done by using the Transverse Mercator projection, which transforms the polar grid coordinates to Cartesian grid coordinates. The Transverse Mercator projection is a very highly accurate map projection \citep{Karney2011}, which divides the Earth into 60 zones with 6° longitude in width \citep{TMP}. Hamburg and its surrounding area lies in the EPSG zone number 32632 (Fig. \ref{fig:EPSG}).\\%Displacing the point of origin in the coordinate system from the point of the radar to the EPSG zone 32632.
+The polar coordinates of the radar data are defined by the azimuth angle $azi$ and distance from the radar $r$. With eq. \ref{eq:trans} the polar coordinates are transformed to Cartesian distances to the radar.
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{EPSG2.eps}
+	\caption{EPSG Overview}
+	\label{fig:EPSG}
+\end{figure}
+\begin{equation}
+	\begin{array}{lcl}
+		x = r \cdot \cos(azi)\\
+		y = r \cdot \sin(azi)
+	\end{array}	
+	\label{eq:trans}
+\end{equation}%%This immensely reduces the computational work, but still lengthens the possible lead time for a precipitation forecast for Hamburg. \\ % hier vielleicht noch was über verlängerung der prognosezeit. %Hier noch den typ der daten, CLT corrected,xband,cband
+The Cartesian distances to the radar are then transformed to Cartesian coordinates with the Transverse Mercator projection \footnote{For the Transverse Mercator projection the 'Geospatial Data Abstraction Library' (GDAL) and the python module 'osgeo' is used \citep{Warmerdam}. Documentation for GDAL: 'gdal.org/python'.}. This is done for the coordinates of the DWD and PATTERN radars. From the DWD radar only a square with an edge length of 100\,km with the centre at the position of the PATTERN radar is used (Fig. \ref{fig:radarOverview}). Now the Cartesian coordinates for every polar grid point for the DWD and PATTERN radars are known. 
 \subsection{Interpolation Methods}
 \subsubsection{Barycentric Interpolation}
 To transform the data from a polar grid to a Cartesian grid a Barycentric interpolation is applied to the radar data. The Barycentric interpolation is implemented following \cite{bary}. \\
-For the two dimensional barycentric interpolation the first step is to arrange the initial grid, here a polar grid around the radar site, into triangles. A possible way to do this is using the Delaunay Triangulation after \cite{delaunay}. This triangulation triangulates a set of points \textbf{P} so that no point in \textbf{P} is inside of the circumcircle of any triangle. Now the surrounding triangle is known for each point of the Cartesian grid.\\
-In comparison to coordinate systems like Cartesian or polar coordinate systems where points are offsets to a origin, barycentric coordinates describe the position of points relative to a simplex (e.g. a line, a triangle or a tetrahedron) (\citealp{bary} and \citealp{baryBerrut}). In this case barycentric coordinates are used to compare positions of points to triangles. For triangles barycentric coordinates can be understood as area coordinates. The equations to calculate the barycentric coordinates $d,e,g$ of the point $P$ in the triangle $A,B,C$ are ratios of their respective triangles and the total triangle (Fig. \ref{fig:bary}). For example the coordinate $g$ is calculated by dividing the area of the triangle $CAP$ by the area of the triangle $ABC$ (\ref{eq:barycor}).
+For the two dimensional barycentric interpolation the first step is to arrange the initial grid, here a polar grid around the radar site, into triangles. For this the Delaunay Triangulation after \cite{delaunay} is used. This triangulation triangulates a set of points \textbf{P} so that no point in \textbf{P} is inside of the circumcircle of any triangle. Now the surrounding triangle is known for each point of the Cartesian grid.\\
+In comparison to coordinate systems like Cartesian or polar coordinate systems where points are offsets to a origin, barycentric coordinates describe the position of points relative to a simplex (e.g. a point, a line, a triangle or a tetrahedron) (\citealp{bary} and \citealp{baryBerrut}). In this case barycentric coordinates are used to compare positions of points to triangles. For triangles barycentric coordinates can be understood as area coordinates. The equations to calculate the barycentric coordinates $d,e,g$ of the point $P$ in the triangle $A,B,C$ are ratios of their respective triangles and the total triangle (Fig. \ref{fig:bary}). For example the barycentric coordinate $g$ is calculated by dividing the area of the triangle $CAP$ by the area of the triangle $ABC$ (eq. \ref{eq:barycor}).
 
 Now to get the value $f(x_p,y_p)$, the values of the points $A,B,C$ are weighted by their respective coordinate $d,e,g$ and summed up (eq. \ref{eq:baryeq}).
 \begin{figure}
@@ -447,9 +414,8 @@ f(x_P,y_P) = d\,f(x_A,y_A)+e\,f(x_B,y_B)+g\,f(x_C,y_C)
 \end{equation}
 
 \subsubsection{Bilinear Interpolation}
-Following a similiar approach as \cite{bilinear} the bilinear interpolation is implemented as the equation \ref{eq:bilinear}. The bilinear interpolation is used for datapoints which lie inside of a square Cartesian grid. This is depicted in Fig. \ref{fig:bilinear}. The point $(x,y)$ is surrounded by the points $(x_1,y_1),(x_2,y_1),(x_2,y_2),(x_1,y_2)$. Now to calculate the value $f(x,y)$, the values of the surrounding points $f(x_1,y_1),f(x_2,y_1),f(x_2,y_2),f(x_1,y_2)$ are weighted with their respective opposite areas $m,n,o,p $ and are summed up. 
-
-
+\label{subsec:binterp}
+Following a similiar approach as \cite{bilinear} the bilinear interpolation is implemented as equation \ref{eq:bilinear}. The bilinear interpolation is used for datapoints which lie inside of a square Cartesian grid. This is depicted in Fig. \ref{fig:bilinear}. The point $(x,y)$ is surrounded by the points $(x_1,y_1),(x_2,y_1),(x_2,y_2),(x_1,y_2)$. Now to calculate the value $f(x,y)$, the values of the surrounding points $f(x_1,y_1),f(x_2,y_1),f(x_2,y_2),f(x_1,y_2)$ are weighted with their respective opposite areas $m,n,o,p $ and are summed up. 
 \begin{figure}[H]
 	\centering
 	\begin{tikzpicture}
@@ -479,30 +445,28 @@ Following a similiar approach as \cite{bilinear} the bilinear interpolation is i
 	f(x,y) = m\,f(x_1,y_1)+n\,f(x_2,y_1)+o\,f(x_2,y_2)+p\,f(x_1,y_2)
 	\label{eq:bilinear}
 \end{equation}
-\subsection{Displacement Detection}
+\section{Displacement Detection}
 \label{subsec:disdetect}
-In this thesis a combination of a cell and field-based algorithm is used.
-
-In order to make a prognosis on the movement of precipitation fields a displacement vector is needed and several approximations are necessary. 
-
-To find displacement vectors the following procedure is applied to the precipitation fields of the PATTERN and DWD radar.
+In order to detect movement in radar data at least two consecutive radar images are needed. By comparing the radar images, differences between the radar images become visible and can be used to estimate the movement between the radar images. The procedure to estimate the displacements of the precipitation fields from the differences between the radar images is described in the following sections. The general procedure for the DWD and PATTERN radar is:
+%In order to make a prognosis on the movement of precipitation fields a displacement vector is needed and several approximations are necessary. 
 \begin{enumerate}
 	\item Detection of suitable patches in the precipitation field for tracking (Fig. \ref{fig:maximaOverview} and Fig. \ref{fig:maximaOverviewZoom}).
 	\item Tracking of the patches (Fig. \ref{fig:displacement_t0} and Fig. \ref{fig:displacement_t1}) over the evolution of several timesteps.
 	\item If patches move out of the frame or tracking becomes undesirable new patches are searched in the current time step.
-	\item Tracks of each patch are evaluated.
+	\item Tracks of each individual patch are evaluated.
 \end{enumerate}
 
-\textbf{Detection of suitable patches} \\
-In order to detect the displacement of the precipitation fields in the radar scans, suitable patches for tracking are needed. Selecting suitable patches is important for future tracking. Ideally the precipitation field inside each patch should remain Lagrangian persistent in the tracking time. Furthermore the precipitation field inside the patch should ideally have a distinguishable pattern so the  tracking via cross-correlation becomes more reliable (Fig. \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). 
+%TODO blabla zu dem unterschied von dem tracking zu feldbasiert und zellbasiert
+\subsection{Detection of suitable patches}
+To detect the displacement of the precipitation fields in the radar scans, suitable patches for tracking are needed. Selecting suitable patches is important for future tracking. Ideally the precipitation field inside each patch should remain Lagrangian persistent in the tracking time. Furthermore the precipitation field inside the patch should ideally have a distinguishable pattern so the  tracking via cross-correlation becomes more reliable (Fig. \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\textwidth]{maximaOverview.eps}
 	\caption{Boostedt radar, with the maxima marked with 'x'}
 	\label{fig:maximaOverview}
 \end{figure}
-The patches are then iteratively selected by the following procedure. First the pixel with the highest rain rate inside the precipitation field is chosen. That pixel is then set as the middle point of the patch. The patch is a square with a side length of 2\,km for the PATTERN radar and a 12\,km for the DWD radar. The next patch is then located around the pixel with the second highest rain rate inside the precipitation field. The centre of the next patch needs to have a  minimum distance of 3\,km to other centres to reduce the overlap of the patches (Fig. \ref{fig:maximaOverviewZoom}). The location of the third patch is then centered around the pixel with next highest rain rate, again with a minimum distance of 3\,km to any other centre. This procedure is then continued until a specific number of patches is chosen or no more pixels with a minimum rain rate of over 0.5\,mm and a minimum distance of 3\,km to all other centres can be found inside the radar image.\\\\
-\textbf{Tracking of the patches} \\
+The patches are then iteratively selected by the following procedure. First the pixel with the highest rain rate inside the precipitation field is chosen. That pixel is then set as the middle point of the patch. The patch is a square with a side length of 2\,km for the PATTERN radar and a 12\,km for the DWD radar. The next patch is then located around the pixel with the second highest rain rate inside the precipitation field. The centre of the next patch needs to have a  minimum distance of 3\,km to other centres to reduce the overlap of the patches (Fig. \ref{fig:maximaOverviewZoom}). The location of the third patch is then centred around the pixel with next highest rain rate, again with a minimum distance of 3\,km to any other centre. This procedure is then continued until a specific number of patches is chosen or no more pixels with a minimum rain rate of over 0.5\,mm and a minimum distance of 3\,km to all other centres can be found inside the radar image.
+\subsection{Tracking of the patches}
 To get information about the displacement of the precipitation fields the position of the patches in the radar scans is tracked for 8 minutes for the PATTERN radar and 25 minutes for the DWD radar. This is done by estimating the displacement of each patch between two timesteps by calculating the squared euclidean distance (Fig \ref{fig:displacement_t0} and \ref{fig:displacement_t1}). To estimate the displacement of one patch the patch in the radar image at the time $t$ (Fig. \ref{fig:displacement_t0}) is 'searched' in the radar image of the next time step $t + 1$ (Fig. \ref{fig:displacement_t1}). The search area is a square with double the side length of a patch, 4\,km for the PATTERN radar and 24\,km for the DWD radar. Then the squared euclidean distance is calculated between the patch and the total area of the 'search' area. The squared Euclidean distance is calculated with eq. \ref{eq:crosscorr} after \cite{crosscorr}. 
 \begin{figure}[H]
 	\centering
@@ -520,8 +484,7 @@ In eq. \ref{eq:crosscorr} $q$ is the patch, the sum is over $x$, $y$ of the wind
 By calculating the squared Euclidean distance for every possible position of the patch over the 'search' area, you get a matrix of squared Euclidean distances for all possible positions (Fig. \ref{fig:corr_matrix}). Low values indicate a low Euclidean distance and high values a high Euclidean distance. A low Euclidean distance indicates a high similarity between the patch and the corresponding window used for the calculation of the squared Euclidean distance and a high Euclidean distance vice versa a low similarity.\\
 The lowest squared Euclidean distance here is indicated by the black cross. The original position of the centre of the patch is indicated by the white cross. Thus the estimated displacement of the patch over one time step is the displacement between the white and black cross.\\
 This procedure is then applied over the total time and all patches. If the centre of a patch moves out of the radar frame or the total number of rain pixels become lower than $xy$, then the patch is discarded and a new patch is selected by the procedure described before. 
-\\\\
-\textbf{Evaluation of the tracks} \\
+\subsection{Evaluation of the tracks}
 After estimating the displacements for all patches over the specified time periods, the tracks (multiple displacements) need to be checked for errors. The estimation of the displacements is due to several reasons not perfect. Changes in the precipitation field like a strengthening or weakening rain rate can cause a wrong displacement detection. Furthermore, in case of stratiform precipitation, a very uniform precipitation pattern in the patch and in the 'search' area can lead to an erroneous displacement detection.\\
 To differentiate good from bad tracks a orthogonal distance regression (ODR) (Fig. \ref{fig:orthogonaldist}) for each track is performed. The ODR calculates a line through a dataset of points which minimizes the squared distances from the points to their foot points on the line. \\
 Now the squared distance of all points to their respective foot points on line (red lines in Fig. \ref{fig:orthogonaldist}) is summed up. If this sum is bigger than the halved distance between the first and last point (dotted line) the track is rejected. The example track in Fig \ref{fig:orthogonaldist} would be rejected. \\
@@ -592,8 +555,8 @@ If no acceptable displacements can be found for either one of the precipitation 
 	\caption{Example for the orthogonal distance regression. The black line is the line which is calculated by the orthogonal distance regression. The red lines show the distance from the points to their respective foot points on the line. The dotted line shows the distance between the first and the last point of the tracks.}
 	\label{fig:orthogonaldist}
 \end{figure}
-\FloatBarrier
-\subsection{Bivariate Normal Densities}
+%\FloatBarrier
+\section{Bivariate Normal Densities}
 \label{subsec:bivar}
 After \cite{duda} a two dimensional Gaussian distribution, also called bivariate normal density, is defined in the following.
 With $\sigma_x \cdot\sigma_y = \sigma_{xy}$, where $\sigma_{xy}$ is the covariance of $x$ and $y$ and $\sigma_{x}$ is the variance of $x$, the correlation coefficient $\rho$ is defined by
@@ -670,10 +633,10 @@ Now with \ref{eq:bivariate} the $x$- and $y$ displacements from the tracks (Fig.
 	\caption{Bivariate Gaussian density, with $\mu_x=2.65$, $\mu_y=-1.61$, $\sigma_x = 0.74$, $\sigma_y=1.05$ and $\rho = -0.44$}
 	\label{fig:2dgauss}
 \end{figure}
-\subsection{Extrapolation}
+\section{Extrapolation}
 \label{subsec:extrapolation}
 Once the $x$- and $y$ displacements are estimated and processed, they are applied to the precipitation fields of the DWD and PATTERN radar to perform the prognosis. \\
-The latest available DWD precipitation field is simply displaced by the mean $x$- and $y$ displacements estimated in \ref{subsec:disdetect}. This method is called Lagrangian persistence \citep{Germann}. Hereby it is assumed that the precipitation field does not change over the prognosis time and is merely advected horizontally. This obviously can lead to huge errors if the precipitation strengthens or weakens over time. Especially in convective situations this can cause faults in the prognosis. \\
+The latest available DWD precipitation field is then simply displaced by the mean $x$- and $y$ displacements estimated in \ref{subsec:disdetect}. To displace the precipitation fields the bilinear interpolation (section \ref{subsec:binterp}) is used. This method of a simple precipitation displacement is called Lagrangian persistence \citep{Germann}. Hereby it is assumed that the precipitation field does not change over the prognosis time and is merely advected horizontally. This obviously can lead to huge errors if the precipitation strengthens or weakens over time. Especially in convective situations this can cause faults in the prognosis. \\
 The prognosis of the DWD precipitation fields is used as a boundary condition for the PATTERN precipitation fields. The PATTERN precipitation field is nested inside the DWD precipitation field (Fig. \ref{fig:radarOverview}). By nesting the PATTERN radar area inside the DWD radar area, the possible prognosis time is greatly extended. When precipitation is on the boundary between the DWD and PATTERN radar it can get advected into the PATTERN radar area.\\
 The PATTERN precipitation field is extrapolated by a different approach than the DWD precipitation field. Here the properties of the bivariate normal density (Fig. \ref{fig:2dgauss}) constructed in section \ref{subsec:bivar} are used. The displacement detection from section \ref{subsec:disdetect}) shows that the past displacements of the precipitation fields are not unequivocally and do not deliver a clear value for using the past displacements for a prognosis. This uncertainty is now used to perform a probabilistic precipitation forecast. \\
 This is done by applying the bivariate normal density on the latest available PATTERN precipitation field. The procedure is similar to applying a Gaussian filter on an image to smooth the image. But here a shifted asymmetric bivariate normal density is used to apply a displacement and a smoothing onto the precipitation field. The smoothing represents the uncertainty in the displacement detection. A high uncertainty in the displacement detection, e.g. big differences within the distribution of the $x$- and $y$ displacements, leads to bigger variances and covariances which leads to a flatter bivariate normal density distribution. Higher certainties in the displacements detection obviously lead to a sharper density distribution. The mean of the $x$- and $y$ displacements controls the direction and speed of the precipitation fields in the prognosis. This is visible in the Figures \ref{fig:2dgauss}, \ref{fig:extrapolation_t0} and \ref{fig:extrapolation_t1}. A mean of $\mu_x=2.65$ and $\mu_y=-1.61$ means that the average of the $x$- and $y$ displacements goes from the south-east to the north-west.\\
@@ -720,7 +683,7 @@ For extrapolating the PATTERN precipitation fields this procedure is now applied
 		\label{fig:extrapolation_t1}
 	\end{minipage}
 \end{figure}
-
+\FloatBarrier
 
 %\begin{figure}[h]
 %	\centering
@@ -773,6 +736,41 @@ For extrapolating the PATTERN precipitation fields this procedure is now applied
 %\begin{equation}
 %	f_{t+1}(x,y) = \frac{1}{N}\sum_{s=0}^{N} f_{t}(x_s,y_s)
 %\end{equation}
+\section{Setting of Parameters}
+\label{subsec:param}
+Before the prognosis model can be started several parameters (Table \ref{tab:parameter}) need to be adjusted. The parameters control crucial parts of the model. The parameters 'gridded resolution of DWD and PATTERN' control the resolution of the Cartesian grid to which the radar data gets interpolated on. The train time represents the time how long the algorithm looks back in time to track the displacements of the precipitation fields. A train time of 30\,minutes for the DWD radar data represents 6 timesteps due the temporal resolution of 5\,minutes. The train time of 5\,minutes for the PATTERN radar data are equal to 10 timesteps, where each timestep has a temporal resolution of 30\,seconds. \\
+The 'maximum number of tracked patches' sets the maximum number of tracked patches. The number of patches is also limited by the amount of precipitation pixels inside the radar field. If no more pixels above 0.5\,mmh$^{-1}$, threshold determined by the parameter 'rain rate threshold', can be found no more patches are created. The parameter 'distance threshold' determines how far away the centre of the patches are allowed to move from the centre of the radar area. This is introduced to reduce unwanted interactions of the displacement detection with the border of the radar area. For the PATTERN and the DWD radar this centre is the PATTERN radar location. \\
+For this prognosis model the maximum speed of clouds is assumed to be around 80\,kmh$^{-1}$(\textbf{Reference needed?}), so the 'speed threshold' is set to 80\,km$^{-1}$. This threshold limits the distance of single displacement. For the DWD radar this means the maximum distance of a single displacement is limited to approx. 6000\,m, for the PATTERN radar the maximum distance is approx. 1000\,m. The parameter 'lead time' sets the time for what duration the prognosis should run. \\
+The 'minimum distance between maxima' determines the distance between maxima for the initial maxima detection (section \ref{subsec:disdetect}). This is set to 3000\,m for both radars and is implemented to evenly spread the patches over the total radar area. Motivated by the speed threshold for clouds the 'displacement detection range for DWD and PATTERN' is set to 6000\,m and 1000\,m. \\
+The 'edge length of the patches for DWD and PATTERN' is set to 12000\,m and 2000\,m. This results in patch sizes of 12000\,m x 12000\,m for DWD and 2000\,m x 2000\,m for PATTERN. The 'ODR squared distance threshold' determines how far single displacements are allowed to stray from their respective regression line. With a higher value for this threshold higher variations are allowed. This parameter is relevant for the displacement evaluation in section \ref{subsec:disdetect}.
+\begin{table}[ht]
+	\centering
+	\caption[]{List of parameters for the prognosis algorithm.}
+	\label{tab:parameter}
+	\begin{tabular}{|l|l|l|}
+		\hline
+		Name of parameter &Value & Unit\\\hline
+		Gridded resolution of DWD & 250 & meters\\
+		Gridded resolution of PATTERN & 100 & meters\\
+		Train time of DWD & 30 & minutes\\
+		Train time of PATTERN & 5 & minutes\\
+		Maximum number of tracked patches DWD& 20 & number\\
+		Maximum number of tracked patches PATTERN& 20 & number\\
+		Distance threshold for DWD & 50000 & meters\\
+		Distance threshold for PATTERN &  19000 & meters\\
+		Rain rate threshold & 0.5 & mmh$^{-1}$ \\
+		Speed threshold & 80 & kmh$^{-1}$  \\
+		Lead time  & 60 & minutes \\
+		%Azimuth correction for PATTERN & -5 & degrees \\
+		Minimum distance between maxima & 3000 & meters \\
+		Displacement detection range for DWD & 6000 & meters\\
+		Displacement detection range for PATTERN & 1000 & meters\\
+		Edge length of patches for DWD & 12000 & meters\\
+		Edge length of patches for PATTERN & 2000 & meters\\
+		ODR squared distance threshold & 0.5 & fraction \\\hline
+		%Minimum kernel filter size & 20x20 & pixels \\\hline
+	\end{tabular}
+\end{table}
 \FloatBarrier
 \section{Evaluation Methods}
 \label{subsec:eval}
