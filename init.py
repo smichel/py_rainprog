@@ -55,7 +55,7 @@ class radarData:
                                   self.rainThreshold, self.distThreshold, self.dist_nested, self.resolution),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
             self.resolution, self.cRange, self.trainTime, self.d_s)
-
+        self.progField.deltaT = 1
 
     def find_displacement(self,prog):
         for t in range(self.trainTime):
@@ -348,10 +348,10 @@ class Totalfield:
 
         for field in self.activeFields:
 
-            corrArea = self.nested_data[t,
+            corrArea = self.nested_data[t-self.deltaT+1,
                        (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
                        (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
-            dataArea = self.nested_data[t + 1,
+            dataArea = self.nested_data[t+1,
                        (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
                        (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
             # maybe consider using "from skimage.feature import match_template" template matching
@@ -360,8 +360,8 @@ class Totalfield:
             # http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_template.html
             c = leastsquarecorr(dataArea, corrArea)
             cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
-            field.shiftX = int(cIdx[0] - 0.5 * len(c))
-            field.shiftY = int(cIdx[1] - 0.5 * len(c))
+            field.shiftX = (cIdx[0] - 0.5 * len(c))/self.deltaT
+            field.shiftY = (cIdx[1] - 0.5 * len(c))/self.deltaT
             field.norm = np.linalg.norm([field.shiftX, field.shiftY])
 
             field.angle = get_metangle(field.shiftX, field.shiftY)
@@ -372,8 +372,8 @@ class Totalfield:
             field.add_shift(field.shiftX, field.shiftY)
             field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + field.shiftX),
                                                   int(field.maxima[0, 2] + field.shiftY)]
-            field.maxima[0, 1] = int(field.maxima[0, 1] + field.shiftX)
-            field.maxima[0, 2] = int(field.maxima[0, 2] + field.shiftY)
+            field.maxima[0, 1] = field.maxima[0, 1] + field.shiftX
+            field.maxima[0, 2] = field.maxima[0, 2] + field.shiftY
 
 
             # if field.norm == 1:
@@ -873,7 +873,7 @@ class LawrData(radarData, Totalfield):
         if np.any(filtersize < (3 * np.max(self.covNormAngle))):
             filtersize = np.int(np.max(self.covNormAngle*3))
         rho = self.covNormAngle[0,1]/(self.covNormAngle[0,0]*self.covNormAngle[1,1])
-        [x,y] = np.meshgrid(np.arange(filtersize,-filtersize-1,-1),np.arange(filtersize,-filtersize-1,-1))
+        [x,y] = np.meshgrid(np.arange(-filtersize,filtersize-1),np.arange(-filtersize,filtersize))
         self.kernel = twodgauss(x,y,self.covNormAngle[0,0],self.covNormAngle[1,1],rho,self.gaussMeans[0],self.gaussMeans[1])
 
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
