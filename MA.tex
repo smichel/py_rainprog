@@ -570,7 +570,7 @@ With $\mu_x$ and $\mu_y$ as the means of all $x$- and $y$ displacements the biva
 	\end{multlined}
 	\label{eq:bivariate}
 \end{equation}
-Now with \ref{eq:bivariate} the $x$- and $y$ displacements from the tracks (Fig. \ref{fig:displacement}) are used to construct a bivariate normal density distribution. Here it is assumed that the $x$- and $y$ displacements are normal distributed.
+Now with eq. \ref{eq:bivariate} the $x$- and $y$ displacements from the tracks (Fig. \ref{fig:displacement}) are used to construct a bivariate normal density distribution. Here it is assumed that the $x$- and $y$ displacements are normal distributed.
 \begin{figure}[!htbp]
 	\centering
 	\begin{tikzpicture}[
@@ -584,7 +584,7 @@ Now with \ref{eq:bivariate} the $x$- and $y$ displacements from the tracks (Fig.
 	%[ 0.7623108   0.53510949]
 	%[3.4090909090909092, -1.9545454545454546]
 %	declare function={bivar(\ma,\sa,\mb,\sb,\corr)= 1/(2*pi*\sa*\sb) * exp( -((x-\ma)^2/(2*\sa^2)) - ((y-\mb)^2/(2*\sb^2)));}]
-		declare function={bivar(\ma,\sa,\mb,\sb,\corr)= 1/(2*pi*\sa*\sb*sqrt(1-\corr^2)) * exp(-1/(2*(1-\corr^2))*((x-\ma)^2/\sa^2-2*\corr*(x-\ma)*(y-\mb)/(\sa*\sb)+(y-\mb)^2/\sb^2));}]
+	declare function={bivar(\ma,\sa,\mb,\sb,\corr)= 1/(2*pi*\sa*\sb*sqrt(1-\corr^2)) * exp(-1/(2*(1-\corr^2))*((x-\ma)^2/\sa^2-2*\corr*(x-\ma)*(y-\mb)/(\sa*\sb)+(y-\mb)^2/\sb^2));}]
 	\begin{axis}[
 	colormap name=whitered,
 	width=12cm,
