@@ -49,20 +49,21 @@ class radarData:
         bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
         return vertices, np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
     ##TODO change start time explicit for dwd and pattern
-    def initial_maxima(self,prog):
+    def initial_maxima(self):
+
         self.progField = Totalfield(
-            Totalfield.findmaxima([], self.nested_data[-self.trainTime-prog-1, :, :], self.cRange, self.numMaxima,
+            Totalfield.findmaxima([], self.nested_data[self.startTime, :, :], self.cRange, self.numMaxima,
                                   self.rainThreshold, self.distThreshold, self.dist_nested, self.resolution),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
             self.resolution, self.cRange, self.trainTime, self.d_s)
-
+        self.progField.deltaT = 1
 
     def find_displacement(self,prog):
         for t in range(self.trainTime):
             if len(self.progField.activeFields) < self.numMaxima:
                 self.progField.assign_ids()
-            self.progField.test_maxima(self.nested_data[prog-self.trainTime + t,:,:])
-            self.progField.prog_step(prog-self.trainTime + t)
+            self.progField.test_maxima(self.nested_data[self.startTime + t,:,:])
+            self.progField.prog_step(self.startTime+t)
             self.progField.update_fields()
 
         self.progField.test_angles2()
@@ -348,10 +349,10 @@ class Totalfield:
 
         for field in self.activeFields:
 
-            corrArea = self.nested_data[t,
+            corrArea = self.nested_data[t-self.deltaT+1,
                        (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
                        (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
-            dataArea = self.nested_data[t + 1,
+            dataArea = self.nested_data[t+1,
                        (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
                        (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
             # maybe consider using "from skimage.feature import match_template" template matching
@@ -360,8 +361,8 @@ class Totalfield:
             # http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_template.html
             c = leastsquarecorr(dataArea, corrArea)
             cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
-            field.shiftX = int(cIdx[0] - 0.5 * len(c))
-            field.shiftY = int(cIdx[1] - 0.5 * len(c))
+            field.shiftX = (cIdx[0] - 0.5 * len(c))/self.deltaT
+            field.shiftY = (cIdx[1] - 0.5 * len(c))/self.deltaT
             field.norm = np.linalg.norm([field.shiftX, field.shiftY])
 
             field.angle = get_metangle(field.shiftX, field.shiftY)
@@ -372,8 +373,8 @@ class Totalfield:
             field.add_shift(field.shiftX, field.shiftY)
             field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + field.shiftX),
                                                   int(field.maxima[0, 2] + field.shiftY)]
-            field.maxima[0, 1] = int(field.maxima[0, 1] + field.shiftX)
-            field.maxima[0, 2] = int(field.maxima[0, 2] + field.shiftY)
+            field.maxima[0, 1] = field.maxima[0, 1] + field.shiftX
+            field.maxima[0, 2] = field.maxima[0, 2] + field.shiftY
 
 
             # if field.norm == 1:
@@ -655,10 +656,11 @@ class DWDData(radarData, Totalfield):
         self.resolution = 250  # horizontal resolution in m
         self.trainTime = 6  # 6 Timesteps for training to find the displacement vector (equals 25 minutes)
         self.numMaxima = 20  # number of tracked maxima
-        self.distThreshold = 50000
+        self.distThreshold = 45000
         self.getGrid(self.resolution)
         self.offset = self.cRange * 2
         self.nested_data[0, self.offset:self.offset + self.d_s, self.offset:self.offset + self.d_s] = self.gridding()
+        self.startTime=0 # number of the file where the startpoint for the prognosis is
         # self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
 
     def getGrid(self, booresolution):
@@ -872,9 +874,9 @@ class LawrData(radarData, Totalfield):
         filtersize = 10
         if np.any(filtersize < (3 * np.max(self.covNormAngle))):
             filtersize = np.int(np.max(self.covNormAngle*3))
-        rho = self.covNormAngle[0,1]/(self.covNormAngle[0,0]*self.covNormAngle[1,1])
-        [x,y] = np.meshgrid(np.arange(filtersize,-filtersize-1,-1),np.arange(filtersize,-filtersize-1,-1))
-        self.kernel = twodgauss(x,y,self.covNormAngle[0,0],self.covNormAngle[1,1],rho,self.gaussMeans[0],self.gaussMeans[1])
+        rho = self.covNormAngle[0,1]/(np.sqrt(self.covNormAngle[0,0])*np.sqrt(self.covNormAngle[1,1]))
+        [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
+        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0]),np.sqrt(self.covNormAngle[1,1]),rho,-self.gaussMeans[0],-self.gaussMeans[1])
 
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.copy(self.prog_data)

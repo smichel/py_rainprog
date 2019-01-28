@@ -95,7 +95,7 @@ def prognosis(date, t):
         for i, file in enumerate(selectedFiles[1:]):
             dwd.addTimestep(directoryPath + '/' + file)
             #print(file)
-        dwd.initial_maxima(0)
+        dwd.initial_maxima()
         dwd.find_displacement(0)
 
 
@@ -104,8 +104,12 @@ def prognosis(date, t):
 
 
 
+        lawr.startTime = prog-lawr.trainTime
+        lawr.initial_maxima()
 
-        lawr.initial_maxima(prog)
+
+        if np.any(np.abs([x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans])<1):
+            lawr.progField.deltaT=int(np.ceil(np.min(1/np.min(np.abs([x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans])))))+1
         lawr.find_displacement(prog)
 
         if np.any(np.isnan(lawr.covNormAngle)) or lawr.normEqualOneSum<3*len(lawr.progField.activeIds):
@@ -502,7 +506,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-result = prognosis([2016,6,13,19,20,60],0)
+result = prognosis([2016,5,23,5,20,60],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
