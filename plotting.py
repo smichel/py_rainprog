@@ -126,7 +126,7 @@ t = 0
 fig, ax = plt.subplots(1, figsize=(10, 8))
 im = ax.imshow(dwd.nested_data[0, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
 plt.show(block=False)
-o, = plt.plot(*np.transpose(dwd.progField.return_maxima(t)[:, 2:0:-1]), 'rX')
+o, = plt.plot(*np.transpose(dwd.progField.return_histMaxima(t)[:, 2:0:-1]), 'rX')
 s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
 s.set_clim(0.1, 100)
 s.set_ticks(contours)
@@ -142,8 +142,8 @@ t = 0
 fig, ax = plt.subplots(1, figsize=(10, 8))
 im = ax.imshow(dwd.nested_data[0, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
 plt.show(block=False)
-o, = plt.plot(*np.transpose(dwd.progField.return_maxima(t)[:, 2:0:-1]), 'rX')
-maxima = dwd.progField.return_maxima(t)[:, 2:0:-1]
+o, = plt.plot(*np.transpose(dwd.progField.return_histMaxima(t)[:, 2:0:-1]), 'rX')
+maxima = dwd.progField.return_histMaxima(t)[:, 2:0:-1]
 for u in range(len(maxima)):
     proxCircle = mpatches.Circle((maxima[u,0],maxima[u,1]),3000/dwd.resolution,color='k',linewidth=1,fill=0)
     ax.add_patch(proxCircle)
@@ -173,8 +173,8 @@ for i, field in enumerate(dwd.progField.inactiveFields):
         cross, = plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x',linestyle='None')
 plt.gca().invert_yaxis()
 plt.show(block=False)
-ax.set_xlim([100,300])
-ax.set_ylim([300,100])
+ax.set_xlim([100,500])
+ax.set_ylim([500,100])
 ax.grid(linewidth=0.5)
 ax.set_xticklabels(ax.get_xticks() * 0.25)
 ax.set_yticklabels(ax.get_yticks() * 0.25)

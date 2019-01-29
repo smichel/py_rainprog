@@ -217,6 +217,14 @@
 \chapter{Data}
 \label{chap:data}
 \section{DWD Radar Data}
+The Deutscher Wetterdienst (DWD) operates a radar network which covers Germany (Figure \ref{fig:radarnetwork}). From this network the radar Boostedt 
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\textwidth]{dwdradarnetwork.png}
+	\caption[short text]{DWD radar network}%https://www.dwd.de/DE/leistungen/radolan/radarniederschlagsprodukte/radolankurzbeschreibung_pdf.pdf?__blob=publicationFile&v=6
+	\label{fig:radarnetwork}
+\end{figure}
 Boostedt DWD radar site: 54.0055° N, 10.04683° E, 124.6 m height
 
 Precipitation scan: 0.5° ,following orographie (150 km range)
@@ -224,6 +232,7 @@ Precipitation scan: 0.5° ,following orographie (150 km range)
 5 minute time resolution
 C-Band
 100 km x 100 km box around PATTERN radar position taken from the whole radar image
+%DWSR/5001/SDP/CE
 \section{PATTERN Radar Data}
 % https://wetterradar.uni-hamburg.de/index.php?id=4035
 PATTERN Hamburg radar position: 53.56833°N, 9.97997° E, ~80m height
@@ -231,7 +240,26 @@ PATTERN Hamburg radar position: 53.56833°N, 9.97997° E, ~80m height
 60m range gates, 1° azimuth steps (20 km range)
 30s time resolution
 X-Band
-
+\begin{table}[ht]
+	\centering
+	\caption[]{PATTERN and DWD radar specifications from \citep{Lengfeld2014} and \citep{Frech2013}.}
+	\label{tab:radarspec}
+	\begin{tabular}{|l|l|l|}
+		\hline
+		Performance parameters &DWD & PATTERN\\\hline
+		Range resolution & 250\,m & 60\,m\\
+		Time resolution & 300\,s & 30\,s\\
+		Angular resolution & 1\deg & 2.8\deg\\
+		Sampling resolution in azimuth & 1\deg & 1\deg\\
+		Maximum range& 150\,km & 20\,km\\
+		Calibration accuracy& $2$ & $\pm1$\,dB\\
+		Transmit power & 500\,kW & 25\,kW\\
+		Frequency & 5600-5650\,MHz & 9410\,MHz\\
+		Pulse width & 0.4\,µs & 0.4\,µs \\
+		Pulse repetition frequency & 600\,Hz & 800\,Hz  \\
+		Beam width & 1\deg & 2.8\deg \\\hline
+	\end{tabular}
+\end{table}
 \begin{figure}[!htbp]
 	\centering
 	\includegraphics[width=\textwidth,trim={0 0 0 0}, clip]{radarOverview.eps}

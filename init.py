@@ -176,16 +176,17 @@ class Totalfield:
         self.betas = []
         self.d_s = d_s
         self.assign_ids()
-    def return_maxima(self, time):
+    def return_maxima(self):
         maxima = np.empty([len(self.activeFields), 3])
-        if time == 0:
-            for q, field in enumerate(self.activeFields):
-                maxima[q, 0:3] = field.maxima
-        else:
-            for q, field in enumerate(self.activeFields):
-                maxima[q, 0:3] = field.histMaxima[time]
+        for q, field in enumerate(self.activeFields):
+            maxima[q, 0:3] = field.maxima
         return maxima
 
+    def return_histMaxima(self,time):
+        maxima = np.empty([len(self.activeFields), 3])
+        for q, field in enumerate(self.activeFields):
+            maxima[q, 0:3] = field.histMaxima[time]
+        return maxima
     def return_fieldMeanX(self):
         fieldMeanX = []
         for field in self.activeFields:
@@ -877,7 +878,7 @@ class LawrData(radarData, Totalfield):
         rho = self.covNormAngle[0,1]/(np.sqrt(self.covNormAngle[0,0])*np.sqrt(self.covNormAngle[1,1]))
         [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
         self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0]),np.sqrt(self.covNormAngle[1,1]),rho,-self.gaussMeans[0],-self.gaussMeans[1])
-
+        self.kernel = self.kernel/np.sum(self.kernel)
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.copy(self.prog_data)
         rainThreshold=0.5
@@ -887,9 +888,7 @@ class LawrData(radarData, Totalfield):
         self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[2:4])
         self.prog_start[2] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[4:6])
         self.prog_start_idx = np.where((np.asarray(dwd.hour[dwd.trainTime:]) == self.prog_start[0]) & (
-                    np.asarray(dwd.minute[dwd.trainTime:]) == self.prog_start[1]) & (
-                                                   np.asarray(dwd.second[dwd.trainTime:]) - 3 == self.prog_start[2]))[
-            0][0]
+                    np.asarray(dwd.minute[dwd.trainTime:]) == self.prog_start[1]) & ((np.asarray(dwd.second[dwd.trainTime:]) - np.mod(dwd.second[dwd.trainTime:],30)) == self.prog_start[2]))[0][0]
 
         self.prog_data[0, :, :] = nesting(self.prog_data[0, :, :], self.dist_nested, self.target_nested,
                                           dwd.prog_data[self.prog_start_idx, :, :], dwd, self.r[-1],
