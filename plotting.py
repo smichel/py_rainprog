@@ -79,7 +79,7 @@ import matplotlib.patches as mpatches
 
 osm_tiles = OSM()
 plt.rcParams["figure.figsize"] = (9,6)
-plt.rcParams.update({'font.size': 22})
+plt.rcParams.update({'font.size': 20})
 ax = plt.axes(projection=ccrs.PlateCarree())
 ax.coastlines()
 gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
@@ -97,11 +97,12 @@ ax2 = fig2.add_subplot(111,projection=mercator)
 
 ax2.set_extent([7.5, 12.6, 52.4, 55.5])
 ax2.add_image(osm_tiles, 8, interpolation='bilinear')
-
 xy_dwd = [10.04683,54.0044]
 xy_dwd_T = mercator.transform_point(xy_dwd[0],xy_dwd[1],ccrs.PlateCarree())
 radarCircle_dwd = mpatches.Circle(xy=xy_dwd_T, radius=260000, color='r', linewidth=1, fill=0,transform = mercator)
 ax2.add_patch(radarCircle_dwd)
+ax2.scatter(xy_dwd_T[0],xy_dwd_T[1],color='r',marker='x')
+
 xy_pat = [9.9734,53.56833]
 xy_pat_T = mercator.transform_point(xy_pat[0],xy_pat[1],ccrs.PlateCarree())
 radarCircle_pat = mpatches.Circle(xy=xy_pat_T, radius=20000*1.73, color='k', linewidth=1, fill=0,transform = mercator)
@@ -111,6 +112,7 @@ y_rect = np.array([53.11,54.0215])
 xy_rect=mercator.transform_points(ccrs.PlateCarree(),x_rect,y_rect)
 radarRect = mpatches.Rectangle(xy_rect[0],width=xy_rect[1,0]-xy_rect[0,0],height=xy_rect[1,1]-xy_rect[0,1], color='b',fill=0)
 ax2.add_patch(radarRect)
+ax2.scatter(xy_pat_T[0],xy_pat_T[1],color='k',marker='x')
 
 gl2 = ax2.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
                   linewidth=0.5, color='gray', alpha=0.2, linestyle='--')
@@ -200,3 +202,53 @@ ax2.set_xticks([0,5,10,15,20,25])
 ax1.set_xticks([0,5,10,15,20,25])
 ax1.grid()
 ax2.grid()
+
+
+import matplotlib.patches as mpatches
+import cartopy.crs as ccrs
+from cartopy.io.img_tiles import OSM,GoogleTiles
+import matplotlib.pyplot as plt
+import matplotlib.dates
+import matplotlib.patches as mpatches
+import numpy as np
+
+xy_dwd = [10.04683,54.0044]
+xy_emden = [7.0238,53.3387]
+xy_dwd_radars=[[10.04683,54.0044],[12.0581,54.1757],[9.6945,52.4601],[11.1761,53.3387],[13.8582,52.6487],[6.9671,51.4056]
+    ,[8.802,51.3112],[13.7687,51.1245],[11.1350,50.5001],[6.5485,50.1097],[8.7129,49.9847],[12.4028,49.5407],[9.7828,48.5853],[12.1018,48.1747],[8.0036,47.8736],[10.2192,48.0421]]
+
+google = GoogleTiles()
+mercator = google.crs
+xy_dwd_radars_T=['']*len(xy_dwd_radars)
+
+for t in range(len(xy_dwd_radars)):
+    xy_dwd_radars_T[t] = mercator.transform_point(xy_dwd_radars[t][0],xy_dwd_radars[t][1],ccrs.PlateCarree())
+
+xy_emden_T = mercator.transform_point(xy_emden[0],xy_emden[1],ccrs.PlateCarree())
+
+google = GoogleTiles()
+mercator = google.crs
+osm_tiles = OSM()
+plt.rcParams["figure.figsize"] = (9,6)
+plt.rcParams.update({'font.size': 20})
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111,projection=mercator)
+
+ax2.set_extent([4, 17, 45, 56])
+ax2.add_image(osm_tiles, 4, interpolation='bilinear')
+
+for i in range(len(xy_dwd_radars_T)):
+    radarCircle_dwd = mpatches.Circle(xy=xy_dwd_radars_T[i], radius=250000, color='r', linewidth=0.5, fill=0, transform=mercator)
+    ax2.add_patch(radarCircle_dwd)
+    ax2.scatter(xy_dwd_radars_T[0], xy_dwd_radars_T[1], color='r', marker='x')
+
+radarCircle_dwd = mpatches.Circle(xy=xy_emden_T, radius=250000, color='r', linewidth=0.5, fill=0, transform=mercator)
+ax2.add_patch(radarCircle_dwd)
+ax2.scatter(xy_emden_T[0], xy_emden_T[1], color='r', marker='x')
+
+gl2 = ax2.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                  linewidth=0.5, color='gray', alpha=0.2, linestyle='--')
+gl2.xlabels_top = False
+gl2.ylabels_left = False
+
+plt.show()

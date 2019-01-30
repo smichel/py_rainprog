@@ -217,21 +217,21 @@
 \chapter{Data}
 \label{chap:data}
 \section{DWD Radar Data}
-The Deutscher Wetterdienst (DWD) operates a radar network which covers Germany (Figure \ref{fig:radarnetwork}). From this network the radar Boostedt 
+The Deutscher Wetterdienst (DWD) operates a network of 17 polarimetric C-band Doppler radar systems which cover Germany (Figure \ref{fig:radarnetwork}). From this network the data from the Boostedt radar is used. The position of the Boostedt radar is 54.0055°\,N and 10.04683°\,E (red marker in Figure \ref{fig:radarOverview}). The DWD uses radars of the type 'DWSR/5001/SDP/CD' from the company EEC. With a frequency of 5600 - 5650 MHz and a wavelength of approx. 5.3\,cm the radars operate in the C-band. As polarimetric Doppler radars the radars use horizontally and vertically polarized electromagnetic waves to measure the  reflectivity of hydrometeors. Since hydrometeor classification is not needed only the horizontally polarized waves are considered. \\
+In this thesis only data from the precipitation scan of the DWD radar is used. This precipitation scan operates at the lowest elevation angle possible following the horizon line. It has a range of 150\,km and a range resolution of 250\,m at a angular resolution of 1\deg. The precipitation scan is performed every 5 minutes. From the total precipitation scan of the Boostedt radar only a square with a edge length of 100\,km with Hamburg as centre is used (blue square in Fig. \ref{fig:radarOverview}). The technical specifications of the DWD radars are listed in Table \ref{tab:radarspec}.\\
 
 \begin{figure}
 	\centering
-	\includegraphics[width=0.8\textwidth]{dwdradarnetwork.png}
+	\includegraphics[width=0.8\textwidth,trim={0 0 0 15mm }, clip]{dwdradarnetwork.png}
 	\caption[short text]{DWD radar network}%https://www.dwd.de/DE/leistungen/radolan/radarniederschlagsprodukte/radolankurzbeschreibung_pdf.pdf?__blob=publicationFile&v=6
 	\label{fig:radarnetwork}
 \end{figure}
-Boostedt DWD radar site: 54.0055° N, 10.04683° E, 124.6 m height
-
-Precipitation scan: 0.5° ,following orographie (150 km range)
-250m range gates, 1° azimuth steps
-5 minute time resolution
-C-Band
-100 km x 100 km box around PATTERN radar position taken from the whole radar image
+%Boostedt DWD radar site: 54.0055° N, 10.04683° E, 124.6 m height
+%Precipitation scan: 0.5° ,following orographie (150 km range)
+%250m range gates, 1° azimuth steps
+%5 minute time resolution
+%C-Band
+%100 km x 100 km box around PATTERN radar position taken from the whole radar image
 %DWSR/5001/SDP/CE
 \section{PATTERN Radar Data}
 % https://wetterradar.uni-hamburg.de/index.php?id=4035
@@ -255,7 +255,7 @@ X-Band
 		Calibration accuracy& $2$ & $\pm1$\,dB\\
 		Transmit power & 500\,kW & 25\,kW\\
 		Frequency & 5600-5650\,MHz & 9410\,MHz\\
-		Pulse width & 0.4\,µs & 0.4\,µs \\
+		Pulse width & 0.4 or 0.8\,µs & 0.4\,µs \\
 		Pulse repetition frequency & 600\,Hz & 800\,Hz  \\
 		Beam width & 1\deg & 2.8\deg \\\hline
 	\end{tabular}
