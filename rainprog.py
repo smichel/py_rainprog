@@ -136,8 +136,8 @@ def prognosis(date, t):
         #         plt.figure(figsize=(8, 8))
         #         im = plt.imshow(test2.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
         #         plt.show(block=False)
-        #         o, = plt.plot(*np.transpose(test2.progField.return_maxima(t)[:, 2:0:-1]), 'ko')
-        #         n, = plt.plot(*np.transpose(test2.progField.return_maxima(t-1)[:, 2:0:-1]), 'wo')
+        #         o, = plt.plot(*np.transpose(test2.progField.return_histMaxima(t)[:, 2:0:-1]), 'ko')
+        #         n, = plt.plot(*np.transpose(test2.progField.return_histMaxima(t-1)[:, 2:0:-1]), 'wo')
         #         s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
         #         s.set_clim(0, np.max(test2.nested_data))
         #         s.set_ticks(contours)
@@ -145,8 +145,8 @@ def prognosis(date, t):
         #         # s.set_ticklabels(contourLabels)
         #     else:
         #         im.set_data(test2.nested_data[t, :, :])
-        #         o.set_data(*np.transpose(test2.progField.return_maxima(t)[:, 2:0:-1]))
-        #         n.set_data(*np.transpose(test2.progField.return_maxima(t-1)[:, 2:0:-1]))
+        #         o.set_data(*np.transpose(test2.progField.return_histMaxima(t)[:, 2:0:-1]))
+        #         n.set_data(*np.transpose(test2.progField.return_histMaxima(t-1)[:, 2:0:-1]))
         #     plt.pause(1)
         #
         # col = np.concatenate([np.zeros([1,np.max(test2.progField.activeIds)]), np.random.rand(2,np.max(test2.progField.activeIds))])
@@ -189,8 +189,8 @@ def prognosis(date, t):
                     plt.figure(figsize=(8, 8))
                     im = plt.imshow(lawr.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
                     plt.show(block=False)
-                    o, = plt.plot(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime)[:, 2:0:-1]), 'ko')
-                    n, = plt.plot(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]), 'wo')
+                    o, = plt.plot(*np.transpose(lawr.progField.return_histMaxima(t-prog+lawr.trainTime)[:, 2:0:-1]), 'ko')
+                    n, = plt.plot(*np.transpose(lawr.progField.return_histMaxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]), 'wo')
                     s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
                     s.set_clim(0, np.max(lawr.nested_data))
                     s.set_ticks(contours)
@@ -198,8 +198,8 @@ def prognosis(date, t):
                     #s.set_ticklabels(contourLabels)
                 else:
                     im.set_data(lawr.nested_data[t, :, :])
-                    o.set_data(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime)[:, 2:0:-1]))
-                    n.set_data(*np.transpose(lawr.progField.return_maxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]))
+                    o.set_data(*np.transpose(lawr.progField.return_histMaxima(t-prog+lawr.trainTime)[:, 2:0:-1]))
+                    n.set_data(*np.transpose(lawr.progField.return_histMaxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]))
                 plt.pause(0.1)
                 #plt.savefig('/scratch/local1/plots/analysis_timestep_' + str(t) + '.png')
 
@@ -506,7 +506,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-result = prognosis([2016,5,23,5,20,60],0)
+result = prognosis([2016,6,24,17,20,60],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:

@@ -217,24 +217,53 @@
 \chapter{Data}
 \label{chap:data}
 \section{DWD Radar Data}
-Boostedt DWD radar site: 54.0055° N, 10.04683° E, 124.6 m height
-
-Precipitation scan: 0.5° ,following orographie (150 km range)
-250m range gates, 1° azimuth steps
-5 minute time resolution
-C-Band
-100 km x 100 km box around PATTERN radar position taken from the whole radar image
-\section{PATTERN Radar Data}
-% https://wetterradar.uni-hamburg.de/index.php?id=4035
-PATTERN Hamburg radar position: 53.56833°N, 9.97997° E, ~80m height
-
-60m range gates, 1° azimuth steps (20 km range)
-30s time resolution
-X-Band
-
+The Deutscher Wetterdienst (DWD) operates a network of 17 polarimetric C-band Doppler radar systems which cover Germany (Figure \ref{fig:radarnetwork}). From this network the data from the Boostedt radar is used. The position of the Boostedt radar is 54.0055°\,N and 10.04683°\,E (red marker in Figure \ref{fig:radarOverview}). The DWD uses radars of the type 'DWSR/5001/SDP/CD' from the company EEC. With a frequency of 5600 - 5650\,MHz and a wavelength of approx. 5.3\,cm the radars operate in the C-band. As polarimetric Doppler radars the radars use horizontally and vertically polarized electromagnetic waves to measure the  reflectivity of hydrometeors. Since hydrometeor classification is not needed only the horizontally polarized waves are considered. \\
+In this thesis only data from the precipitation scan of the DWD radar is used. This precipitation scan operates at the lowest elevation angle possible following the horizon line. It has a range of 150\,km and a range resolution of 250\,m at a angular resolution of 1\deg. The precipitation scan is performed every 5 minutes. From the total precipitation scan of the Boostedt radar (red circle in Fig. \ref{fig:radarOverview}) only a square with a edge length of 100\,km with Hamburg as centre is used (blue square). The technical specifications of the DWD radars are listed in Table \ref{tab:radarspec}.\\
+For the post-processing and quality controlling of the radar data the DWD has developed a software package called 'Polarimetric Radar Algorithms' (POLARA). The radar data quality checking is done in two steps. First radar signal processing and then post-processing. In the signal processing several filters and thresholds are set to reduce undesired echoes and eliminate some  of the clutter \citep{Werner2014}. The DWD radar data used in this thesis is only quality controlled by the signal processing.
 \begin{figure}[!htbp]
 	\centering
-	\includegraphics[width=\textwidth,trim={0 0 0 0}, clip]{radarOverview.eps}
+	\includegraphics[width=\textwidth,trim={70mm 0 70mm 10mm}, clip]{dwdradars.eps}
+	\caption[DWD radar network]{The radar network the DWD. Crosses mark the position of the operating radars. The circles show the maximum distance of the precipitation scans. The red cross and red circle show the position of the Boostedt radar and the maximum distance of the precipitation scan of the Boostedt radar.}
+	\label{fig:radarnetwork}
+\end{figure}
+
+
+%Boostedt DWD radar site: 54.0055° N, 10.04683° E, 124.6 m height
+%Precipitation scan: 0.5° ,following orographie (150 km range)
+%250m range gates, 1° azimuth steps
+%5 minute time resolution
+%C-Band
+%100 km x 100 km box around PATTERN radar position taken from the whole radar image
+%DWSR/5001/SDP/CE
+\FloatBarrier
+\section{PATTERN Radar Data}
+The Precipitation and Attenuation Estimates from a High-Resolution Weather Radar Network (PATTERN) project aimed to investigate low cost local area weather radars (LAWR) and if they can operate as a complement to nationwide radar networks \citep{Lengfeld2014}. One radar in the PATTERN project is set up in the city of Hamburg on top of the Geomatikum in a height of 90\,m above ground (black circle in Figure \ref{fig:radarOverview}). The location of the radar is 53.56833°\,N, 9.97997°\,E and has a distance of approx. 30\,km to the Boostedt radar. The radar operates on a frequency of 9410\,MHz and a wavelength of approx. 3.2\,µm. This classifies the radar as a X-band radar. The X-band radars in the PATTERN project are not capable of measuring in Doppler or dual-polarisation mode \citep{Lengfeld2014}.\\
+The PATTERN radar data has a range resolution of 60\,m, 1° angular resolution and a temporal resolution of 30\,s. The maximum range is 20\,km. The technical specifications of the PATTERN radars are listed in Table \ref{tab:radarspec}.
+% https://wetterradar.uni-hamburg.de/index.php?id=4035
+
+\begin{table}[!htbp]
+	\centering
+	\caption[]{PATTERN and DWD radar specifications from \citep{Lengfeld2014} and \citep{Frech2013}.}
+	\label{tab:radarspec}
+	\begin{tabular}{|l|l|l|}
+		\hline
+		Performance parameters &DWD & PATTERN\\\hline
+		Range resolution & 250\,m & 60\,m\\
+		Time resolution & 300\,s & 30\,s\\
+		Angular resolution & 1\deg & 2.8\deg\\
+		Sampling resolution in azimuth & 1\deg & 1\deg\\
+		Maximum range& 150\,km & 20\,km\\
+		Calibration accuracy& $2$ & $\pm1$\,dB\\
+		Transmit power & 500\,kW & 25\,kW\\
+		Frequency & 5600-5650\,MHz & 9410\,MHz\\
+		Pulse width & 0.4 or 0.8\,µs & 0.4\,µs \\
+		Pulse repetition frequency & 600\,Hz & 800\,Hz  \\
+		Beam width & 1\deg & 2.8\deg \\\hline
+	\end{tabular}
+\end{table}
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=\textwidth,trim={20mm 0 20mm 0}, clip]{radarOverview.eps}
 	\caption{Radaroverview. Red: Boostedt precip sweep, Black: Pattern precip sweep, Blue: Nesting area from boostedt radar sweep}
 	\label{fig:radarOverview}
 \end{figure}
