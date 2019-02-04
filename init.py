@@ -759,7 +759,7 @@ class DWDData(radarData, Totalfield):
         self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
 
         for t in range(progTimeSteps):
-            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.meanXDisplacement/10)*t, (self.meanYDisplacement/10)*t)
+            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.gaussMeans[0]/10)*t, (self.gaussMeans[1]/10)*t)
 
             self.second.append(self.second[-1]+30)
             self.hour.append(self.hour[-1])

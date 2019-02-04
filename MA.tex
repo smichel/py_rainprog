@@ -211,9 +211,39 @@
 \chapter{Introduction}
 \pagenumbering{arabic}
 \chapter{Precipitation Nowcasting}
+\begin{figure}[!htbp]
+	\centering
+	\begin{tikzpicture}[]
+	\begin{axis}[
+	axis x line=center,
+	axis y line=center,
+	xtick={0,1,2,3,4,5,6},
+	ytick=\empty,
+	xticklabels={0,6,12,18,24,30,36},
+    ylabel near ticks,
+	xlabel near ticks,
+	xlabel={Lead time of forecast in hours},
+	ylabel={Quality of forecast},
+	xmin=0,
+	ymin=0,
+	xmax=6.5,
+	ymax=5.5
+	]
+	\draw[thick] (0,5) .. controls (0.75,4.5) and (1.25,1) .. (2.1,0.5);
+	\node at (3.5,4.5) [text width=5cm] {Extrapolation of the current \\atmospheric state using radar observations};
+	\draw[thick] (0,2.3) .. controls (1.4,2.8) and (2.8,1.2) .. (3.5,1.1);
+	\draw[thick] (1,0.2) .. controls (3.5,1.5) .. (6,0.6);
+	\end{axis}
+	\end{tikzpicture}
+	\caption{.}
+	\label{fig:prognosisScores}
+\end{figure}
+
+\citep{Pierce12}
 \section{General}
 \section{Fieldbased}
 \section{Cellbased}
+\section{Probabilistic Nowcasting}
 \chapter{Data}
 \label{chap:data}
 \section{DWD Radar Data}

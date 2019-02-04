@@ -506,7 +506,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-result = prognosis([2016,6,24,17,20,60],0)
+result = prognosis([2016,7,21,17,10,60],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
