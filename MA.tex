@@ -211,13 +211,18 @@
 \chapter{Introduction}
 \pagenumbering{arabic}
 \chapter{Precipitation Nowcasting}
+\label{chap:nowcasting}
+
+
 \begin{figure}[!htbp]
 	\centering
-	\begin{tikzpicture}[]
+	\begin{tikzpicture}[
+			>=triangle 60,              % Nice arrows; your taste may be different
+			]
 	\begin{axis}[
 	axis x line=center,
 	axis y line=center,
-	xtick={0,1,2,3,4,5,6},
+	xtick={0,3,6,9,12,15,18},
 	ytick=\empty,
 	xticklabels={0,6,12,18,24,30,36},
     ylabel near ticks,
@@ -226,21 +231,27 @@
 	ylabel={Quality of forecast},
 	xmin=0,
 	ymin=0,
-	xmax=6.5,
-	ymax=5.5
+	xmax=19.5,
+	ymax=8.5
 	]
-	\draw[thick] (0,5) .. controls (0.75,4.5) and (1.25,1) .. (2.1,0.5);
-	\node at (3.5,4.5) [text width=5cm] {Extrapolation of the current \\atmospheric state using radar observations};
-	\draw[thick] (0,2.3) .. controls (1.4,2.8) and (2.8,1.2) .. (3.5,1.1);
-	\draw[thick] (1,0.2) .. controls (3.5,1.5) .. (6,0.6);
+	\draw[thick] (0,8) .. controls (3.5,6) and (4.5,1.5) .. (8,0.5);
+	\node at (12,7.5) [text width=5cm] {Extrapolation of the current atmospheric state using radar observations};
+	\draw [<-] (2.6,6.3)--(4.5,7.5);
+	
+	\draw[thick] (0,4) .. controls (4,5) and (6,3) .. (11,1.8);
+	\node at (11.5,5.5) [text width=5cm] {Mesoscale NWP model};
+	\draw [<-] (4.5,4.1)--(6,5);
+	
+	\draw[thick] (3.2,0.3) .. controls (9,1.5) and (10.5,3.3) .. (19.5,1);
+	\node at (13,4) [text width=5cm] {Synoptic-scale NWP model with Model Output Statistics};
+	\draw [<-] (12.3,2.3)--(13.3,3.3);
 	\end{axis}
 	\end{tikzpicture}
-	\caption{.}
-	\label{fig:prognosisScores}
+	\caption{A schematic showing the quality of weather forecasts, defined by their accuracy and the achievable detail, as a function of lead time. After \cite{Pierce12} and \cite{Browning1980}.}
+	\label{fig:prognosisquality}
 \end{figure}
 
-\citep{Pierce12}
-\section{General}
+
 \section{Fieldbased}
 \section{Cellbased}
 \section{Probabilistic Nowcasting}
