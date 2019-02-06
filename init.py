@@ -584,7 +584,7 @@ class Totalfield:
         return fields
 
 class Results:
-    def __init__(self, hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS,year,mon,day,hour,minute):
+    def __init__(self, hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS,year,mon,day,hour,minute,dwdGaussMeans,dwdCov,lawrGaussMeans,lawrCov,progStart,progEnd):
         self.hit = hit
         self.miss = miss
         self.f_alert = f_alert
@@ -600,6 +600,12 @@ class Results:
         self.day = day
         self.hour = hour
         self.minute = minute
+        self.dwdGaussMeans = dwdGaussMeans
+        self.dwdCov = dwdCov
+        self.lawrGaussMeans = lawrGaussMeans
+        self.lawrCov = lawrCov
+        self.progStart = progStart
+        self.progEnd = progEnd
 
 class DWDData(radarData, Totalfield):
 
@@ -850,6 +856,7 @@ class LawrData(radarData, Totalfield):
             self.target[:, 1] = self.YCar.flatten()
 
             self.d_s = len(self.XCar)
+            self.d_s_nested = len(xCar_nested)
 
             self.R = np.empty([self.timeSteps, self.d_s, self.d_s])
             self.rPolar = z2rainrate(self.z)
@@ -1122,7 +1129,7 @@ def getFiles(filelist, time):
 
     return files
 
-def fileSelector(directoryPath, time, trainTime = 5):
+def dwdFileSelector(directoryPath, time, trainTime = 6):
     booFileList = sorted(os.listdir(directoryPath))
     year = np.asarray([int(x[33:37]) for x in booFileList])
     mon = np.asarray([int(x[37:39]) for x in booFileList])
@@ -1132,6 +1139,15 @@ def fileSelector(directoryPath, time, trainTime = 5):
     idx = np.where((time[2]==hour)&((time[3]/2)-(time[3]/2)%5==min))[0][0]
     selectedFiles = booFileList[idx-trainTime:idx+1]
     return selectedFiles
+
+def lawrFileSelector(directoryPath,time,trainTime=10,progTime=60):
+    lawrFileList = sorted(os.listdir(directoryPath))
+    year = np.asarray([int(x[7:11]) for x in lawrFileList])
+    mon = np.asarray([int(x[11:13]) for x in lawrFileList])
+    day = np.asarray([int(x[13:15]) for x in lawrFileList])
+    hour = np.asarray([int(x[15:17]) for x in lawrFileList])
+    idx = np.where((time[2] == day) & (time[3] == hour))[0][0]
+    selectedFiles = lawrFileList[idx+int(np.floor(time[4]-trainTime)/60):idx+int((time[4]+progTime)/60)+1]
 
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rainthreshold, lawr, HHGlat, HHGlon):
     boo_pixels = ((dwd.dist_nested>= rMax) & (dwd.dist_nested<= lawr.dist_nested.max()))

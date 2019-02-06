@@ -10,7 +10,7 @@ from scipy.interpolate import griddata, RegularGridInterpolator
 from multiprocessing import Process
 from createblob import createblob
 from init import Square, Totalfield, LawrData, DWDData, radarData, get_metangle, create_sample, importance_sampling, \
-    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,fileSelector,get_Grid, Results
+    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,dwdFileSelector,get_Grid, Results
 import multiprocessing as mp
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
@@ -75,7 +75,7 @@ def prognosis(date, t):
         useRealData = 1
         prognosis = 1
         statistics = 0
-        livePlot = 1
+        livePlot = 0
         probabilityFlag = 0
         trackingTime = 6
         samples = 16
@@ -86,7 +86,7 @@ def prognosis(date, t):
         booFileList = sorted(os.listdir(directoryPath))
         dwdTime = list((mon,day,hour,prog))
 
-        selectedFiles = fileSelector(directoryPath, dwdTime, trainTime)
+        selectedFiles = dwdFileSelector(directoryPath, dwdTime, trainTime)
 
 
 
@@ -112,7 +112,7 @@ def prognosis(date, t):
             lawr.progField.deltaT=int(np.ceil(np.min(1/np.min(np.abs([x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans])))))+1
         lawr.find_displacement(prog)
 
-        if np.any(np.isnan(lawr.covNormAngle)) or lawr.normEqualOneSum<3*len(lawr.progField.activeIds):
+        if np.any(np.isnan(lawr.covNormAngle)) or lawr.normEqualOneSum<3*len(lawr.progField.activeIds) or len(lawr.progField.activeFields):
             lawr.covNormAngle = dwd.covNormAngle
             lawr.gaussMeans = [x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans]
 
@@ -453,11 +453,16 @@ def prognosis(date, t):
         print(datetime.now()-startTime)
 
 
-        result = Results(hit, miss, f_alert, corr_zero, BIAS, PC, POD, FAR, CSI, ORSS,year, mon, day, hour, minute)
+        result = Results(hit, miss, f_alert, corr_zero, BIAS, PC, POD, FAR, CSI, ORSS,year, mon, day, hour, minute,dwd.gaussMeans,dwd.covNormAngle,lawr.gaussMeans,lawr.covNormAngle,lawr.prog_data[0,:,:],lawr.prog_data[-1,:,:])
         return result
     except:
         nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
-        result = Results(nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy, year, mon, day, hour, minute)
+
+        result = Results(nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,
+                         nan_dummy, year, mon, day, hour, minute,
+                         [np.nan, np.nan],np.array([[np.nan,np.nan],[np.nan,np.nan]]),
+                         [np.nan, np.nan],np.array([[np.nan,np.nan],[np.nan,np.nan]]),
+                         np.full([441,441],np.nan),np.full([441,441],np.nan))
         return result
 year = 2016
 
@@ -471,31 +476,17 @@ num_r = len(rain_thresholds)
 progTime = 60
 
 
-runs = 40
 
 months= [6]
 startHour = 1
-days =[2,13,14,18,23,24,25]
+days =[2]#,13,14,18,23,24,25]
 endHour = 24
-minutes=np.array([0,10,20])
+minutes=np.array([10,15,20])
 runs = len(minutes)
 hours = np.arange(startHour,endHour)
 
 dimensions = [len(months), len(days), len(hours),len(minutes),progTime,num_r]
 
-
-
-hit = np.zeros(dimensions)
-miss = np.zeros(dimensions)
-f_alert = np.zeros(dimensions)
-corr_zero = np.zeros(dimensions)
-total = np.zeros(dimensions)
-BIAS = np.zeros(dimensions)
-PC = np.zeros(dimensions)
-POD = np.zeros(dimensions)
-FAR = np.zeros(dimensions)
-CSI = np.zeros(dimensions)
-ORSS = np.zeros(dimensions)
 
 dates = []
 for mon in months:
@@ -506,7 +497,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-result = prognosis([2016,7,21,17,10,60],0)
+result = prognosis([2016,6,2,7,15,60],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -519,14 +510,14 @@ result = prognosis([2016,7,21,17,10,60],0)
 #                                day, hour, minute))
 # print(datetime.now() - startTime)
 
-# startTime = datetime.now()
-# pool = mp.Pool(4)
-# results = pool.starmap(prognosis, zip(dates,t))
+startTime = datetime.now()
+pool = mp.Pool(4)
+results = pool.starmap(prognosis, zip(dates,t))
 #
 # #except:
 # #    nan_dummy = np.zeros([progTime,len(rain_thresholds)])*np.nan
 # #    results.append(Results(nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy, np.nan, np.nan, np.nan, np.nan, np.nan))
 #
-# pool.close()
-# pool.join()
+pool.close()
+pool.join()
 
