@@ -664,13 +664,13 @@ class DWDData(radarData, Totalfield):
         self.trainTime = 6  # 6 Timesteps for training to find the displacement vector (equals 25 minutes)
         self.numMaxima = 20  # number of tracked maxima
         self.distThreshold = 45000
-        self.getGrid(self.resolution)
+        self.getGrid()
         self.offset = self.cRange * 2
         self.nested_data[0, self.offset:self.offset + self.d_s, self.offset:self.offset + self.d_s] = self.gridding()
         self.startTime=0 # number of the file where the startpoint for the prognosis is
         # self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
 
-    def getGrid(self, booresolution):
+    def getGrid(self):
         mett_azi = met2math_angle(self.azi)
         aziCos = np.cos(np.radians(mett_azi))
         aziSin = np.sin(np.radians(mett_azi))
@@ -804,7 +804,7 @@ class LawrData(radarData, Totalfield):
                 self.time = nc.variables['Time'][:]
 
             super().__init__(filepath)
-            self.trainTime = 10  # 8 Timesteps for training to find the displacement vector (equals 4 minutes)
+            self.trainTime = 10  # 10 Timesteps for training to find the displacement vector (equals 5 minutes)
             self.numMaxima = 20  # number of tracked maxima
             self.resolution = 100
             self.timeSteps = len(self.time)
@@ -813,67 +813,107 @@ class LawrData(radarData, Totalfield):
             self.azi = np.mod(self.azi + aziCorr, 360)
             self.cRange = int(
                 1000 / self.resolution)  # 800m equals an windspeed of aprox. 100km/h and is set as the upper boundary for a possible cloud movement
-            mett_azi = met2math_angle(self.azi)
+            self.offset = self.cRange * 2
 
             self.lon = 9.973997  # location of the hamburg radar
             self.lat = 53.56833
-            self.zsl = 100  # altitude of the hamburg radar
-            self.samples = 16  # number of samples for the importance sampling
             self.sitecoords = [self.lon, self.lat]
+            self.getGrid()
+            self.zsl = 100  # altitude of the hamburg radar
+            self.gridding()
 
-            aziCos = np.cos(np.radians(mett_azi))
-            aziSin = np.sin(np.radians(mett_azi))
-            xPolar = np.outer(self.r, aziCos)
-            xPolar = np.reshape(xPolar, (333 * 360, 1))
-            yPolar = np.outer(self.r, aziSin)
-            yPolar = np.reshape(yPolar, (333 * 360, 1))
-            self.points = np.concatenate((xPolar, yPolar), axis=1)
+    def getGrid(self):
 
-            self.xCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
-            self.yCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
+        mett_azi = met2math_angle(self.azi)
+        aziCos = np.cos(np.radians(mett_azi))
+        aziSin = np.sin(np.radians(mett_azi))
+        xPolar = np.outer(self.r, aziCos)
+        xPolar = np.reshape(xPolar, (333 * 360, 1))
+        yPolar = np.outer(self.r, aziSin)
+        yPolar = np.reshape(yPolar, (333 * 360, 1))
+        self.points = np.concatenate((xPolar, yPolar), axis=1)
 
-            [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
+        self.xCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
+        self.yCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
 
-            self.Lon,self.Lat = get_Grid(self.sitecoords,20000,self.resolution)
-            self.Lon_nested, self.Lat_nested = get_Grid(self.sitecoords, 20000 + self.cRange * 2 * self.resolution, self.resolution)
+        [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
 
-            self.dist = np.sqrt(np.square(self.xCar) + np.square(self.YCar))
+        self.Lon,self.Lat = get_Grid(self.sitecoords,20000,self.resolution)
+        self.Lon_nested, self.Lat_nested = get_Grid(self.sitecoords, 20000 + self.cRange * 2 * self.resolution, self.resolution)
 
-            xCar_nested = np.arange(-20000 - self.cRange * 2 * self.resolution,
-                                    20000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
-            yCar_nested = np.copy(xCar_nested)
+        self.dist = np.sqrt(np.square(self.xCar) + np.square(self.YCar))
 
-            [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
+        xCar_nested = np.arange(-20000 - self.cRange * 2 * self.resolution,
+                                20000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+        yCar_nested = np.copy(xCar_nested)
 
-            self.dist_nested = np.sqrt(np.square(xCar_nested) + np.square(YCar_nested))
+        [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
 
-            self.target_nested = np.zeros([XCar_nested.shape[0] * XCar_nested.shape[1], 2])
-            self.target_nested[:, 0] = XCar_nested.flatten()
-            self.target_nested[:, 1] = YCar_nested.flatten()
+        self.dist_nested = np.sqrt(np.square(xCar_nested) + np.square(YCar_nested))
 
-            self.target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
-            self.target[:, 0] = self.XCar.flatten()
-            self.target[:, 1] = self.YCar.flatten()
+        self.target_nested = np.zeros([XCar_nested.shape[0] * XCar_nested.shape[1], 2])
+        self.target_nested[:, 0] = XCar_nested.flatten()
+        self.target_nested[:, 1] = YCar_nested.flatten()
 
-            self.d_s = len(self.XCar)
-            self.d_s_nested = len(xCar_nested)
+        self.target = np.zeros([self.XCar.shape[0] * self.XCar.shape[1], 2])
+        self.target[:, 0] = self.XCar.flatten()
+        self.target[:, 1] = self.YCar.flatten()
 
-            self.R = np.empty([self.timeSteps, self.d_s, self.d_s])
-            self.rPolar = z2rainrate(self.z)
+        self.d_s = len(self.XCar)
+        self.d_s_nested = len(xCar_nested)
 
-            self.nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
-            self.vtx, self.wts = self.interp_weights(self.points, self.target)
+        self.R = np.empty([self.timeSteps, self.d_s, self.d_s])
 
-            for t in range(self.timeSteps):
-                rPolarT = self.rPolar[t, :, :].T
-                rPolarT = np.reshape(rPolarT, (333 * 360, 1)).squeeze()
-                self.R[t, :, :] = np.reshape(self.interpolate(rPolarT.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
-                self.R[t, (self.dist >= np.max(self.r))] = 0
-                self.nested_data[t, 2 * self.cRange: 2 * self.cRange + self.d_s,
-                2 * self.cRange: 2 * self.cRange + self.d_s] = self.R[t, :, :]
 
-            self.nested_data = np.nan_to_num(self.nested_data)
-            self.R = np.nan_to_num(self.R)
+        self.nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+        self.vtx, self.wts = self.interp_weights(self.points, self.target)
+
+    def gridding(self):
+
+        rPolar = z2rainrate(self.z)
+        R = np.empty([self.timeSteps, self.d_s, self.d_s])
+        nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+
+        for t in range(nested_data.shape[0]):
+            rPolarT = rPolar[t, :, :].T
+            rPolarT = np.reshape(rPolarT, (333 * 360, 1)).squeeze()
+            R[t, :, :] = np.reshape(self.interpolate(rPolarT.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
+            R[t, (self.dist >= np.max(self.r))] = 0
+            nested_data[t, 2 * self.cRange: 2 * self.cRange + self.d_s,
+            2 * self.cRange: 2 * self.cRange + self.d_s] = R[t, :, :]
+
+        nested_data = np.nan_to_num(nested_data)
+        return nested_data
+
+    def addTimestep(self,filePath):
+        with netCDF4.Dataset(filePath) as nc:
+            try:
+                self.dbz = nc.variables['dbz_ac1'][:][:][:]
+                self.azi = nc.variables['azi'][:]
+                self.r = nc.variables['range'][:]
+                time = nc.variables['time'][:]
+
+            except:
+                data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
+                if np.ma.is_masked(data):
+                    data.fill_value = -32.5
+                    self.z = data.filled()
+                else:
+                    self.z = data
+
+                self.azi = nc.variables['Azimuth'][:]
+                self.r = nc.variables['Distance'][:]
+                time = nc.variables['Time'][:]
+
+            self.time = np.append(self.time, time)
+            nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+            nested_data[:,:,:] = self.gridding()
+            self.nested_data = np.vstack((self.nested_data,nested_data))
+    def setStart(self,date):
+        import time
+        import datetime
+        self.startTime = np.where(int(time.mktime((datetime.datetime(date[0],date[1],date[2],date[3],date[4])-
+                                              datetime.timedelta(hours=-1,minutes=self.trainTime/2)).utctimetuple()))==self.time)[0][0]
 
     def extrapolation(self, dwd, progTimeSteps, prog,probabilityFlag):
         self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
@@ -889,11 +929,12 @@ class LawrData(radarData, Totalfield):
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.copy(self.prog_data)
         rainThreshold=0.5
-        self.prog_data[0, :, :] = self.nested_data[prog, :, :]
+        self.prog_data[0, :, :] = self.nested_data[self.startTime+prog, :, :]
+        self.progStartIdx = self.startTime+prog
         self.prog_start = 3 * ['']
-        self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[0:2])
-        self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[2:4])
-        self.prog_start[2] = int(datetime.utcfromtimestamp(self.time[prog]).strftime('%H%M%S')[4:6])
+        self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[0:2])
+        self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[2:4])
+        self.prog_start[2] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[4:6])
         self.prog_start_idx = np.where((np.asarray(dwd.hour[dwd.trainTime:]) == self.prog_start[0]) & (
                     np.asarray(dwd.minute[dwd.trainTime:]) == self.prog_start[1]) & ((np.asarray(dwd.second[dwd.trainTime:]) - np.mod(dwd.second[dwd.trainTime:],30)) == self.prog_start[2]))[0][0]
 
@@ -1147,7 +1188,8 @@ def lawrFileSelector(directoryPath,time,trainTime=10,progTime=60):
     day = np.asarray([int(x[13:15]) for x in lawrFileList])
     hour = np.asarray([int(x[15:17]) for x in lawrFileList])
     idx = np.where((time[2] == day) & (time[3] == hour))[0][0]
-    selectedFiles = lawrFileList[idx+int(np.floor(time[4]-trainTime)/60):idx+int((time[4]+progTime)/60)+1]
+    selectedFiles = lawrFileList[idx+int(np.floor((time[4]-trainTime)/60)):idx+int((time[4]+progTime)/60)+1]
+    return selectedFiles
 
 def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rainthreshold, lawr, HHGlat, HHGlon):
     boo_pixels = ((dwd.dist_nested>= rMax) & (dwd.dist_nested<= lawr.dist_nested.max()))

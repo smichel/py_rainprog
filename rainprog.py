@@ -10,7 +10,7 @@ from scipy.interpolate import griddata, RegularGridInterpolator
 from multiprocessing import Process
 from createblob import createblob
 from init import Square, Totalfield, LawrData, DWDData, radarData, get_metangle, create_sample, importance_sampling, \
-    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,dwdFileSelector,get_Grid, Results
+    z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,dwdFileSelector,lawrFileSelector,get_Grid, Results
 import multiprocessing as mp
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
@@ -60,7 +60,8 @@ def prognosis(date, t):
         #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
         #directoryPath = 'G:/Rainprog/boo/'
 
-        directoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+strMon+'/'+strDay
+        dwdDirectoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+strMon+'/'+strDay
+        lawrDirectoryPath = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/'
         fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
         #directoryPath = 'E:/radardata/02/'
         #fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
@@ -83,28 +84,28 @@ def prognosis(date, t):
         blobDisplacementY = -1
         timeSteps = prog + progTime
         contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
-        booFileList = sorted(os.listdir(directoryPath))
+        booFileList = sorted(os.listdir(dwdDirectoryPath))
         dwdTime = list((mon,day,hour,prog))
 
-        selectedFiles = dwdFileSelector(directoryPath, dwdTime, trainTime)
+        dwdSelectedFiles = dwdFileSelector(dwdDirectoryPath, dwdTime, trainTime)
 
 
 
-        dwd = DWDData(directoryPath + '/' + selectedFiles[0])
+        dwd = DWDData(dwdDirectoryPath + '/' + dwdSelectedFiles[0])
 
-        for i, file in enumerate(selectedFiles[1:]):
-            dwd.addTimestep(directoryPath + '/' + file)
+        for i,file in enumerate(dwdSelectedFiles[1:]):
+            dwd.addTimestep(dwdDirectoryPath + '/' + file)
             #print(file)
         dwd.initial_maxima()
         dwd.find_displacement(0)
 
+        lawrSelectedFiles = lawrFileSelector(lawrDirectoryPath, date)
+        lawr = LawrData(lawrDirectoryPath+'/'+lawrSelectedFiles[0])
 
+        for i,file in enumerate(lawrSelectedFiles[1:]):
+            lawr.addTimestep(lawrDirectoryPath+'/'+file)
 
-        lawr = LawrData(fp)
-
-
-
-        lawr.startTime = prog-lawr.trainTime
+        lawr.setStart(date)
         lawr.initial_maxima()
 
 
@@ -312,7 +313,7 @@ def prognosis(date, t):
                     if t == 0:
                         hhgFig,ax1 = plt.subplots(1)
                         imP = ax1.imshow(lawr.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                        imR = ax1.contour(lawr.nested_data[prog + t, :, :],
+                        imR = ax1.contour(lawr.nested_data[lawr.progStartIdx + t, :, :],
                                           contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                         radarCircle2 = mpatches.Circle(
                             (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
@@ -327,7 +328,7 @@ def prognosis(date, t):
                         imP.set_data(lawr.prog_data[t, :, :])
                         for tp in imR.collections:
                             tp.remove()
-                        imR = ax1.contour(lawr.nested_data[prog + t, :, :], contours,
+                        imR = ax1.contour(lawr.nested_data[lawr.progStartIdx + t, :, :], contours,
                                           norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
                     plt.pause(0.1)
                     if len(str(dwd.second[dwd.trainTime+t]))==1:
@@ -372,7 +373,7 @@ def prognosis(date, t):
 
         prog_data = lawr.prog_data
         prog_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
-        hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, lawr.nested_data[prog:,:,:])
+        hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx+progTime,:,:])
         thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
 
         if statistics:
@@ -478,10 +479,10 @@ progTime = 60
 
 
 months= [6]
-startHour = 1
+startHour = 6
 days =[2]#,13,14,18,23,24,25]
-endHour = 24
-minutes=np.array([10,15,20])
+endHour = 9
+minutes=np.arange(0,59,2)
 runs = len(minutes)
 hours = np.arange(startHour,endHour)
 
@@ -497,7 +498,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-result = prognosis([2016,6,2,7,15,60],0)
+#result = prognosis([2016,6,2,8,5,60],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -513,11 +514,6 @@ result = prognosis([2016,6,2,7,15,60],0)
 startTime = datetime.now()
 pool = mp.Pool(4)
 results = pool.starmap(prognosis, zip(dates,t))
-#
-# #except:
-# #    nan_dummy = np.zeros([progTime,len(rain_thresholds)])*np.nan
-# #    results.append(Results(nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy, np.nan, np.nan, np.nan, np.nan, np.nan))
-#
 pool.close()
 pool.join()
-
+#
