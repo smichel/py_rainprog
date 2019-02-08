@@ -454,9 +454,10 @@ def prognosis(date, t):
         print(datetime.now()-startTime)
 
 
-        result = Results(hit, miss, f_alert, corr_zero, BIAS, PC, POD, FAR, CSI, ORSS,year, mon, day, hour, minute,dwd.gaussMeans,dwd.covNormAngle,lawr.gaussMeans,lawr.covNormAngle,lawr.prog_data[0,:,:],lawr.prog_data[-1,:,:])
+        result = Results(hit, miss, f_alert, corr_zero, BIAS, PC, POD, FAR, CSI, ORSS,year, mon, day, hour, minute,
+                         dwd.gaussMeans,dwd.covNormAngle,lawr.gaussMeans,lawr.covNormAngle,lawr.prog_data[0,:,:],lawr.prog_data[-1,:,:])
         return result
-    except:
+    except Exception as e:
         nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
 
         result = Results(nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,
@@ -464,6 +465,7 @@ def prognosis(date, t):
                          [np.nan, np.nan],np.array([[np.nan,np.nan],[np.nan,np.nan]]),
                          [np.nan, np.nan],np.array([[np.nan,np.nan],[np.nan,np.nan]]),
                          np.full([441,441],np.nan),np.full([441,441],np.nan))
+        print(e)
         return result
 year = 2016
 
@@ -498,7 +500,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-#result = prognosis([2016,6,2,8,5,60],0)
+#result = prognosis([2016,6,2,7,40,60],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -516,4 +518,4 @@ pool = mp.Pool(4)
 results = pool.starmap(prognosis, zip(dates,t))
 pool.close()
 pool.join()
-#
+# #

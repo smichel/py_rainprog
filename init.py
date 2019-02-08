@@ -820,7 +820,7 @@ class LawrData(radarData, Totalfield):
             self.sitecoords = [self.lon, self.lat]
             self.getGrid()
             self.zsl = 100  # altitude of the hamburg radar
-            self.gridding()
+            self.nested_data = self.gridding()
 
     def getGrid(self):
 
@@ -863,9 +863,6 @@ class LawrData(radarData, Totalfield):
         self.d_s_nested = len(xCar_nested)
 
         self.R = np.empty([self.timeSteps, self.d_s, self.d_s])
-
-
-        self.nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.vtx, self.wts = self.interp_weights(self.points, self.target)
 
     def gridding(self):
@@ -929,8 +926,8 @@ class LawrData(radarData, Totalfield):
         self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.copy(self.prog_data)
         rainThreshold=0.5
-        self.prog_data[0, :, :] = self.nested_data[self.startTime+prog, :, :]
-        self.progStartIdx = self.startTime+prog
+        self.prog_data[0, :, :] = self.nested_data[self.startTime+self.trainTime, :, :]
+        self.progStartIdx = self.startTime+self.trainTime
         self.prog_start = 3 * ['']
         self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[0:2])
         self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[2:4])
