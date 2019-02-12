@@ -940,9 +940,6 @@ class LawrData(radarData, Totalfield):
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
-        #self.prog_data[0, :, :] = importance_sampling(self.prog_data[0, :, :], self.dist_nested, self.r[-1],
-        #                                              self.xy, self.yx, self.xSample, self.ySample, self.d_s,
-        #                                              self.cRange)
         self.prog_data[0,:,:] = cv2.filter2D(self.prog_data[0,:,:],-1,self.kernel)
 
         if probabilityFlag:
@@ -953,9 +950,6 @@ class LawrData(radarData, Totalfield):
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
-            #self.probabilities[0, :, :] = importance_sampling(self.probabilities[0, :, :], self.dist_nested, self.r[-1],
-            #                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
-            #                                          self.cRange)
             self.probabilities[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel)
 
         for t in range(1,progTimeSteps):
@@ -964,10 +958,6 @@ class LawrData(radarData, Totalfield):
             self.prog_data[t,:,:] = nesting(self.prog_data[t, :, :], self.dist_nested, self.target_nested,
                                           dwd.prog_data[self.prog_start_idx + t, :, :], dwd, self.r[-1], self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
-
-            #self.prog_data[t, :, :] = importance_sampling(self.prog_data[t, :, :], self.dist_nested, self.r[-1],
-            #                                              self.xy, self.yx, self.xSample, self.ySample, self.d_s,
-            #                                              self.cRange)
 
             self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t, :, :], -1, self.kernel)
 
@@ -978,10 +968,6 @@ class LawrData(radarData, Totalfield):
                                               dwd.prog_data[self.prog_start_idx + t, :, :]>rainThreshold, dwd, self.r[-1],
                                               self.rainThreshold, self,
                                               self.Lat_nested, self.Lon_nested)
-
-                #self.probabilities[t, :, :] = importance_sampling(self.probabilities[t, :, :], self.dist_nested, self.r[-1],
-                #                                          self.xy, self.yx, self.xSample, self.ySample, self.d_s,
-                #                                          self.cRange)
                 self.probabilities[t, :, :] = cv2.filter2D(self.probabilities[t, :, :], -1, self.kernel)
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
@@ -1244,14 +1230,19 @@ def twodgauss(x, y, sigma1, sigma2, rho, mu1, mu2):
            y - mu2) ** 2 / sigma2 ** 2))
 
 
-def verification(prog_data, real_data):
+def verification(lawr,dwd,prog_data, real_data,year, mon, day, hour, minute):
     #function [BIAS,CSI,FAR,ORSS,PC,POD,hit,miss,f_alert,corr_zero]=verification(prog_data,real_data)
 # %for documentation see master thesis: Niederschlags-Nowcasting fuer ein
 # %hochaufgeloestes X-Band Regenradar from Timur Eckmann
     rain_thresholds=np.array([0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 30])
+    rain_threshold = 0.5
+    prob_thresholds = np.arange(0,1.01,0.1)
 
     num_r= len(rain_thresholds)
     time = prog_data.shape[0]
+
+    roc_far = np.zeros([time,len(prob_thresholds)])
+    roc_hr = np.zeros([time,len(prob_thresholds)])
 
     hit=np.zeros([time,num_r])
     miss=np.zeros([time,num_r])
@@ -1264,7 +1255,7 @@ def verification(prog_data, real_data):
     FAR=np.zeros([time,num_r])
     CSI=np.zeros([time,num_r])
     ORSS=np.zeros([time,num_r])
-#
+
     for r in range(num_r):
         p_dat=(prog_data>rain_thresholds[r])
         r_dat=(real_data>rain_thresholds[r])
@@ -1284,6 +1275,30 @@ def verification(prog_data, real_data):
             ORSS[i, r] = (hit[i, r] * corr_zero[i, r] - f_alert[i, r] * miss[i, r]) / (
                         hit[i, r] * corr_zero[i, r] + f_alert[i, r] * miss[i, r])  # odds ratio skill score
 
+    for i, p in enumerate(prob_thresholds):
+        p_dat = lawr.probabilities>p
+        r_dat = real_data>rain_threshold
+        for t in range(time):
+            hit = np.sum(r_dat & p_dat)
+            miss = np.sum(r_dat & ~p_dat)
+            f_alert = np.sum(~r_dat & p_dat)
+            corr_zero = np.sum(~r_dat & ~p_dat)
 
-    return  hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS
+            event = hit + miss
+            nonevent = f_alert + corr_zero
+            total = hit+miss+f_alert+corr_zero
+
+            roc_hr[t,i] = hit/event
+            roc_far[t,i] = f_alert/nonevent
+    roc_hr[:, 0] = 1
+    roc_hr[:, -1] = 0
+    roc_far[:, 0] = 1
+    roc_far[:, -1] = 0
+    result = Results(hit, miss, f_alert, corr_zero, BIAS, PC, POD, FAR, CSI, ORSS, year, mon, day, hour, minute,
+                     dwd.gaussMeans, dwd.covNormAngle, lawr.gaussMeans, lawr.covNormAngle, lawr.probabilities[0, :, :],
+                     lawr.probabilities[-1, :, :])
+    result.roc_hr = roc_hr
+    result.roc_far = roc_far
+
+    return result
 

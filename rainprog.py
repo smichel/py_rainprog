@@ -77,7 +77,7 @@ def prognosis(date, t):
         prognosis = 1
         statistics = 0
         livePlot = 0
-        probabilityFlag = 0
+        probabilityFlag = 1
         trackingTime = 6
         samples = 16
         blobDisplacementX = -3
@@ -373,7 +373,7 @@ def prognosis(date, t):
 
         prog_data = lawr.prog_data
         prog_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
-        hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS =verification(prog_data, lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx+progTime,:,:])
+        result=verification(lawr,dwd,prog_data, lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx+progTime,:,:],year, mon, day, hour, minute)
         thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
 
         if statistics:
@@ -419,7 +419,7 @@ def prognosis(date, t):
                     pls, axs = plt.subplots(1,2,figsize=(15,9))
                     ax1=axs[1]
                     prob = axs[0].imshow(lawr.probabilities[t,:,:])
-                    cb = pls.colorbar(prob, fraction = 0.046, pad = 0.04, ax=axs[0])
+                    cb = plt.colorbar(prob, fraction = 0.046, pad = 0.04, ax=axs[0])
                     imP = ax1.contour(lawr.prog_data[t, :, :],
                                       contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
                     imR = ax1.imshow(lawr.nested_data[prog + t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
@@ -453,9 +453,6 @@ def prognosis(date, t):
 
         print(datetime.now()-startTime)
 
-
-        result = Results(hit, miss, f_alert, corr_zero, BIAS, PC, POD, FAR, CSI, ORSS,year, mon, day, hour, minute,
-                         dwd.gaussMeans,dwd.covNormAngle,lawr.gaussMeans,lawr.covNormAngle,lawr.prog_data[0,:,:],lawr.prog_data[-1,:,:])
         return result
     except Exception as e:
         nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
@@ -465,6 +462,8 @@ def prognosis(date, t):
                          [np.nan, np.nan],np.array([[np.nan,np.nan],[np.nan,np.nan]]),
                          [np.nan, np.nan],np.array([[np.nan,np.nan],[np.nan,np.nan]]),
                          np.full([441,441],np.nan),np.full([441,441],np.nan))
+        result.roc_hr = np.nan
+        result.roc_far = np.nan
         print(e)
         return result
 year = 2016
@@ -484,7 +483,7 @@ months= [6]
 startHour = 6
 days =[2]#,13,14,18,23,24,25]
 endHour = 9
-minutes=np.arange(0,59,2)
+minutes=np.arange(0,59,4)
 runs = len(minutes)
 hours = np.arange(startHour,endHour)
 
