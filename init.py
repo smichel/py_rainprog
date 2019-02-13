@@ -583,29 +583,7 @@ class Totalfield:
                 return fields
         return fields
 
-class Results:
-    def __init__(self, hit,miss,f_alert,corr_zero,BIAS,PC,POD,FAR,CSI,ORSS,year,mon,day,hour,minute,dwdGaussMeans,dwdCov,lawrGaussMeans,lawrCov,progStart,progEnd):
-        self.hit = hit
-        self.miss = miss
-        self.f_alert = f_alert
-        self.corr_zero = corr_zero
-        self.BIAS = BIAS
-        self.PC = PC
-        self.POD = POD
-        self.FAR = FAR
-        self.CSI = CSI
-        self.ORSS = ORSS
-        self.year = year
-        self.mon = mon
-        self.day = day
-        self.hour = hour
-        self.minute = minute
-        self.dwdGaussMeans = dwdGaussMeans
-        self.dwdCov = dwdCov
-        self.lawrGaussMeans = lawrGaussMeans
-        self.lawrCov = lawrCov
-        self.progStart = progStart
-        self.progEnd = progEnd
+
 
 class DWDData(radarData, Totalfield):
 
@@ -915,57 +893,55 @@ class LawrData(radarData, Totalfield):
     def extrapolation(self, dwd, progTimeSteps, prog,probabilityFlag):
         self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
         self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, 64)
-        i_gaussmeans = (np.int(self.gaussMeans[0]), np.int(self.gaussMeans[1]))
-        filtersize = 10
+        filtersize = 10 # default filtersize
         if np.any(filtersize < (3 * np.max(self.covNormAngle))):
             filtersize = np.int(np.max(self.covNormAngle*3))
         rho = self.covNormAngle[0,1]/(np.sqrt(self.covNormAngle[0,0])*np.sqrt(self.covNormAngle[1,1]))
         [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
         self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0]),np.sqrt(self.covNormAngle[1,1]),rho,-self.gaussMeans[0],-self.gaussMeans[1])
         self.kernel = self.kernel/np.sum(self.kernel)
-        self.prog_data = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
-        self.probabilities = np.copy(self.prog_data)
+        self.prog_data = np.zeros([self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+        self.probabilities = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         rainThreshold=0.5
-        self.prog_data[0, :, :] = self.nested_data[self.startTime+self.trainTime, :, :]
-        self.progStartIdx = self.startTime+self.trainTime
+        self.progStartIdx = self.startTime + self.trainTime
+        self.prog_data[:, :] = self.nested_data[self.progStartIdx, :, :]
         self.prog_start = 3 * ['']
         self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[0:2])
         self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[2:4])
         self.prog_start[2] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[4:6])
-        self.prog_start_idx = np.where((np.asarray(dwd.hour[dwd.trainTime:]) == self.prog_start[0]) & (
+        self.dwdProgStartIdx = np.where((np.asarray(dwd.hour[dwd.trainTime:]) == self.prog_start[0]) & (
                     np.asarray(dwd.minute[dwd.trainTime:]) == self.prog_start[1]) & ((np.asarray(dwd.second[dwd.trainTime:]) - np.mod(dwd.second[dwd.trainTime:],30)) == self.prog_start[2]))[0][0]
 
-        self.prog_data[0, :, :] = nesting(self.prog_data[0, :, :], self.dist_nested, self.target_nested,
-                                          dwd.prog_data[self.prog_start_idx, :, :], dwd, self.r[-1],
+        self.prog_data[:, :] = nesting(self.prog_data[:, :], self.dist_nested, self.target_nested,
+                                          dwd.prog_data[self.dwdProgStartIdx, :, :], dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
-        self.prog_data[0,:,:] = cv2.filter2D(self.prog_data[0,:,:],-1,self.kernel)
-
         if probabilityFlag:
-            self.probabilities[0,:,:] = self.nested_data[prog,:,:]>rainThreshold
+            self.probabilities[0,:,:] = self.nested_data[self.progStartIdx,:,:]>rainThreshold
 
             self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
-                                          dwd.prog_data[self.prog_start_idx, :, :]>rainThreshold, dwd, self.r[-1],
+                                          dwd.prog_data[self.dwdProgStartIdx, :, :]>rainThreshold, dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
             self.probabilities[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel)
 
+        #self.prog_data[0,:,:] = cv2.filter2D(self.prog_data[0,:,:],-1,self.kernel)
         for t in range(1,progTimeSteps):
-            self.prog_data[t, :, :] = self.prog_data[t - 1, :, :]
+            #self.prog_data[t, :, :] = self.prog_data[t - 1, :, :]
 
-            self.prog_data[t,:,:] = nesting(self.prog_data[t, :, :], self.dist_nested, self.target_nested,
-                                          dwd.prog_data[self.prog_start_idx + t, :, :], dwd, self.r[-1], self.rainThreshold, self,
-                                          self.Lat_nested, self.Lon_nested)
+            #self.prog_data[t,:,:] = nesting(self.prog_data[t, :, :], self.dist_nested, self.target_nested,
+            #                              dwd.prog_data[self.dwdProgStartIdx + t, :, :], dwd, self.r[-1], self.rainThreshold, self,
+            #                              self.Lat_nested, self.Lon_nested)
 
-            self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t, :, :], -1, self.kernel)
+            #self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t, :, :], -1, self.kernel)
 
             if probabilityFlag:
                 self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
 
                 self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
-                                              dwd.prog_data[self.prog_start_idx + t, :, :]>rainThreshold, dwd, self.r[-1],
+                                              dwd.prog_data[self.dwdProgStartIdx + t, :, :]>rainThreshold, dwd, self.r[-1],
                                               self.rainThreshold, self,
                                               self.Lat_nested, self.Lon_nested)
                 self.probabilities[t, :, :] = cv2.filter2D(self.probabilities[t, :, :], -1, self.kernel)
@@ -1229,8 +1205,27 @@ def twodgauss(x, y, sigma1, sigma2, rho, mu1, mu2):
            (x - mu1) ** 2 / sigma1 ** 2 - (2 * rho * (x - mu1) * (y - mu2) / (sigma1 * sigma2)) + (
            y - mu2) ** 2 / sigma2 ** 2))
 
+class Results:
+    def __init__(self, hit,miss,f_alert,corr_zero,roc_hr,roc_far,year,mon,day,hour,minute,dwdGaussMeans,dwdCov,lawrGaussMeans,lawrCov,progStart,progEnd):
+        self.hit = hit
+        self.miss = miss
+        self.f_alert = f_alert
+        self.corr_zero = corr_zero
+        self.roc_hr = roc_hr
+        self.roc_far = roc_far
+        self.year = year
+        self.mon = mon
+        self.day = day
+        self.hour = hour
+        self.minute = minute
+        self.dwdGaussMeans = dwdGaussMeans
+        self.dwdCov = dwdCov
+        self.lawrGaussMeans = lawrGaussMeans
+        self.lawrCov = lawrCov
+        self.progStart = progStart
+        self.progEnd = progEnd
 
-def verification(lawr,dwd,prog_data, real_data,year, mon, day, hour, minute):
+def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
     #function [BIAS,CSI,FAR,ORSS,PC,POD,hit,miss,f_alert,corr_zero]=verification(prog_data,real_data)
 # %for documentation see master thesis: Niederschlags-Nowcasting fuer ein
 # %hochaufgeloestes X-Band Regenradar from Timur Eckmann
@@ -1238,51 +1233,25 @@ def verification(lawr,dwd,prog_data, real_data,year, mon, day, hour, minute):
     rain_threshold = 0.5
     prob_thresholds = np.arange(0,1.01,0.1)
 
+    prog_data = lawr.probabilities
+    real_data = lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx+progTime,:,:]>rain_threshold
+    prog_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
+    real_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
     num_r= len(rain_thresholds)
     time = prog_data.shape[0]
 
     roc_far = np.zeros([time,len(prob_thresholds)])
     roc_hr = np.zeros([time,len(prob_thresholds)])
-
-    hit=np.zeros([time,num_r])
-    miss=np.zeros([time,num_r])
-    f_alert=np.zeros([time,num_r])
-    corr_zero=np.zeros([time,num_r])
-    total=np.zeros([time,num_r])
-    BIAS=np.zeros([time,num_r])
-    PC=np.zeros([time,num_r])
-    POD=np.zeros([time,num_r])
-    FAR=np.zeros([time,num_r])
-    CSI=np.zeros([time,num_r])
-    ORSS=np.zeros([time,num_r])
-
-    for r in range(num_r):
-        p_dat=(prog_data>rain_thresholds[r])
-        r_dat=(real_data>rain_thresholds[r])
-        for i in range(time):
-            hit[i, r] = np.sum(r_dat[i, :, :] & p_dat[i, :, :])
-            miss[i, r] = np.sum(r_dat[i, :, :] & ~p_dat[i, :, :])
-            f_alert[i, r] = np.sum(~r_dat[i, :, :] & p_dat[i, :, :])
-            corr_zero[i, r] = np.sum(~r_dat[i, :, :] & ~p_dat[i, :, :])
-
-            total[i, r] = hit[i, r] + miss[i, r] + f_alert[i, r] + corr_zero[i, r]
-
-            BIAS[i, r] = (hit[i, r] + f_alert[i, r]) / (hit[i, r] + miss[i, r])
-            PC[i, r] = (hit[i, r] + corr_zero[i, r]) / (total[i, r])  # proportion correct
-            POD[i, r] = hit[i, r] / (hit[i, r] + miss[i, r])  # probability of detection
-            FAR[i, r] = f_alert[i, r] / (f_alert[i, r] + hit[i, r])  # false alarm ration
-            CSI[i, r] = hit[i, r] / (hit[i, r] + miss[i, r] + f_alert[i, r])  # critical success index
-            ORSS[i, r] = (hit[i, r] * corr_zero[i, r] - f_alert[i, r] * miss[i, r]) / (
-                        hit[i, r] * corr_zero[i, r] + f_alert[i, r] * miss[i, r])  # odds ratio skill score
+    bs = np.zeros(time)
 
     for i, p in enumerate(prob_thresholds):
         p_dat = lawr.probabilities>p
         r_dat = real_data>rain_threshold
         for t in range(time):
-            hit = np.sum(r_dat & p_dat)
-            miss = np.sum(r_dat & ~p_dat)
-            f_alert = np.sum(~r_dat & p_dat)
-            corr_zero = np.sum(~r_dat & ~p_dat)
+            hit = np.sum(r_dat[t,lawr.dist_nested >= np.max(lawr.r)] & p_dat[t,lawr.dist_nested >= np.max(lawr.r)])
+            miss = np.sum(r_dat[t,lawr.dist_nested >= np.max(lawr.r)] & ~p_dat[t,lawr.dist_nested >= np.max(lawr.r)])
+            f_alert = np.sum(~r_dat[t,lawr.dist_nested >= np.max(lawr.r)] & p_dat[t,lawr.dist_nested >= np.max(lawr.r)])
+            corr_zero = np.sum(~r_dat[t,lawr.dist_nested >= np.max(lawr.r)] & ~p_dat[t,lawr.dist_nested >= np.max(lawr.r)])
 
             event = hit + miss
             nonevent = f_alert + corr_zero
@@ -1290,15 +1259,20 @@ def verification(lawr,dwd,prog_data, real_data,year, mon, day, hour, minute):
 
             roc_hr[t,i] = hit/event
             roc_far[t,i] = f_alert/nonevent
+
+    inverse_number_of_forecasts = 1/np.sum(lawr.dist_nested<lawr.r[-1])
+    bs = inverse_number_of_forecasts*np.sum(np.sum((prog_data[:,:,:]-real_data[:,:,:])**2,axis=2),axis=1)
+
     roc_hr[:, 0] = 1
     roc_hr[:, -1] = 0
     roc_far[:, 0] = 1
     roc_far[:, -1] = 0
-    result = Results(hit, miss, f_alert, corr_zero, BIAS, PC, POD, FAR, CSI, ORSS, year, mon, day, hour, minute,
+    result = Results(hit, miss, f_alert, corr_zero, roc_hr,roc_far,year, mon, day, hour, minute,
                      dwd.gaussMeans, dwd.covNormAngle, lawr.gaussMeans, lawr.covNormAngle, lawr.probabilities[0, :, :],
                      lawr.probabilities[-1, :, :])
     result.roc_hr = roc_hr
     result.roc_far = roc_far
+    result.bs=bs
 
     return result
 

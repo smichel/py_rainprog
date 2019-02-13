@@ -371,49 +371,16 @@ def prognosis(date, t):
                 #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
 
 
-        prog_data = lawr.prog_data
-        prog_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
-        result=verification(lawr,dwd,prog_data, lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx+progTime,:,:],year, mon, day, hour, minute)
+
+        result=verification(lawr,dwd,year, mon, day, hour, minute,progTime)
         thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
 
-        if statistics:
-            timeStr = str(year) +'_'+ strMon +'_'+ strDay +'_'+ strHour +'_'+ str(minute)
-            path = '/scratch/local1/plots/prognosis_'+timeStr
-            if not os.path.exists(path):
-                os.mkdir(path)
-                print("Directory ", path, " Created ")
-            else:
-                print("Directory ", path, " already exists")
-            plt.figure()
-            a=plt.plot(PC[:,0:5])
-            plt.legend(a,thresholds[0:5])
-            plt.title('PC')
-            plt.savefig('/scratch/local1/plots/prognosis_' + timeStr + '/prognosis_' + timeStr + '_PC.png')
-            plt.figure()
-            a=plt.plot(POD[:,0:5])
-            plt.legend(a,thresholds[0:5])
-            plt.title('POD')
-            plt.savefig('/scratch/local1/plots/prognosis_' + timeStr + '/prognosis_' + timeStr + '_POD.png')
-            plt.figure()
-            a=plt.plot(FAR[:,0:5])
-            plt.legend(a,thresholds[0:5])
-            plt.title('FAR')
-            plt.savefig('/scratch/local1/plots/prognosis_' + timeStr + '/prognosis_' + timeStr + '_FAR.png')
-            plt.figure()
-            a=plt.plot(CSI[:,0:5])
-            plt.legend(a,thresholds[0:5])
-            plt.title('CSI')
-            plt.savefig('/scratch/local1/plots/prognosis_' + timeStr + '/prognosis_' + timeStr + '_CSI.png')
-            plt.figure()
-            a=plt.plot(ORSS[:,0:5])
-            plt.legend(a,thresholds[0:5])
-            plt.title('ORSS')
-            plt.savefig('/scratch/local1/plots/prognosis_' + timeStr + '/prognosis_' + timeStr + '_ORSS.png')
 
             #fig, ax = plt.subplots()
             #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
             #ax.bar(bin_edges[:-1]+0.1, histY, color='r', width = 0.2)
             #plt.show(block=False)
+        if 0:
             for t in range(progTime):
                 if t == 0:
                     pls, axs = plt.subplots(1,2,figsize=(15,9))
@@ -424,7 +391,7 @@ def prognosis(date, t):
                                       contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
                     imR = ax1.imshow(lawr.nested_data[prog + t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
                     radarCircle2 = mpatches.Circle(
-                        (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
+                        (int(lawr.probabilities[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
                         20000 / res, color='w', linewidth=1, fill=0)
                     ax1.add_patch(radarCircle2)
                     ax1.set_xlim([0, lawr.d_s + lawr.cRange * 4])
@@ -457,11 +424,7 @@ def prognosis(date, t):
     except Exception as e:
         nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
 
-        result = Results(nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,nan_dummy,
-                         nan_dummy, year, mon, day, hour, minute,
-                         [np.nan, np.nan],np.array([[np.nan,np.nan],[np.nan,np.nan]]),
-                         [np.nan, np.nan],np.array([[np.nan,np.nan],[np.nan,np.nan]]),
-                         np.full([441,441],np.nan),np.full([441,441],np.nan))
+        result = np.nan
         result.roc_hr = np.nan
         result.roc_far = np.nan
         print(e)
@@ -499,7 +462,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-#result = prognosis([2016,6,2,7,40,60],0)
+result = prognosis([2016,6,2,7,40,60],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -512,9 +475,9 @@ t = np.arange(len(dates))
 #                                day, hour, minute))
 # print(datetime.now() - startTime)
 
-startTime = datetime.now()
-pool = mp.Pool(4)
-results = pool.starmap(prognosis, zip(dates,t))
-pool.close()
-pool.join()
+#startTime = datetime.now()
+#pool = mp.Pool(4)
+#results = pool.starmap(prognosis, zip(dates,t))
+#pool.close()
+#pool.join()
 # #
