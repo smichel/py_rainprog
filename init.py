@@ -1237,28 +1237,43 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
     real_data = lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx+progTime,:,:]>rain_threshold
     prog_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
     real_data[:, lawr.dist_nested >= np.max(lawr.r)] = 0
-    num_r= len(rain_thresholds)
+    num_prob= len(prob_thresholds)
     time = prog_data.shape[0]
+
+    hit = np.zeros([time, num_prob])
+    miss = np.zeros([time, num_prob])
+    f_alert = np.zeros([time, num_prob])
+    corr_zero = np.zeros([time, num_prob])
+    event = np.zeros([time, num_prob])
+    nonevent= np.zeros([time, num_prob])
+    total = np.zeros([time, num_prob])
+
+
 
     roc_far = np.zeros([time,len(prob_thresholds)])
     roc_hr = np.zeros([time,len(prob_thresholds)])
-    bs = np.zeros(time)
 
     for i, p in enumerate(prob_thresholds):
         p_dat = lawr.probabilities>p
         r_dat = real_data>rain_threshold
         for t in range(time):
-            hit = np.sum(r_dat[t,lawr.dist_nested >= np.max(lawr.r)] & p_dat[t,lawr.dist_nested >= np.max(lawr.r)])
-            miss = np.sum(r_dat[t,lawr.dist_nested >= np.max(lawr.r)] & ~p_dat[t,lawr.dist_nested >= np.max(lawr.r)])
-            f_alert = np.sum(~r_dat[t,lawr.dist_nested >= np.max(lawr.r)] & p_dat[t,lawr.dist_nested >= np.max(lawr.r)])
-            corr_zero = np.sum(~r_dat[t,lawr.dist_nested >= np.max(lawr.r)] & ~p_dat[t,lawr.dist_nested >= np.max(lawr.r)])
+            hit[t,i] = np.sum(r_dat[t,:,:] & p_dat[t,:,:])
+            miss[t,i] = np.sum(r_dat[t,:,:] & ~p_dat[t,:,:])
+            f_alert[t,i] = np.sum(~r_dat[t,:,:] & p_dat[t,:,:])
+            corr_zero[t,i] = np.sum(~r_dat[t,:,:] & ~p_dat[t,:,:])
 
-            event = hit + miss
-            nonevent = f_alert + corr_zero
-            total = hit+miss+f_alert+corr_zero
+            event[t,i] = hit[t,i] + miss[t,i]
+            nonevent[t,i] = f_alert[t,i] + corr_zero[t,i]
+            total[t,i] = hit[t,i]+miss[t,i]+f_alert[t,i]+corr_zero[t,i]
 
-            roc_hr[t,i] = hit/event
-            roc_far[t,i] = f_alert/nonevent
+            roc_hr[t,i] = hit[t,i]/event[t,i]
+            roc_far[t,i] = f_alert[t,i]/nonevent[t,i]
+
+    y_score_bin_mean = np.zeros([time,num_prob-1])
+    empirical_prob_pos = np.copy(y_score_bin_mean)
+    sample_num = np.copy(y_score_bin_mean)
+    for t in range(time):
+        y_score_bin_mean[t,:],empirical_prob_pos[t,:],sample_num[t,:] = reliability_curve(real_data[t,:,:],prog_data[t,:,:])
 
     inverse_number_of_forecasts = 1/np.sum(lawr.dist_nested<lawr.r[-1])
     bs = inverse_number_of_forecasts*np.sum(np.sum((prog_data[:,:,:]-real_data[:,:,:])**2,axis=2),axis=1)
@@ -1273,6 +1288,79 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
     result.roc_hr = roc_hr
     result.roc_far = roc_far
     result.bs=bs
-
+    result.y_score_bin_mean =y_score_bin_mean
+    result.empirical_prob_pos = empirical_prob_pos
+    result.sample_num = sample_num
     return result
 
+def reliability_curve(y_true, y_score, bins=10, normalize=False):
+    """Compute reliability curve
+
+    Reliability curves allow checking if the predicted probabilities of a
+    binary classifier are well calibrated. This function returns two arrays
+    which encode a mapping from predicted probability to empirical probability.
+    For this, the predicted probabilities are partitioned into equally sized
+    bins and the mean predicted probability and the mean empirical probabilties
+    in the bins are computed. For perfectly calibrated predictions, both
+    quantities whould be approximately equal (for sufficiently many test
+    samples).
+
+    Note: this implementation is restricted to binary classification.
+
+    Parameters
+    ----------
+
+    y_true : array, shape = [n_samples]
+        True binary labels (0 or 1).
+
+    y_score : array, shape = [n_samples]
+        Target scores, can either be probability estimates of the positive
+        class or confidence values. If normalize is False, y_score must be in
+        the interval [0, 1]
+
+    bins : int, optional, default=10
+        The number of bins into which the y_scores are partitioned.
+        Note: n_samples should be considerably larger than bins such that
+              there is sufficient data in each bin to get a reliable estimate
+              of the reliability
+
+    normalize : bool, optional, default=False
+        Whether y_score needs to be normalized into the bin [0, 1]. If True,
+        the smallest value in y_score is mapped onto 0 and the largest one
+        onto 1.
+
+
+    Returns
+    -------
+    y_score_bin_mean : array, shape = [bins]
+        The mean predicted y_score in the respective bins.
+
+    empirical_prob_pos : array, shape = [bins]
+        The empirical probability (frequency) of the positive class (+1) in the
+        respective bins.
+
+
+    References
+    ----------
+    .. [1] `Predicting Good Probabilities with Supervised Learning
+            <http://machinelearning.wustl.edu/mlpapers/paper_files/icml2005_Niculescu-MizilC05.pdf>`_
+
+    """
+    if normalize:  # Normalize scores into bin [0, 1]
+        y_score = (y_score - y_score.min()) / (y_score.max() - y_score.min())
+
+    bin_width = 1.0 / bins
+    bin_centers = np.linspace(0, 1.0 - bin_width, bins) + bin_width / 2
+
+    y_score_bin_mean = np.empty(bins)
+    empirical_prob_pos = np.empty(bins)
+    sample_num = np.empty(bins)
+    for i, threshold in enumerate(bin_centers):
+        # determine all samples where y_score falls into the i-th bin
+        bin_idx = np.logical_and(threshold - bin_width / 2 < y_score,
+                                 y_score <= threshold + bin_width / 2)
+        # Store mean y_score and mean empirical probability of positive class
+        y_score_bin_mean[i] = y_score[bin_idx].mean()
+        empirical_prob_pos[i] = y_true[bin_idx].mean()
+        sample_num[i] = np.sum(bin_idx)
+    return y_score_bin_mean, empirical_prob_pos, sample_num

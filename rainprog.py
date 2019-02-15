@@ -425,8 +425,6 @@ def prognosis(date, t):
         nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
 
         result = np.nan
-        result.roc_hr = np.nan
-        result.roc_far = np.nan
         print(e)
         return result
 year = 2016

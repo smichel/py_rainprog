@@ -13,7 +13,9 @@
 \setlength{\parindent}{0pt}  % Keine Einrückung am Beginn von Absätzen
 \usepackage{emptypage}
 \usepackage{placeins} % plaziert figures in die richtige section
+\usepackage{booktabs}
 \usepackage{multirow}
+\usepackage{siunitx}
 \sloppy  % Weniger Silbentrennung
 
 % Kopfzeile: Section auf linker Seite, Subsection auf rechter Seite
@@ -37,6 +39,7 @@
 \usepackage{pgfplots}
 \usetikzlibrary{shapes,arrows,chains}
 \usetikzlibrary{arrows.meta}
+\usetikzlibrary{positioning}
 \usetikzlibrary{math} %needed tikz library
 \pgfplotsset{compat=newest}
 \pgfplotsset{
@@ -844,9 +847,48 @@ For the extrapolation of the PATTERN precipitation fields this procedure is now 
 %	\end{tabular}
 %\end{table}
 \FloatBarrier
-\section{Evaluation Methods}
+\section{Evaluation Methods for Binary Events}
+The occurrence of precipitation can be regarded as a binary event. Either it rains, represented with a '1', or it does not rain, represented with a '0'. So testing if a nonprobabilistic prognosis of an event is correct is straightforward. By comparing the binary representations of the forecast and the observation 4 scenarios are possible.
+\begin{tikzpicture}[
+box/.style={draw,rectangle,minimum size=2cm,text width=1.5cm,align=center}]
+\matrix (conmat) [row sep=.1cm,column sep=.1cm] {
+	\node (tpos) [box,
+	label=left:\textbf{Yes},
+	label=above:\textbf{Yes},
+	] {a};
+	&
+	\node (fneg) [box,
+	label=above:\textbf{No},
+	label=right:\( \mathrm{a+b} \)] {b};
+	\\
+	\node (fpos) [box,
+	label=left:\textbf{No},
+	label=below:a+c] {c};
+	&
+	\node (tneg) [box,
+	label=right:\( \mathrm{c+d} \),
+	label=below:b+d,
+	label=below right: \textbf{n}] {d};
+	\\
+};
+ \node [rotate=90,left=.05cm of conmat,anchor=center,text width=1.5cm,align=center] {\textbf{Forecast}};
+\node [above=.05cm of conmat] {\textbf{Observed}};
+\end{tikzpicture}
+
+
+
+Nonprobabilistic forecasts contain no expression of uncertainty, so it is clear if a forecast is correct or false. Unless the forecasts have probabilistic values have of 0.0 or 1.0, the forecast is neither right nor wrong.
+To evaluate probabilistic forecasts 
 \label{subsec:eval}
-\subsection{Point to Point Evaluation}
+\citep{Wilks}
+\subsection{Brier Score}
+The Brier Score is essentially the root mean square error (RMSE) in probability space.
+\begin{equation}
+	BS = \frac{1}{n}\sum_{k=1}^{n}(y_{k}-o_{k})^{2}
+	\label{eq:brier}
+\end{equation}
+\subsection{Reliability Diagram}
+\subsection{ROC Skill Score}
 A rain threshold is set. Rainrates above that value e.g. 0.5 are considered to be rain, thus represented with a 1. Rainrates below that value are no rain, thus represented with a 0. Applying this threshold for the total rainfield creates a matrix of 0s and 1s. Now rainfields of the forecast and the reference values are compared.
 \begin{enumerate}
 	\item Hit(\textbf{H}): Both forecast and reference points show rain
