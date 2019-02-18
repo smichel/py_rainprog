@@ -848,64 +848,90 @@ For the extrapolation of the PATTERN precipitation fields this procedure is now 
 %\end{table}
 \FloatBarrier
 \section{Evaluation Methods for Binary Events}
-The occurrence of precipitation can be regarded as a binary event. Either it rains, represented with a '1', or it does not rain, represented with a '0'. So testing if a nonprobabilistic prognosis of an event is correct is straightforward. By comparing the binary representations of the forecast and the observation 4 scenarios are possible.
-\begin{tikzpicture}[
-box/.style={draw,rectangle,minimum size=2cm,text width=1.5cm,align=center}]
-\matrix (conmat) [row sep=.1cm,column sep=.1cm] {
-	\node (tpos) [box,
-	label=left:\textbf{Yes},
-	label=above:\textbf{Yes},
-	] {a};
-	&
-	\node (fneg) [box,
-	label=above:\textbf{No},
-	label=right:\( \mathrm{a+b} \)] {b};
-	\\
-	\node (fpos) [box,
-	label=left:\textbf{No},
-	label=below:a+c] {c};
-	&
-	\node (tneg) [box,
-	label=right:\( \mathrm{c+d} \),
-	label=below:b+d,
-	label=below right: \textbf{n}] {d};
-	\\
-};
- \node [rotate=90,left=.05cm of conmat,anchor=center,text width=1.5cm,align=center] {\textbf{Forecast}};
-\node [above=.05cm of conmat] {\textbf{Observed}};
-\end{tikzpicture}
-
-
-
-Nonprobabilistic forecasts contain no expression of uncertainty, so it is clear if a forecast is correct or false. Unless the forecasts have probabilistic values have of 0.0 or 1.0, the forecast is neither right nor wrong.
-To evaluate probabilistic forecasts 
+The occurrence of precipitation can be regarded as a binary event. Either it rains, represented with \textbf{Yes} or a '1', or it does not rain, represented with \textbf{No} or a '0'. So testing if a nonprobabilistic prognosis of an event is correct is straightforward. By comparing the binary representations of the forecast and the observation four scenarios are possible (Fig. \ref{fig:contingency}). With the contingency table the further evaluation of a nonprobabilistic forecast becomes possible. Generally speaking a greater number of \textit{hits} and \textit{correct rejection} events indicates a better forecast. More \textit{misses} and \textit{false alerts} indicate a worse forecast.
+\begin{figure}[!htbp]
+\centering
+	\begin{tikzpicture}[
+		box/.style={draw,rectangle,minimum size=2cm,text width=1.5cm,align=center}]
+		\matrix (conmat) [row sep=.1cm,column sep=.1cm] {
+		\node (tpos) [box,
+		label=left:\textbf{Yes},
+		label=above:\textbf{Yes},
+		] {a};
+		&
+		\node (fneg) [box,
+		label=above:\textbf{No},
+		label=right:a+b] {b};
+		\\
+		\node (fpos) [box,
+		label=left:\textbf{No},
+		label=below:a+c] {c};
+		&
+		\node (tneg) [box,
+		label=right:c+d,
+		label=below:b+d,
+		label={[xshift=1.575cm,yshift=-2.55cm]\textbf{n}}] {d};
+		\\
+		};
+		\node [rotate=90,left=.05cm of conmat,anchor=center,text width=1.5cm,align=center] {\textbf{Forecast}};
+		\node [above=.05cm of conmat] {\textbf{Observation}};
+	\end{tikzpicture}
+	\caption[Contingency Table for Nonprobabilistic Forecasts of Binary Events]{Contingency table for nonprobabilistic forecasts of binary events. Four different scenarios are possible. In case of the scenario $a$, where both the observation and the forecast show a \textbf{Yes}, the forecast was successful. This pair is called \textit{hit}. The other desirable outcome of the forecast is an observation and forecast of a \textbf{No}. This is represented with a $d$ and called \textit{correct rejection}. In the $b$ scenario, called \textit{false alert}, the event was forecast to occur but did not happen. In the last case $c$ the event was not forecast but did occur. This scenario is called \textit{miss}. The marginal totals are shown on the bottom and right of the boxes. These indicate how often each of the events were forecast and observed. The total number of forecasts is $n$. After \cite{Wilks}.}
+	\label{fig:contingency}
+\end{figure}
+\\
+Evaluating probabilistic forecasts is less intuitive than evaluating nonprobabilistic forecasts. Unless the probability forecast shows values of either 0.0 or 1.0, there is no right or wrong for a single forecast. To evaluate probabilistic forecasts the procedures in the following sections are used.
 \label{subsec:eval}
 \citep{Wilks}
 \subsection{Brier Score}
-The Brier Score is essentially the root mean square error (RMSE) in probability space.
+One possible measure for evaluating a probabilistic forecast is a scalar measure, the Brier score. The Brier score is essentially the mean square error (MSE) in probability space. To calculate the Brier Score the observation is $o_1 = 1$ if the event occurs and $o_2 = 0$ if the observation does not occur. The Brier Score averages the squared differences between pairs of forecast probabilities and binary observations:
 \begin{equation}
 	BS = \frac{1}{n}\sum_{k=1}^{n}(y_{k}-o_{k})^{2}
 	\label{eq:brier}
 \end{equation}
+Here the index $k$ denotes the numbering of the total number $n$ of forecast-observation pairs. The forecast probability is described by $y_k$. The Brier score has values in the range from 0 to 1. A lower Brier score indicates a better forecast and a perfect forecast is represented by a Brier score of 0. 
 \subsection{Reliability Diagram}
+Reliability diagrams are graphs of the observed relative frequency of a binary event plotted against the forecast probability of a binary event.
+\begin{figure}[!htbp]
+	\centering
+	\begin{tikzpicture}[dot/.style={circle,inner sep=1pt,fill,name=#1},
+	extended line/.style={shorten >=-#1,shorten <=-#1},
+	extended line/.default=0.2cm]
+	\begin{axis}[
+    scale only axis=true,
+    axis lines=middle,
+	axis line style={-},
+	xtick={0,0.2,...,1},
+	ytick={0,0.2,...,1},
+    x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
+	y label style={at={(axis description cs:-0.1,.5)},rotate=90,anchor=south},
+	xlabel={Forecast probability},
+	ylabel={Observed relative frequency},
+	grid=major,
+	xmin=0,
+	ymin=0,
+	xmax=1,
+	ymax=1
+	]
+	\node [dot=A] at (0,0.03) {};
+	\node [dot=B] at (0.1,0.09) {};
+	\node [dot=C] at (0.2,0.17) {};
+	\node [dot=D] at (0.3,0.29) {};
+	\node [dot=E] at (0.4,0.37) {};
+	\node [dot=F] at (0.5,0.49) {};
+	\node [dot=G] at (0.6,0.64) {};
+	\node [dot=H] at (0.7,0.72) {};
+	\node [dot=I] at (0.8,0.82) {};
+	\node [dot=J] at (0.9,0.88) {};
+	\node [dot=K] at (1,0.95) {};
+	\draw (A)--(B)--(C)--(D)--(E)--(F)--(G)--(H)--(I)--(J)--(K);
+	\draw[dotted] (0,0) -- (1,1);
+	\end{axis}
+	\end{tikzpicture}
+	\caption[Reliability Diagram]{Reliability diagram for example data. The dots show the observed relative frequency of the occurrence of precipitation. The dotted line shows a perfect forecast. Figure created after \cite{Wilks}.}
+	\label{fig:reliability}
+\end{figure}
 \subsection{ROC Skill Score}
-A rain threshold is set. Rainrates above that value e.g. 0.5 are considered to be rain, thus represented with a 1. Rainrates below that value are no rain, thus represented with a 0. Applying this threshold for the total rainfield creates a matrix of 0s and 1s. Now rainfields of the forecast and the reference values are compared.
-\begin{enumerate}
-	\item Hit(\textbf{H}): Both forecast and reference points show rain
-	\item Miss(\textbf{M}): Reference point shows rain, forecast shows no rain
-	\item False Alert(\textbf{FA}): Forecast shows rain, reference shows no rain
-	\item Correct Rejection(\textbf{CR}): Both forecast and reference points show no rain
-\end{enumerate}
-From the ratios of these 4 cases it is possible to derive several skill scores:
-\begin{equation}
-\begin{array}{lcl}
-	PC = \dfrac{H+CR}{H+M+FA+CR}\\
-	POD = \dfrac{H}{H+M}\\
-	FAR = \dfrac{FA}{FA+H}\\
-	CSI = \dfrac{H}{H+M+FA}\\
-	ORSS = \dfrac{H\cdot CR-FA\cdot M}{H\cdot CR+FA\cdot M}
-\end{array}
-\end{equation}
 \chapter{Results and Discussion}
 % beispiel für problem bei intensivierung result = prognosis([2016,6,13,19,20,60],0) dwd, ca. 20 zeitschritt, großer sprung aufgrund von intensivierung und abschwächung einer regen wolke
 
