@@ -1273,7 +1273,7 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
     empirical_prob_pos = np.copy(y_score_bin_mean)
     sample_num = np.copy(y_score_bin_mean)
     for t in range(time):
-        y_score_bin_mean[t,:],empirical_prob_pos[t,:],sample_num[t,:] = reliability_curve(real_data[t,:,:],prog_data[t,:,:])
+        y_score_bin_mean[t,:],empirical_prob_pos[t,:],sample_num[t,:],bin_centers = reliability_curve(real_data[t,:,:],prog_data[t,:,:])
 
     inverse_number_of_forecasts = 1/np.sum(lawr.dist_nested<lawr.r[-1])
     bs = inverse_number_of_forecasts*np.sum(np.sum((prog_data[:,:,:]-real_data[:,:,:])**2,axis=2),axis=1)
@@ -1291,6 +1291,9 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
     result.y_score_bin_mean =y_score_bin_mean
     result.empirical_prob_pos = empirical_prob_pos
     result.sample_num = sample_num
+    result.bin_centers= bin_centers
+    result.realEnd = real_data[-1,:,:]
+    result.realStart = real_data[0,:,:]
     return result
 
 def reliability_curve(y_true, y_score, bins=10, normalize=False):
@@ -1363,4 +1366,4 @@ def reliability_curve(y_true, y_score, bins=10, normalize=False):
         y_score_bin_mean[i] = y_score[bin_idx].mean()
         empirical_prob_pos[i] = y_true[bin_idx].mean()
         sample_num[i] = np.sum(bin_idx)
-    return y_score_bin_mean, empirical_prob_pos, sample_num
+    return y_score_bin_mean, empirical_prob_pos, sample_num, bin_centers

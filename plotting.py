@@ -256,3 +256,7 @@ gl2.xlabels_top = False
 gl2.ylabels_left = False
 
 plt.show()
+
+
+
+np.trapz(results[t].roc_hr[-1,::-1],results[t].roc_far[-1,::-1])

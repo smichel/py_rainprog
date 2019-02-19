@@ -436,15 +436,15 @@ num_r = len(rain_thresholds)
 
 
 
-progTime = 60
+progTime = 90
 
 
 
 months= [6]
-startHour = 6
-days =[2]#,13,14,18,23,24,25]
-endHour = 9
-minutes=np.arange(0,59,4)
+startHour = 0
+days =[2,13,14,18,23,24,25]
+endHour = 23
+minutes=np.arange(0,59,10)
 runs = len(minutes)
 hours = np.arange(startHour,endHour)
 
@@ -460,7 +460,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-result = prognosis([2016,6,2,7,40,60],0)
+#result = prognosis([2016,6,2,7,40,90],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -473,9 +473,9 @@ result = prognosis([2016,6,2,7,40,60],0)
 #                                day, hour, minute))
 # print(datetime.now() - startTime)
 
-#startTime = datetime.now()
-#pool = mp.Pool(4)
-#results = pool.starmap(prognosis, zip(dates,t))
-#pool.close()
-#pool.join()
+startTime = datetime.now()
+pool = mp.Pool(4)
+results = pool.starmap(prognosis, zip(dates,t))
+pool.close()
+pool.join()
 # #

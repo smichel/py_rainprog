@@ -46,6 +46,22 @@
 	colormap={whitered}{color(0cm)=(white); color(1cm)=(orange!75!red)}
 }
 \usetikzlibrary{calc}
+
+\newsavebox{\mybox}
+\savebox{\mybox}{%
+	\begin{tikzpicture}[scale = 0.45]
+	\begin{axis}[
+	ymin=0, ymax=1,
+    tick label style={font=\Huge},
+    label style={font=\Huge},
+	%minor y tick num = 3,
+	area style,
+	]
+	\addplot+[ybar interval,mark=no] plot coordinates { (0, 0.3) (0.1, 0.1) (0.2, 0.05) (0.3, 0.08) (0.4, 0.07) (0.5, 0.1) (0.6, 0.08) (0.7, 0.02) (0.8, 0.05) (0.9, 0.2) (1,0)};
+	\end{axis}
+\end{tikzpicture}
+}
+
 %\pgfmathdeclarefunction{gauss}{3}{%
 %  \pgfmathparse{1/(sqrt(pow(#2,2)*2*pi))*exp(-(pow((#3-#1),2))/(2*pow(#2,2)))}%
 %}
@@ -599,8 +615,8 @@ If no acceptable displacements can be found for either one of the precipitation 
 	extended line/.style={shorten >=-#1,shorten <=-#1},
 	extended line/.default=0.2cm]
 	\begin{axis}[
-	axis x line=center,
-	axis y line=center,
+    scale only axis=true,
+	axis lines=middle,
 	xtick={0,1,...,5},
 	ytick={0,1,...,5},
 	grid=major,
@@ -884,14 +900,14 @@ Evaluating probabilistic forecasts is less intuitive than evaluating nonprobabil
 \label{subsec:eval}
 \citep{Wilks}
 \subsection{Brier Score}
-One possible measure for evaluating a probabilistic forecast is a scalar measure, the Brier score. The Brier score is essentially the mean square error (MSE) in probability space. To calculate the Brier Score the observation is $o_1 = 1$ if the event occurs and $o_2 = 0$ if the observation does not occur. The Brier Score averages the squared differences between pairs of forecast probabilities and binary observations:
+One possible measure for evaluating a probabilistic forecast is the scalar Brier score. The Brier score is essentially the mean square error (MSE) in probability space. To calculate the Brier Score the observation is $o_1 = 1$ if the event occurs and $o_2 = 0$ if the observation does not occur. The Brier Score averages the squared differences between pairs of forecast probabilities and binary observations:
 \begin{equation}
 	BS = \frac{1}{n}\sum_{k=1}^{n}(y_{k}-o_{k})^{2}
 	\label{eq:brier}
 \end{equation}
 Here the index $k$ denotes the numbering of the total number $n$ of forecast-observation pairs. The forecast probability is described by $y_k$. The Brier score has values in the range from 0 to 1. A lower Brier score indicates a better forecast and a perfect forecast is represented by a Brier score of 0. 
 \subsection{Reliability Diagram}
-Reliability diagrams are graphs of the observed relative frequency of a binary event plotted against the forecast probability of a binary event.
+Reliability diagrams are graphs of the full joint distribution of forecasts and observations for probability forecasts of a binary event (Figure \ref{fig:reliability}). The reliability diagram shows how often a forecast probability actually occurred. By comparing the full joint distributions, strengths or weaknesses of the probabilistic prognosis can be identified \citep{Wilks}. 
 \begin{figure}[!htbp]
 	\centering
 	\begin{tikzpicture}[dot/.style={circle,inner sep=1pt,fill,name=#1},
@@ -916,8 +932,8 @@ Reliability diagrams are graphs of the observed relative frequency of a binary e
 	\node [dot=A] at (0,0.03) {};
 	\node [dot=B] at (0.1,0.09) {};
 	\node [dot=C] at (0.2,0.17) {};
-	\node [dot=D] at (0.3,0.29) {};
-	\node [dot=E] at (0.4,0.37) {};
+	\node [dot=D] at (0.3,0.26) {};
+	\node [dot=E] at (0.4,0.33) {};
 	\node [dot=F] at (0.5,0.49) {};
 	\node [dot=G] at (0.6,0.64) {};
 	\node [dot=H] at (0.7,0.72) {};
@@ -926,6 +942,9 @@ Reliability diagrams are graphs of the observed relative frequency of a binary e
 	\node [dot=K] at (1,0.95) {};
 	\draw (A)--(B)--(C)--(D)--(E)--(F)--(G)--(H)--(I)--(J)--(K);
 	\draw[dotted] (0,0) -- (1,1);
+	\node at (0.4,0.62) [text width=5cm] {Perfect reliability};
+	\draw [->] (0.2,0.6)--(0.36,0.36);
+	\draw (axis cs: 0.75,0.25)node{\usebox{\mybox}};
 	\end{axis}
 	\end{tikzpicture}
 	\caption[Reliability Diagram]{Reliability diagram for example data. The dots show the observed relative frequency of the occurrence of precipitation. The dotted line shows a perfect forecast. Figure created after \cite{Wilks}.}
