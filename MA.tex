@@ -41,6 +41,7 @@
 \usetikzlibrary{arrows.meta}
 \usetikzlibrary{positioning}
 \usetikzlibrary{math} %needed tikz library
+\usetikzlibrary{backgrounds}
 \pgfplotsset{compat=newest}
 \pgfplotsset{
 	colormap={whitered}{color(0cm)=(white); color(1cm)=(orange!75!red)}
@@ -49,15 +50,19 @@
 
 \newsavebox{\mybox}
 \savebox{\mybox}{%
-	\begin{tikzpicture}[scale = 0.45]
+	\begin{tikzpicture}[background rectangle/.style={fill=white!45},show background rectangle, scale = 0.41]
 	\begin{axis}[
-	ymin=0, ymax=1,
+	ymin=0, ymax=0.5,
     tick label style={font=\Huge},
     label style={font=\Huge},
 	%minor y tick num = 3,
 	area style,
+	xlabel = {Fcst. Probability},
+	ylabel = {Frequency},
+	grid =major,
+    major grid style={line width=.2pt,draw=gray!50},
 	]
-	\addplot+[ybar interval,mark=no] plot coordinates { (0, 0.3) (0.1, 0.1) (0.2, 0.05) (0.3, 0.08) (0.4, 0.07) (0.5, 0.1) (0.6, 0.08) (0.7, 0.02) (0.8, 0.05) (0.9, 0.2) (1,0)};
+	\addplot+[ybar] plot coordinates { (0, 0.29) (0.1, 0.11) (0.2, 0.05) (0.3, 0.08) (0.4, 0.07) (0.5, 0.09) (0.6, 0.09) (0.7, 0.02) (0.8, 0.05) (0.9, 0.05) (1,0.15)};
 	\end{axis}
 \end{tikzpicture}
 }
@@ -731,25 +736,26 @@ The latest available DWD precipitation field is then simply globally advected by
 The prognosis of the DWD precipitation fields is used as a boundary condition for the PATTERN precipitation fields. The PATTERN precipitation field is nested inside the DWD precipitation field (Fig. \ref{fig:radarOverview}). By nesting the PATTERN radar area inside the DWD radar area, the possible prognosis time is extended. When precipitation is on the boundary between the DWD and PATTERN radar and moves in the direction of the PATTERN radar area it is advected into the PATTERN radar area.\\
 The PATTERN precipitation field is extrapolated by a different approach than the DWD precipitation field. Here the properties of the bivariate normal density (Fig. \ref{fig:2dgauss}) constructed in section \ref{subsec:bivar} are used. The displacement detection from section \ref{subsec:disdetect} shows that the past displacements of the precipitation fields are not unequivocally and do not deliver a clear value for using the past displacements for a prognosis of the future. This uncertainty is now used to perform a probabilistic precipitation forecast. \\
 This is done by applying the bivariate normal density on the latest available PATTERN precipitation field. The procedure is similar to applying a Gaussian filter on an image to smooth the image. But here a shifted asymmetric bivariate normal density is used to apply a displacement and a smoothing onto the precipitation field. The smoothing represents the uncertainty in the displacement detection. A high uncertainty in the displacement detection, e.g. big differences within the distribution of the $x$- and $y$ displacements, leading to bigger variances and covariances which leads to a flatter bivariate normal density distribution. Higher certainties in the displacements detection obviously lead to a sharper density distribution. The means of the $x$- and $y$ displacements controls the direction and speed of the precipitation fields in the prognosis. This is visible in the Figures \ref{fig:2dgauss}, \ref{fig:extrapolation_t0} and \ref{fig:extrapolation_t1}. A mean of $\mu_x=2.65$ and $\mu_y=-1.61$ means that the average of the $x$- and $y$ displacements goes from the south-east to the north-west.\\
-To apply the bivariate normal density distribution from Figure \ref{fig:2dgauss} on the precipitation field a kernel matrix (eq. \ref{eq:gausskernel}) from the values of the density distribution is constructed. The kernel shows how the new value for the pixel in the middle, depicted with a thick \textbf{0}, is calculated by the values around it weighted with the bivariate normal density. The filter is applied to every pixel in the image.\\
+To apply the bivariate normal density distribution from Figure \ref{fig:2dgauss} on the precipitation field a kernel matrix (eq. \ref{eq:gausskernel}) from the values of the density distribution is constructed. 
+\begin{equation}
+K =	\begin{brmatrix}[1.3em]
+0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0 	& 0 	& 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0	    & 0 	& 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0		& 0 	& 0\\
+0 & 0 & 0 & 0 & 0 & 0 & 0   & 0 	& 0 	& 0 	& 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.01 	& 0 	& 0 	& 0 \\
+0 & 0 & 0 & 0 & 0 & \textbf{0} & 0.02& 0.07 	& 0.03 	& 0 	& 0\\
+0 & 0 & 0 & 0 & 0 & 0 & 0.02& 0.15 	& 0.14 	& 0.01 	& 0\\
+0 & 0 & 0 & 0 & 0 & 0 & 0.01& 0.11	& 0.2 	& 0.04 	& 0\\
+0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.03	&   0.1 & 0.04 	& 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	&	0.01& 0.01 	& 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	&	0   & 0 	& 0
+\end{brmatrix}
+\label{eq:gausskernel}
+\end{equation}The kernel shows how the new value for the pixel in the middle, depicted with a thick \textbf{0}, is calculated by the values around it weighted with the bivariate normal density. The filter is applied to every pixel in the image.\\
 An example for this is shown in Figures \ref{fig:extrapolation_t0} and \ref{fig:extrapolation_t1}. Figure \ref{fig:extrapolation_t0} shows an example matrix with zeros and ones. Three quadrates with different sizes and a values of one are present in the matrix at the timestep $t=0$. Now the kernel  $K$ from eq. \ref{eq:gausskernel} is applied on the Figure \ref{fig:extrapolation_t0} to perform the extrapolation. In Figure \ref{fig:extrapolation_t1} it is shown how the kernel works. All pixels were shifted to the top left. By examining closely the pixel in the middle and comparing the shift of the maximum, you can observe that the maximum has moved two pixels to the top and three pixels to the left. This is caused by the maximum of the bivariate normal density at $\mu_x = 2.65$ and $\mu_y = -1.61$. Furthermore the smoothing of the kernel is also visible. The initial value of one of the pixel in the middle (Fig. \ref{fig:extrapolation_t0}) is now smoothed to the pixels around it (Fig. \ref{fig:extrapolation_t1}). \\
 For the extrapolation of the PATTERN precipitation fields this procedure is now applied multiple times for the desired amount of timesteps. Since the temporal resolution of the PATTERN radar data is 30 seconds, each application of the kernel filtering represents a prognosis 30 seconds in the future. So a prognosis for 30 minutes would be achieved after applying the kernel filter 60 times.
-\begin{equation}
-	K =	\begin{brmatrix}[1.3em]
-		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0 	& 0 	& 0 \\
-		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0	    & 0 	& 0 \\
-		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	& 0		& 0 	& 0\\
-		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0 	& 0 	& 0 	& 0 \\
-		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.01 	& 0 	& 0 	& 0 \\
-		0 & 0 & 0 & 0 & 0 & \textbf{0} & 0.02& 0.07 	& 0.03 	& 0 	& 0\\
-		0 & 0 & 0 & 0 & 0 & 0 & 0.02& 0.15 	& 0.14 	& 0.01 	& 0\\
-		0 & 0 & 0 & 0 & 0 & 0 & 0.01& 0.11	& 0.2 	& 0.04 	& 0\\
-		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0.03	&   0.1 & 0.04 	& 0 \\
-		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	&	0.01& 0.01 	& 0 \\
-		0 & 0 & 0 & 0 & 0 & 0 & 0   & 0    	&	0   & 0 	& 0
-	\end{brmatrix}
-	\label{eq:gausskernel}
-\end{equation}
+
 
 %	0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
 %0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 &	0 & 0 & 0 \\
@@ -908,6 +914,20 @@ One possible measure for evaluating a probabilistic forecast is the scalar Brier
 Here the index $k$ denotes the numbering of the total number $n$ of forecast-observation pairs. The forecast probability is described by $y_k$. The Brier score has values in the range from 0 to 1. A lower Brier score indicates a better forecast and a perfect forecast is represented by a Brier score of 0. 
 \subsection{Reliability Diagram}
 Reliability diagrams are graphs of the full joint distribution of forecasts and observations for probability forecasts of a binary event (Figure \ref{fig:reliability}). The reliability diagram shows how often a forecast probability actually occurred. By comparing the full joint distributions, strengths or weaknesses of the probabilistic prognosis can be identified \citep{Wilks}. 
+
+%(0, 0.3) (0.1, 0.1) (0.2, 0.05) (0.3, 0.08) (0.4, 0.07) (0.5, 0.1) (0.6, 0.08) (0.7, 0.02) (0.8, 0.05) (0.9, 0.05) (1,0.15)
+\begin{table}[!htbp]
+	\centering
+	\begin{tabular}{cccccccccccc}
+		\hline
+		$y_i$ & 0.0 & 0.1 &0.2 &0.3 &0.4 &0.5 &0.6 &0.7 &0.8 &0.9 &1.0\\\hline
+		$p(o_1|y_i)$ & .03&.09&.17&.26&.33&.49&.64&.72&.82&.88&.95\\
+		$p(y_i)$& .29&.11&.05&.08&.07&.09&.09&.02&.05&.05&.15\\\hline
+	\end{tabular}
+	\caption[]{Verification data for a probabilistic forecast of a binary event. For the different forecast probabilities, $y_i$, the conditional probability $p(o_1|y_i)$ indicates the relative frequency of a positive  event. The marginal probabilities $p(y_i)$ show the relative frequencies with which each forecast probability occurred.}
+	\label{tab:verification}
+\end{table}
+To create a reliability diagram the forecasted probabilities are binned into probability bins (Table \ref{tab:verification}). For the exemplary data of Table \ref{tab:verification} this means that in 29\% of the forecasted probabilities a probability $p(y_i)$ of 0.0 is present. In 3\% of the forecasted probabilities of $y_i = 0.0$ this resulted in a positive event. A perfect forecast would show a conditional probability $p(o_1|y_i) = 0.0$ for a forecast probability $y_i = 0.0$. This means the exemplary forecast predicts a more positive events than actually occurred. In case of the forecast probability of $y_i = 0.4$, the forecast only 
 \begin{figure}[!htbp]
 	\centering
 	\begin{tikzpicture}[dot/.style={circle,inner sep=1pt,fill,name=#1},
@@ -924,6 +944,8 @@ Reliability diagrams are graphs of the full joint distribution of forecasts and 
 	xlabel={Forecast probability},
 	ylabel={Observed relative frequency},
 	grid=major,
+    major grid style={line width=.2pt,draw=gray!50},
+    grid style={line width=.1pt, draw=gray!10},
 	xmin=0,
 	ymin=0,
 	xmax=1,
@@ -943,11 +965,11 @@ Reliability diagrams are graphs of the full joint distribution of forecasts and 
 	\draw (A)--(B)--(C)--(D)--(E)--(F)--(G)--(H)--(I)--(J)--(K);
 	\draw[dotted] (0,0) -- (1,1);
 	\node at (0.4,0.62) [text width=5cm] {Perfect reliability};
-	\draw [->] (0.2,0.6)--(0.36,0.36);
-	\draw (axis cs: 0.75,0.25)node{\usebox{\mybox}};
+	\draw [->] (0.25,0.58)--(0.36,0.37);
+	\draw (axis cs: 0.759,0.25)node{\usebox{\mybox}};
 	\end{axis}
 	\end{tikzpicture}
-	\caption[Reliability Diagram]{Reliability diagram for example data. The dots show the observed relative frequency of the occurrence of precipitation. The dotted line shows a perfect forecast. Figure created after \cite{Wilks}.}
+	\caption[Reliability Diagram]{Reliability diagram for an example forecast. The dots show the observed relative frequency of the occurrence of precipitation. The dotted line shows a perfect forecast. In the histogram in the bottom right the probability frequency distribution of the example forecast is shown. Figure created after \cite{Wilks}.}
 	\label{fig:reliability}
 \end{figure}
 \subsection{ROC Skill Score}
