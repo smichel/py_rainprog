@@ -927,7 +927,8 @@ Reliability diagrams are graphs of the full joint distribution of forecasts and 
 	\caption[]{Verification data for a probabilistic forecast of a binary event. For the different forecast probabilities, $y_i$, the conditional probability $p(o_1|y_i)$ indicates the relative frequency of a positive  event. The marginal probabilities $p(y_i)$ show the relative frequencies with which each forecast probability occurred.}
 	\label{tab:verification}
 \end{table}
-To create a reliability diagram the forecasted probabilities are binned into probability bins (Table \ref{tab:verification}). For the exemplary data of Table \ref{tab:verification} this means that in 29\% of the forecasted probabilities a probability $p(y_i)$ of 0.0 is present. In 3\% of the forecasted probabilities of $y_i = 0.0$ this resulted in a positive event. A perfect forecast would show a conditional probability $p(o_1|y_i) = 0.0$ for a forecast probability $y_i = 0.0$. This means the exemplary forecast predicts a more positive events than actually occurred. In case of the forecast probability of $y_i = 0.4$, the forecast only 
+To create a reliability diagram the forecasted probabilities are binned into probability bins (Table \ref{tab:verification}). For the exemplary data of Table \ref{tab:verification} this means that in 29\% of the forecasted probabilities a probability $p(y_i)$ of 0.0 is present. In 3\% of the forecasted probabilities of $y_i = 0.0$ this resulted in a positive event. A perfect forecast would show a conditional probability $p(o_1|y_i) = 0.0$ for a forecast probability $y_i = 0.0$. This means the exemplary forecast predicts a more positive events than actually occurred. In case of the forecast probability of $y_i = 0.4$, the forecast only correctly predicted a positive event in 33\% of the forecast probabilities. \\
+If the 
 \begin{figure}[!htbp]
 	\centering
 	\begin{tikzpicture}[dot/.style={circle,inner sep=1pt,fill,name=#1},
@@ -969,7 +970,7 @@ To create a reliability diagram the forecasted probabilities are binned into pro
 	\draw (axis cs: 0.759,0.25)node{\usebox{\mybox}};
 	\end{axis}
 	\end{tikzpicture}
-	\caption[Reliability Diagram]{Reliability diagram for an example forecast. The dots show the observed relative frequency of the occurrence of precipitation. The dotted line shows a perfect forecast. In the histogram in the bottom right the probability frequency distribution of the example forecast is shown. Figure created after \cite{Wilks}.}
+	\caption[Reliability Diagram]{Reliability diagram for an example forecast. The dots show the observed relative frequency of the occurrence of precipitation. The black line shows the calibration function. The dotted line shows a perfect forecast. In the histogram in the bottom right the probability frequency distribution of the example forecast is shown. Figure created after \cite{Wilks}.}
 	\label{fig:reliability}
 \end{figure}
 \subsection{ROC Skill Score}
