@@ -16,6 +16,7 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{siunitx}
+\usepackage{subcaption}
 \sloppy  % Weniger Silbentrennung
 
 % Kopfzeile: Section auf linker Seite, Subsection auf rechter Seite
@@ -37,6 +38,7 @@
 
 \usepackage{tikz}
 \usepackage{pgfplots}
+\usepackage{tikzscale}
 \usetikzlibrary{shapes,arrows,chains}
 \usetikzlibrary{arrows.meta}
 \usetikzlibrary{positioning}
@@ -46,6 +48,9 @@
 \pgfplotsset{
 	colormap={whitered}{color(0cm)=(white); color(1cm)=(orange!75!red)}
 }
+\pgfplotsset{ignore zero/.style={%
+		#1ticklabel={\ifdim\tick pt=0pt \else\pgfmathprintnumber{\tick}\fi}
+}}
 \usetikzlibrary{calc}
 
 \newsavebox{\mybox}
@@ -62,7 +67,7 @@
 	grid =major,
     major grid style={line width=.2pt,draw=gray!50},
 	]
-	\addplot+[ybar] plot coordinates { (0, 0.29) (0.1, 0.11) (0.2, 0.05) (0.3, 0.08) (0.4, 0.07) (0.5, 0.09) (0.6, 0.09) (0.7, 0.02) (0.8, 0.05) (0.9, 0.05) (1,0.15)};
+	\addplot+[ybar] plot coordinates { (0, 0.29) (0.1, 0.11) (0.2, 0.10) (0.3, 0.08) (0.4, 0.07) (0.5, 0.09) (0.6, 0.09) (0.7, 0.02) (0.8, 0.05) (0.9, 0.05) (1,0.10)};
 	\end{axis}
 \end{tikzpicture}
 }
@@ -913,7 +918,7 @@ One possible measure for evaluating a probabilistic forecast is the scalar Brier
 \end{equation}
 Here the index $k$ denotes the numbering of the total number $n$ of forecast-observation pairs. The forecast probability is described by $y_k$. The Brier score has values in the range from 0 to 1. A lower Brier score indicates a better forecast and a perfect forecast is represented by a Brier score of 0. 
 \subsection{Reliability Diagram}
-Reliability diagrams are graphs of the full joint distribution of forecasts and observations for probability forecasts of a binary event (Figure \ref{fig:reliability}). The reliability diagram shows how often a forecast probability actually occurred. By comparing the full joint distributions, strengths or weaknesses of the probabilistic prognosis can be identified \citep{Wilks}. 
+Reliability diagrams are graphs of the full joint distribution of forecasts and observations for probability forecasts of a binary event (Figure \ref{fig:reliability}). The reliability diagram shows how often a forecast probability actually occurred \citep{Wilks}. %% formulierung
 
 %(0, 0.3) (0.1, 0.1) (0.2, 0.05) (0.3, 0.08) (0.4, 0.07) (0.5, 0.1) (0.6, 0.08) (0.7, 0.02) (0.8, 0.05) (0.9, 0.05) (1,0.15)
 \begin{table}[!htbp]
@@ -922,16 +927,17 @@ Reliability diagrams are graphs of the full joint distribution of forecasts and 
 		\hline
 		$y_i$ & 0.0 & 0.1 &0.2 &0.3 &0.4 &0.5 &0.6 &0.7 &0.8 &0.9 &1.0\\\hline
 		$p(o_1|y_i)$ & .03&.09&.17&.26&.33&.49&.64&.72&.82&.88&.95\\
-		$p(y_i)$& .29&.11&.05&.08&.07&.09&.09&.02&.05&.05&.15\\\hline
+		$p(y_i)$& .29&.11&.10&.08&.07&.09&.09&.02&.05&.05&.10\\\hline
 	\end{tabular}
-	\caption[]{Verification data for a probabilistic forecast of a binary event. For the different forecast probabilities, $y_i$, the conditional probability $p(o_1|y_i)$ indicates the relative frequency of a positive  event. The marginal probabilities $p(y_i)$ show the relative frequencies with which each forecast probability occurred.}
+	\caption[]{Verification data for a probabilistic forecast of a binary event. For the different forecast probabilities, $y_i$, the conditional probability $p(o_1|y_i)$ indicates the relative frequency of a positive  event. The marginal probabilities $p(y_i)$ show the relative frequencies with which each forecast probability occurred. The sample climatological relative frequency is 0.38.}
 	\label{tab:verification}
 \end{table}
-To create a reliability diagram the forecasted probabilities are binned into probability bins (Table \ref{tab:verification}). For the exemplary data of Table \ref{tab:verification} this means that in 29\% of the forecasted probabilities a probability $p(y_i)$ of 0.0 is present. In 3\% of the forecasted probabilities of $y_i = 0.0$ this resulted in a positive event. A perfect forecast would show a conditional probability $p(o_1|y_i) = 0.0$ for a forecast probability $y_i = 0.0$. This means the exemplary forecast predicts a more positive events than actually occurred. In case of the forecast probability of $y_i = 0.4$, the forecast only correctly predicted a positive event in 33\% of the forecast probabilities. \\
-If the 
+To create a reliability diagram the forecasted probabilities are binned into probability bins (Table \ref{tab:verification}), $y_i$ shows the centres of the probability bins. For the exemplary data show in Table \ref{tab:verification} this means that in 29\% of the forecasted probabilities a probability $y_i$ of 0.0 is present. In 3\% of the forecasted probabilities of $y_i = 0.0$ this resulted in a positive event. A perfect forecast would show a conditional probability $p(o_1|y_i) = 0.0$ for a forecast probability of $y_i = 0.0$. This means in the probability bin of $y_i=0.0$ the exemplary forecast predicted more positive events than actually occurred. In case of the forecast probability of $y_i = 0.4$, the forecast only shows an observed relative frequency $p(o_1|y_i)$ of 0.33. In the $y_i = 0.4$ probability bin the forecast predicted less positive events than actually occurred.\\
+A perfect forecast is defined by conditional event relative frequency being equal to the forecast probability ($p(o_1|y_i) \approx y_i$), so that the calibration function would lie close to the dotted 1:1 line in Figure \ref{fig:reliability}. Small deviations from the line can be caused by sampling variability.
+
 \begin{figure}[!htbp]
 	\centering
-	\begin{tikzpicture}[dot/.style={circle,inner sep=1pt,fill,name=#1},
+	\begin{tikzpicture}[dot/.style={circle,inner sep=1.5pt,fill,name=#1},
 	extended line/.style={shorten >=-#1,shorten <=-#1},
 	extended line/.default=0.2cm]
 	\begin{axis}[
@@ -973,6 +979,150 @@ If the
 	\caption[Reliability Diagram]{Reliability diagram for an example forecast. The dots show the observed relative frequency of the occurrence of precipitation. The black line shows the calibration function. The dotted line shows a perfect forecast. In the histogram in the bottom right the probability frequency distribution of the example forecast is shown. Figure created after \cite{Wilks}.}
 	\label{fig:reliability}
 \end{figure}
+
+By comparing the calibration function to the 1:1 line of the perfect forecast, strengths or weaknesses of the probabilistic prognosis can be identified. When the calibration function lies on the right side of the 1:1 line, the forecasts are consistently too large compared to the conditional event relative frequencies (Figure \ref{fig:calibration}a). In case of a precipitation forecast the prognosis has a wet bias. A calibration function, which forecasts are consistently too small relative to the observed relative frequency, lies on the left side of the 1:1 line (Figure \ref{fig:calibration}b). This indicates that the forecast is underforecasting and has a dry bias.\\
+\begin{figure}[!htbp] 
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\begin{tikzpicture}[dot/.style={circle,inner sep=3pt,fill,name=#1},
+		extended line/.style={shorten >=-#1,shorten <=-#1},
+		extended line/.default=0.2cm,scale=0.5]
+		\begin{axis}[
+		scale only axis=true,
+		axis line style={-},
+		xtick={0,1},
+		ytick={0,1},
+		tick label style={font=\Huge,outer sep=3pt},
+		label style={font=\Huge},
+		x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
+		y label style={at={(axis description cs:-0.1,.5)},anchor=south},
+		ylabel={$p(o_1,y)$},
+		xlabel={$y$},
+		xmin=0,
+		ymin=0,
+		xmax=1,
+		ymax=1
+		]
+		\node [dot=A] at (0.15,0.05) {};
+		\node [dot=B] at (0.3,0.18) {};
+		\node [dot=C] at (0.45,0.35) {};
+		\node [dot=D] at (0.6,0.45) {};
+		\node [dot=E] at (0.75,0.62) {};
+		\node [dot=F] at (0.9,0.75) {};
+		\draw[ultra thick] (A)--(B)--(C)--(D)--(E)--(F);
+		\draw[ultra thick,loosely dotted] (0,0) -- (1,1);
+		\end{axis}
+		\end{tikzpicture}
+		\subcaption{Overforecasting (wet bias)} 
+	\end{subfigure}
+	\quad
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\begin{tikzpicture}[dot/.style={circle,inner sep=3pt,fill,name=#1},
+		extended line/.style={shorten >=-#1,shorten <=-#1},
+		extended line/.default=0.2cm,scale=0.5]
+		\begin{axis}[
+		scale only axis=true,
+		axis line style={-},
+		xtick={0,1},
+		ytick={0,1},
+		tick label style={font=\Huge,outer sep=3pt},
+		label style={font=\Huge},
+		x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
+		y label style={at={(axis description cs:-0.1,.5)},anchor=south},
+		ylabel={$p(o_1,y)$},
+		xlabel={$y$},
+		xmin=0,
+		ymin=0,
+		xmax=1,
+		ymax=1
+		]
+		\node [dot=A] at (0.10,0.25) {};
+		\node [dot=B] at (0.25,0.43) {};
+		\node [dot=C] at (0.4,0.54) {};
+		\node [dot=D] at (0.55,0.63) {};
+		\node [dot=E] at (0.7,0.8) {};
+		\node [dot=F] at (0.85,0.94) {};
+		\draw[ultra thick] (A)--(B)--(C)--(D)--(E)--(F);
+		\draw[ultra thick,loosely dotted] (0,0) -- (1,1);
+		\end{axis}
+		\end{tikzpicture} 
+		\subcaption{Underforecasting (dry bias)} 
+	\end{subfigure} 
+	\vskip\baselineskip
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\begin{tikzpicture}[dot/.style={circle,inner sep=3pt,fill,name=#1},
+		extended line/.style={shorten >=-#1,shorten <=-#1},
+		extended line/.default=0.2cm,scale=0.5]
+		\begin{axis}[
+		scale only axis=true,
+		axis line style={-},
+		xtick={0,1},
+		ytick={0,1},
+		tick label style={font=\Huge,outer sep=3pt},
+		label style={font=\Huge},
+		x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
+		y label style={at={(axis description cs:-0.1,.5)},anchor=south},
+		ylabel={$p(o_1,y)$},
+		xlabel={$y$},
+		xmin=0,
+		ymin=0,
+		xmax=1,
+		ymax=1
+		]
+		\node [dot=A] at (0.15,0.2) {};
+		\node [dot=B] at (0.3,0.27) {};
+		\node [dot=C] at (0.45,0.34) {};
+		\node [dot=D] at (0.6,0.47) {};
+		\node [dot=E] at (0.75,0.45) {};
+		\node [dot=F] at (0.9,0.60) {};
+		\draw[ultra thick] (A)--(B)--(C)--(D)--(E)--(F);
+		\draw[ultra thick,loosely dotted] (0,0) -- (1,1);
+		\end{axis}
+		\end{tikzpicture}
+		\subcaption{Poor resolution (overconfident)} 
+	\end{subfigure}
+	\quad
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\begin{tikzpicture}[dot/.style={circle,inner sep=3pt,fill,name=#1},
+		extended line/.style={shorten >=-#1,shorten <=-#1},
+		extended line/.default=0.2cm,scale=0.5]
+		\begin{axis}[
+		scale only axis=true,
+		axis line style={-},
+		xtick={0,1},
+		ytick={0,1},
+		tick label style={font=\Huge,outer sep=3pt},
+		label style={font=\Huge},
+		x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
+		y label style={at={(axis description cs:-0.1,.5)},anchor=south},
+		ylabel={$p(o_1,y)$},
+		xlabel={$y$},
+		xmin=0,
+		ymin=0,
+		xmax=1,
+		ymax=1
+		]
+		\node [dot=A] at (0.10,0.02) {};
+		\node [dot=B] at (0.25,0.1) {};
+		\node [dot=C] at (0.4,0.30) {};
+		\node [dot=D] at (0.55,0.6) {};
+		\node [dot=E] at (0.7,0.85) {};
+		\node [dot=F] at (0.85,0.95) {};
+		\draw[ultra thick] (A)--(B)--(C)--(D)--(E)--(F);
+		\draw[ultra thick,loosely dotted] (0,0) -- (1,1);
+		\end{axis}
+		\end{tikzpicture} 
+		\subcaption{Good resolution (underconfident)} 
+		
+	\end{subfigure}%% 
+	
+	\caption[Example Calibration Functions]{Examples for characteristic calibration functions. The calibration functions $p(o_1,y)$ are shown for probabilities $y$ of different forecasts of exemplary data. Figure created after \citep{Wilks}.}
+	\label{fig:calibration}
+\end{figure}
+The calibration curve in Figure \ref{fig:calibration}c depicts the characteristics of forecasts showing poor resolution. This means the observed relative frequencies $p(o_1|y_i)$ depend only weakly on the forecast and are close to the climatological probability \citep{Wilks}.
 \subsection{ROC Skill Score}
 \chapter{Results and Discussion}
 % beispiel für problem bei intensivierung result = prognosis([2016,6,13,19,20,60],0) dwd, ca. 20 zeitschritt, großer sprung aufgrund von intensivierung und abschwächung einer regen wolke
