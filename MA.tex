@@ -943,8 +943,8 @@ A perfect forecast is defined by conditional event relative frequency being equa
     scale only axis=true,
     axis lines=middle,
 	axis line style={-},
-	xtick={0,0.2,...,1},
-	ytick={0,0.2,...,1},
+	xtick={0,0.2,...,1.0},
+	ytick={0,0.2,...,1.0},
     x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
 	y label style={at={(axis description cs:-0.1,.5)},rotate=90,anchor=south},
 	xlabel={Forecast probability},
@@ -988,8 +988,8 @@ By comparing the calibration function to the 1:1 line of the perfect forecast, s
 		\begin{axis}[
 		scale only axis=true,
 		axis line style={-},
-		xtick={0,1},
-		ytick={0,1},
+		xtick={0,1.0},
+		ytick={0,1.0},
 		tick label style={font=\Huge,outer sep=3pt},
 		label style={font=\Huge},
 		x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
@@ -1121,8 +1121,61 @@ By comparing the calibration function to the 1:1 line of the perfect forecast, s
 	\label{fig:calibration}
 \end{figure}\\
 The calibration curve in Figure \ref{fig:calibration}c depicts the characteristics of forecasts showing poor resolution. This means the observed relative frequencies $p(o_1|y_i)$ depend only weakly on the forecast and are close to the climatological probability \citep{Wilks}.
-Hier noch über die calibration curve mit good resoultion in figure c.
+Hier noch über die calibration curve mit good resoultion in figure d.
 \subsection{ROC Skill Score}
+
+\begin{figure}[!htbp]
+	\centering
+	\begin{tikzpicture}[dot/.style={circle,inner sep=1.5pt,fill,name=#1},
+	extended line/.style={shorten >=-#1,shorten <=-#1},
+	extended line/.default=0.2cm]
+	\begin{axis}[
+	scale only axis=true,
+	axis line style={-},
+	xtick={0,0.2,...,1},
+	ytick={0,0.2,...,1},
+	x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
+	y label style={at={(axis description cs:-0.1,.5)},anchor=south},
+	xlabel={Hit rate},
+	ylabel={False alarm rate},
+	grid=major,
+	major grid style={line width=.2pt,draw=gray!50},
+	grid style={line width=.1pt, draw=gray!10},
+	xmin=0,
+	ymin=0,
+	xmax=1,
+	ymax=1
+	]
+	\node [dot=A] at (0,0) {};
+	\node [dot=B] at (0.03,0.4) {};
+	\node [dot=C] at (0.06,0.6) {};
+	\node [dot=D] at (0.09,0.8) {};
+	\node [dot=E] at (0.15,0.85) {};
+	\node [dot=F] at (0.3,0.89) {};
+	\node [dot=G] at (0.45,0.93) {};
+	\node [dot=H] at (0.7,0.96) {};
+	\node [dot=I] at (1,1) {};
+	\draw (A)--(B)--(C)--(D)--(E)--(F)--(G)--(H)--(I);
+	\node [dot=BA] at (0,0) {};
+	\node [dot=BB] at (0.1,0.25) {};	
+	\node [dot=BC] at (0.16,0.4) {};	
+	\node [dot=BD] at (0.24,0.6) {};	
+	\node [dot=BE] at (0.3,0.67) {};
+	\node [dot=BF] at (0.52,0.75) {};	
+	\node [dot=BG] at (0.7,0.85) {};	
+	\node [dot=BH] at (1,1) {};	
+	\node [dot=BI] at (0,0) {};	
+	\draw[fill=black!10,fill opacity = 0.8] (0,0) -- (0.1,0.25) -- (0.16,0.4) -- (0.24,0.6) -- (0.3,0.67) -- (0.52,0.75) -- (0.7,0.85) -- (1,1) -- (1,0);
+	%\draw (BA)--(BB)--(BC)--(BD)--(BE)--(BF)--(BG)--(BH);	
+	\draw[dashed] (0,0) -- (1,1);
+	\node [dot=dummy] at (1,0) {};
+	\node [coordinate] at (0.7,0.3) {ROC Area};
+	\end{axis}
+	\end{tikzpicture}
+	\caption[ROC Diagram]{ROC diagram for exemplary data. The solid dots represent pairs of false alarm rate and hit rate.} 
+	\label{fig:roc}
+\end{figure}
+
 \chapter{Results and Discussion}
 % beispiel für problem bei intensivierung result = prognosis([2016,6,13,19,20,60],0) dwd, ca. 20 zeitschritt, großer sprung aufgrund von intensivierung und abschwächung einer regen wolke
 
