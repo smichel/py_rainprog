@@ -1121,9 +1121,9 @@ By comparing the calibration function to the 1:1 line of the perfect forecast, s
 	\label{fig:calibration}
 \end{figure}\\
 The calibration curve in Figure \ref{fig:calibration}c depicts the characteristics of forecasts showing poor resolution. This means the observed relative frequencies $p(o_1|y_i)$ depend only weakly on the forecast and are close to the climatological probability \citep{Wilks}.
-Hier noch über die calibration curve mit good resoultion in figure d.
+Hier noch über die calibration curve mit good resolution in figure d.
 \subsection{ROC Skill Score}
-
+The relative operating characteristic (ROC) is a measure of the quality of probability forecasts that compares the false alarm rate to the hit rate for specific probability bins \citep{Kharin2003}. The ROC is derived from the comparison between two probability distributions. One distribution represents the evidence strength associated with the occurrence of the event and the other distribution represents the non-event distribution.
 \begin{figure}[!htbp]
 	\centering
 	\begin{tikzpicture}[dot/.style={circle,inner sep=1.5pt,fill,name=#1},
@@ -1136,8 +1136,8 @@ Hier noch über die calibration curve mit good resoultion in figure d.
 	ytick={0,0.2,...,1},
 	x label style={at={(axis description cs:0.5,-0.1)},anchor=north},
 	y label style={at={(axis description cs:-0.1,.5)},anchor=south},
-	xlabel={Hit rate},
-	ylabel={False alarm rate},
+	ylabel={Hit rate},
+	xlabel={False alarm rate},
 	grid=major,
 	major grid style={line width=.2pt,draw=gray!50},
 	grid style={line width=.1pt, draw=gray!10},
@@ -1147,29 +1147,35 @@ Hier noch über die calibration curve mit good resoultion in figure d.
 	ymax=1
 	]
 	\node [dot=A] at (0,0) {};
-	\node [dot=B] at (0.03,0.4) {};
-	\node [dot=C] at (0.06,0.6) {};
-	\node [dot=D] at (0.09,0.8) {};
-	\node [dot=E] at (0.15,0.85) {};
-	\node [dot=F] at (0.3,0.89) {};
-	\node [dot=G] at (0.45,0.93) {};
-	\node [dot=H] at (0.7,0.96) {};
-	\node [dot=I] at (1,1) {};
-	\draw (A)--(B)--(C)--(D)--(E)--(F)--(G)--(H)--(I);
+	\node [label=right:{90\%},dot=B] at (0.03,0.4) {};
+	\node [label=right:{80\%},dot=C] at (0.06,0.6) {};
+	\node [label=below right:{70\%},dot=D] at (0.1,0.78) {};
+	\node [label=above left:{60\%},dot=E] at (0.12,0.82) {};
+	\node [label=above:{50\%},dot=F] at (0.15,0.85) {};
+	\node [label=below:{40\%},dot=G] at (0.3,0.89) {};
+	\node [label=below:{30\%},dot=H] at (0.45,0.91) {};
+	\node [label=below:{20\%},dot=I] at (0.65,0.95) {};
+	\node [label=below:{10\%},dot=J] at (0.75,0.97) {};
+	\node [dot=K] at (1,1) {};
+	\draw (A)--(B)--(C)--(D)--(E)--(F)--(G)--(H)--(I)--(J)--(K);
+
 	\node [dot=BA] at (0,0) {};
 	\node [dot=BB] at (0.1,0.25) {};	
 	\node [dot=BC] at (0.16,0.4) {};	
-	\node [dot=BD] at (0.24,0.6) {};	
-	\node [dot=BE] at (0.3,0.67) {};
-	\node [dot=BF] at (0.52,0.75) {};	
-	\node [dot=BG] at (0.7,0.85) {};	
-	\node [dot=BH] at (1,1) {};	
-	\node [dot=BI] at (0,0) {};	
-	\draw[fill=black!10,fill opacity = 0.8] (0,0) -- (0.1,0.25) -- (0.16,0.4) -- (0.24,0.6) -- (0.3,0.67) -- (0.52,0.75) -- (0.7,0.85) -- (1,1) -- (1,0);
-	%\draw (BA)--(BB)--(BC)--(BD)--(BE)--(BF)--(BG)--(BH);	
+	\node [dot=BD] at (0.24,0.6) {};
+	\node [dot=BE] at (0.27,0.64) {};
+	\node [dot=BF] at (0.3,0.67) {};
+	\node [dot=BG] at (0.4,0.7) {};
+	\node [dot=BH] at (0.52,0.75) {};	
+	\node [dot=BI] at (0.7,0.85) {};	
+	\node [dot=BJ] at (1,1) {};	
+
+	\draw[fill=black!10,fill opacity = 0.65] (BA.center)--(BB.center)--(BC.center)--(BD.center)--(BE.center)--(BF.center)--(BG.center)--(BH.center) --(BI.center) -- (BJ.center)-- (1,0)--cycle;
+	\node at (0.45,0.55) [text width=3cm] {Random\\forecast};
+	\draw [->] (0.34,0.49)--(0.37,0.38);
 	\draw[dashed] (0,0) -- (1,1);
 	\node [dot=dummy] at (1,0) {};
-	\node [coordinate] at (0.7,0.3) {ROC Area};
+	\node [draw] at (0.6,0.3) {ROC Area};
 	\end{axis}
 	\end{tikzpicture}
 	\caption[ROC Diagram]{ROC diagram for exemplary data. The solid dots represent pairs of false alarm rate and hit rate.} 
