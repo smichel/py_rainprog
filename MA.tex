@@ -175,7 +175,7 @@
 			\centering
 			%\begin{flushleft}
 				\begin{large}
-					Masterthesis by
+					Master thesis by
 				\end{large}
 				\\\vspace{0.5cm}
 				\begin{huge}
@@ -223,7 +223,7 @@
 	\thispagestyle{empty}
 	\null
 	\vfill
-	Masterthesis im Fachbereich Geowissenschaften der Universität Hamburg\\
+	Master thesis im Fachbereich Geowissenschaften der Universität Hamburg\\
 	Thema der Arbeit: \glqq Probabilistic Radar-Based Precipitation Nowcasting\grqq
 	
 	
@@ -240,9 +240,16 @@
 \newpage\pagestyle{fancy}
 \chapter{Introduction}
 \pagenumbering{arabic}
-\chapter{Precipitation Nowcasting}
+\chapter{Meteorological Forecasting}
+\begin{itemize}
+	\item Nowcasting
+	\item Numerical weather prediction (NWP)
+	\item Statistical methods
+\end{itemize}
+\section{Nowcasting}
 \label{chap:nowcasting}
-Nowcasting aims to estimate a future state of the atmosphere, such as clouds and storms, based on the current location, track, speed and the rate of growth or decay. Nowcasting techniques are mostly used with weather radar applications but are also applied to satellite observations of clouds, and used in forecasting for tropical cyclones, hurricanes and typhoons \citep{Sene2009}.
+Nowcasting aims to estimate a future state of the atmosphere, such as clouds and storms, based on their current location, track, speed and the rate of their growth or decay. Nowcasting techniques are mostly used with weather radar applications but are also applied to satellite observations of clouds or thunderstorms, and are used in forecasting for tropical cyclones, hurricanes and typhoons.\\
+In combination with weather radar data the aim of nowcasting is to estimate the development of storms, how they move and evolve in the next few hours. This is based on its present and recent location, extend, speed and track. The accuracy of forecasts depend on the local climatological conditions and topography, the type of precipitation event and the resolution and range of the weather radar data. For widespread frontal precipitation events nowcasting methods show skill for maximum lead times of up to 3-6 hours. Lead time for convective events are much shorter due to their short lifetimes \citep{Sene2009}.
 
 \begin{figure}[!htbp]
 	\centering
@@ -277,7 +284,7 @@ Nowcasting aims to estimate a future state of the atmosphere, such as clouds and
 	\draw [<-] (12.3,2.3)--(13.3,3.3);
 	\end{axis}
 	\end{tikzpicture}
-	\caption{A schematic showing the quality of weather forecasts, defined by their accuracy and the achievable detail, as a function of lead time. After \cite{Pierce12} and \cite{Browning1980}.}
+	\caption{A schematic showing the quality of weather forecasts, defined by their accuracy and the achievable detail, as a function of lead time. Created after \cite{Pierce12} and \cite{Browning1980}.}
 	\label{fig:prognosisquality}
 \end{figure}
 
@@ -1184,15 +1191,20 @@ The false alarm rate has values between 0 and 1, where 0 is desirable and shows 
 	\node at (0.45,0.55) [text width=3cm] {Random\\forecast};
 	\draw [->] (0.34,0.49)--(0.37,0.38);
 	\draw[dashed] (0,0) -- (1,1);
-	\node [dot=dummy] at (1,0) {};
+	\node (dummy) at (1,0) {};
 	\node [draw] at (0.6,0.3) {ROC Area};
 	\end{axis}
 	\end{tikzpicture}
 	\caption[ROC Diagram]{ROC diagram for exemplary data. The solid dots represent pairs of false alarm rate and hit rate.} 
 	\label{fig:roc}
-\end{figure}\\
-The ROC is derived from the comparison between two probability distributions. One distribution represents the evidence strength associated with the occurrence of the event and the other distribution represents the non-event distribution \citep{Kharin2003}. From these two distributions the false alarm rate and the hit rate are obtained as a function of probability. To calculate the ROC skill score for a probabilistic forecast the forecast is divided into probability intervals. Frequently used intervals are 10\% bins and are also used in this thesis. With a contingency table (Figure \ref{fig:contingency}) the false alarm rate and hit rate are calculated for each probability bin. For example the hit rate for the 70\% probability bin is the sum of hits (represented with $a$ in Figure \ref{fig:contingency})  above 70\% divided by total number of events.
-
+\end{figure}
+The ROC is derived from the comparison between two probability distributions. One distribution represents the evidence strength associated with the occurrence of the event and the other distribution represents the non-event distribution \citep{Kharin2003}. From these two distributions the false alarm rate and the hit rate are obtained as a function of probability. To calculate the ROC skill score for a probabilistic forecast the forecast is divided into probability intervals. Frequently used intervals are 10\% bins and are also used in this thesis. With a contingency table (Figure \ref{fig:contingency}) the false alarm rate and hit rate are calculated for each probability bin. For example the hit rate for the 70\% probability bin is the sum of hits (represented with $a$ in Figure \ref{fig:contingency})  above 70\% divided by total number of occurrences ($a + c$ in Figure \ref{fig:contingency}).\\
+After \cite{Wilks} the ROC skill score SS$_\text{ROC}$ is defined as the area \text{A} under a ROC curve (grey area in Figure \ref{fig:roc}) and is calculated by:
+\begin{equation}
+	\text{SS}_{\text{ROC}} = 2\,\text{A} -1
+	\label{eq:roc}
+\end{equation}
+A ROC curve for a perfect forecast passes through the upper-left corner at the point (0,1) and has a $\text{SS}_{\text{ROC}} = 1$, since the area under a ROC curve of a perfect forecast includes the complete unit square. The area under a ROC curve of a random forecast encompasses the half of the unit square A $ = 0.5$ and has a $\text{SS}_{\text{ROC}} = 0.5$.
 
 \chapter{Results and Discussion}
 % beispiel für problem bei intensivierung result = prognosis([2016,6,13,19,20,60],0) dwd, ca. 20 zeitschritt, großer sprung aufgrund von intensivierung und abschwächung einer regen wolke
