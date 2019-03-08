@@ -57,31 +57,10 @@ def prognosis(date, t):
 
 
 
-        #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
-        #directoryPath = 'G:/Rainprog/boo/'
-
-        dwdDirectoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+strMon+'/'+strDay
-        lawrDirectoryPath = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/'
-        fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
-        #directoryPath = 'E:/radardata/02/'
-        #fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
-
-        res = 100
-        smallVal = 2
         rainThreshold = 0.5
-        distThreshold = 19000
         prog = int(minute*2)
         trainTime = 6
-        numMaxes = 20
-        useRealData = 1
-        prognosis = 1
-        statistics = 0
-        livePlot = 0
         probabilityFlag = 1
-        trackingTime = 6
-        samples = 16
-        blobDisplacementX = -3
-        blobDisplacementY = -1
         timeSteps = prog + progTime
         contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
         booFileList = sorted(os.listdir(dwdDirectoryPath))
@@ -131,302 +110,9 @@ def prognosis(date, t):
                              nan_dummy, nan_dummy, year, mon, day, hour, minute)
             return result
 
-
-        # for t in range(test2.trainTime):
-        #     if t == 0:
-        #         plt.figure(figsize=(8, 8))
-        #         im = plt.imshow(test2.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-        #         plt.show(block=False)
-        #         o, = plt.plot(*np.transpose(test2.progField.return_histMaxima(t)[:, 2:0:-1]), 'ko')
-        #         n, = plt.plot(*np.transpose(test2.progField.return_histMaxima(t-1)[:, 2:0:-1]), 'wo')
-        #         s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-        #         s.set_clim(0, np.max(test2.nested_data))
-        #         s.set_ticks(contours)
-        #         s.draw_all()
-        #         # s.set_ticklabels(contourLabels)
-        #     else:
-        #         im.set_data(test2.nested_data[t, :, :])
-        #         o.set_data(*np.transpose(test2.progField.return_histMaxima(t)[:, 2:0:-1]))
-        #         n.set_data(*np.transpose(test2.progField.return_histMaxima(t-1)[:, 2:0:-1]))
-        #     plt.pause(1)
-        #
-        # col = np.concatenate([np.zeros([1,np.max(test2.progField.activeIds)]), np.random.rand(2,np.max(test2.progField.activeIds))])
-        # plt.figure(figsize=(8, 8))
-        # ax = plt.axes()
-        # for i, field in enumerate(test2.progField.activeFields):
-        #     for t in field.histMaxima:
-        #         plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:, field.id - 1], marker='o')
-        # for i, field in enumerate(test2.progField.inactiveFields):
-        #     for t in field.histMaxima:
-        #         plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-        # ax.set_ylim(0, test2.d_s + 4 * cRange)
-        # ax.set_xlim(0, test2.d_s + 4 * cRange)
-        # plt.gca().invert_yaxis()
-        # plt.show(block=False)
-        #
-        # print(datetime.now()-startTime2)
-
-
         dwd.nested_data[:, (dwd.dist_nested > dwd.r.max())] = 0
-
-        if livePlot:
-            fig, ax = plt.subplots(figsize=(8, 8))
-            for i in range(dwd.nested_data.shape[0]):
-                if (i == 0):
-                    im = plt.imshow(dwd.nested_data[i, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                    s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-                    s.set_clim(0, np.max(dwd.nested_data))
-                    s.set_ticks(contours)
-                    s.draw_all()
-                    radarCircle = mpatches.Circle((dwd.HHGPos[0], dwd.HHGPos[1]), 20000 / dwd.resolution, color='w', linewidth=1, fill=0)
-                    ax.add_patch(radarCircle)
-                    plt.show(block=False)
-                plt.pause(0.1)
-                im.set_data(dwd.nested_data[i, :, :])
-
-        if livePlot:
-            for t in range(prog-lawr.trainTime+1,prog):
-                if t == prog-lawr.trainTime+1:
-                    plt.figure(figsize=(8, 8))
-                    im = plt.imshow(lawr.nested_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                    plt.show(block=False)
-                    o, = plt.plot(*np.transpose(lawr.progField.return_histMaxima(t-prog+lawr.trainTime)[:, 2:0:-1]), 'ko')
-                    n, = plt.plot(*np.transpose(lawr.progField.return_histMaxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]), 'wo')
-                    s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
-                    s.set_clim(0, np.max(lawr.nested_data))
-                    s.set_ticks(contours)
-                    s.draw_all()
-                    #s.set_ticklabels(contourLabels)
-                else:
-                    im.set_data(lawr.nested_data[t, :, :])
-                    o.set_data(*np.transpose(lawr.progField.return_histMaxima(t-prog+lawr.trainTime)[:, 2:0:-1]))
-                    n.set_data(*np.transpose(lawr.progField.return_histMaxima(t-prog+lawr.trainTime-1)[:, 2:0:-1]))
-                plt.pause(0.1)
-                #plt.savefig('/scratch/local1/plots/analysis_timestep_' + str(t) + '.png')
-
-
-
-
-
-
-        if statistics:
-            col = np.concatenate([np.zeros([1, np.max(lawr.progField.activeIds)]), np.random.rand(2, np.max(lawr.progField.activeIds))])
-            plt.figure(figsize=(8, 8))
-            ax = plt.axes()
-            for i, field in enumerate(lawr.progField.activeFields):
-                for t in field.histMaxima:
-                    plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
-            for i, field in enumerate(lawr.progField.inactiveFields):
-                for t in field.histMaxima:
-                    plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-            ax.set_ylim(0, lawr.d_s+4*lawr.cRange)
-            ax.set_xlim(0, lawr.d_s+4*lawr.cRange)
-            plt.gca().invert_yaxis()
-            plt.show(block=False)
-
-            col = np.concatenate([np.zeros([1, np.max(dwd.progField.activeIds)]), np.random.rand(2, np.max(dwd.progField.activeIds))])
-            plt.figure(figsize=(8, 8))
-            ax = plt.axes()
-            for i, field in enumerate(dwd.progField.activeFields):
-                for t in field.histMaxima:
-                    plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
-            for i, field in enumerate(dwd.progField.inactiveFields):
-                for t in field.histMaxima:
-                    plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-            ax.set_ylim(0, dwd.d_s+4*dwd.cRange)
-            ax.set_xlim(0, dwd.d_s+4*dwd.cRange)
-            plt.gca().invert_yaxis()
-            plt.show(block=False)
-
-
-        if statistics:
-            plt.figure(figsize=(8, 8))
-            ax = plt.axes()
-            for i, field in enumerate(lawr.progField.activeFields):
-                for t in field.histMaxima:
-                    plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:,field.id-1], marker='o')
-            for i, field in enumerate(lawr.progField.inactiveFields):
-                for t in field.histMaxima:
-                    plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x')
-            ax.set_ylim(0, lawr.d_s+4*lawr.cRange)
-            ax.set_xlim(0, lawr.d_s+4*lawr.cRange)
-            plt.gca().invert_yaxis()
-            plt.show(block=False)
-
-
-            plt.figure(figsize=(8, 8))
-            for q, field in enumerate(lawr.progField.activeFields):
-                if field.lifeTime >= trainTime:
-                    for i, t in enumerate(field.histNorm):
-                        plt.plot(i, t, color='black', marker='o')
-                        #plt.plot(i, t - field.histStdNorm[i], color='gray', marker='o')
-                        #plt.plot(i, t + field.histStdNorm[i], color='gray', marker='o')
-
-                    plt.title('HistNorm')
-
-            fig = plt.figure(figsize=(8, 8))
-            ax = plt.subplot(111, projection='polar')
-            for q, field in enumerate(lawr.progField.activeFields):
-                if field.lifeTime >= trainTime:
-                    for i, t in enumerate(field.histAngle):
-                        plt.polar(t * np.pi / 180, lawr.progField.activeFields[q].histNorm[i], color='k', marker='o',
-                                  alpha=0.1)
-
-                    plt.title('HistAngle')
-
-            plt.show(block=False)
-
-            plt.figure(figsize=(8, 8))
-            for q, field in enumerate(lawr.progField.activeFields):
-                if field.lifeTime >= trainTime:
-                    for i, t in enumerate(field.histX):
-                        plt.plot(i, t, alpha = 0.1, color='black', marker='o')
-                        #plt.plot(i, t - field.histStdNorm[i], color='gray', marker='o')
-                        #plt.plot(i, t + field.histStdNorm[i], color='gray', marker='o')
-
-                    plt.title('HistX')
-
-            plt.figure(figsize=(8, 8))
-            for q, field in enumerate(lawr.progField.activeFields):
-                if field.lifeTime >= trainTime:
-                    for i, t in enumerate(field.histY):
-                        plt.plot(i, t, alpha = 0.1, color='navy', marker='o')
-                        #plt.plot(i, t - field.histStdAngle[i], color='blue', marker='o')
-                        #plt.plot(i, t + field.histStdAngle[i], color='blue', marker='o')
-
-                    plt.title('HistY')
-
-            plt.show(block=False)
-
-        #use allFieldsMeanNorm & np.sin(allFieldsMeanAngle*allFieldsMeanNorm for means
-        #use covNormAngle for covariance matrix
-        #x,y = np.random.multivariate_normal([allFieldsMeanNorm, np.sin(allFieldsMeanAngle*allFieldsMeanNorm)], np.cov(allFieldsNorm, np.sin(allFieldsAngle*allFieldsNorm)), 32).T
-
-        #if not useRealData:
-        resScale=1
-
         lawr.extrapolation(dwd,progTime,prog,probabilityFlag)
-
-        if 1:
-            if livePlot:
-                for t in range(progTime):
-                    if t == 0:
-                        hhgFig,ax1 = plt.subplots(1)
-                        imP = ax1.imshow(lawr.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                        imR = ax1.contour(lawr.nested_data[lawr.progStartIdx + t, :, :],
-                                          contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                        radarCircle2 = mpatches.Circle(
-                            (int(lawr.prog_data[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
-                            20000 / res, color='w', linewidth=1, fill=0)
-                        ax1.add_patch(radarCircle2)
-                        plt.show(block=False)
-                        s1 = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
-                        s1.set_clim(0, np.nanmax(lawr.prog_data))
-                        s1.set_ticks(contours)
-                        s1.draw_all()
-                    else:
-                        imP.set_data(lawr.prog_data[t, :, :])
-                        for tp in imR.collections:
-                            tp.remove()
-                        imR = ax1.contour(lawr.nested_data[lawr.progStartIdx + t, :, :], contours,
-                                          norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-                    plt.pause(0.1)
-                    if len(str(dwd.second[dwd.trainTime+t]))==1:
-                        seconds = '0'+str(dwd.second[dwd.trainTime+t])
-                    else:
-                        seconds = str(dwd.second[dwd.trainTime+t])
-
-                    #plt.savefig('/scratch/local1/plots/prognosis_'+str(year)+strMon+strDay+str(dwd.hour[dwd.trainTime+t])+str(dwd.minute[dwd.trainTime+t])+seconds+'.png')
-
-        #plt.figure()
-        #for t in range(len(lawr.probabilities)):
-        #    plt.imshow(lawr.probabilities[t, :, :])
-        #    if t == 0:
-        #        plt.colorbar()
-
-        #    plt.savefig(
-        #        '/scratch/local1/plots/probabilities_' + str(year) + strMon + strDay + str(dwd.hour[dwd.trainTime + t]) + str(
-        #            dwd.minute[dwd.trainTime + t]) + seconds + '.png')
-
-
-        # if livePlot:
-        #     for t in range(progTime):
-        #         if t == 0:
-        #             booFig,ax2 = plt.subplots(1)
-        #             booIm = ax2.imshow(dwd.prog_data[t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-        #             booImR = ax2.contour(dwd.R[prog + t, :, :],
-        #                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        #             plt.show(block=False)
-        #             s2 = plt.colorbar(booIm, format=matplotlib.ticker.ScalarFormatter())
-        #             s2.set_clim(0, np.nanmax(dwd.prog_data))
-        #             s2.set_ticks(contours)
-        #             s2.draw_all()
-        #         else:
-        #             booIm.set_data(dwd.prog_data[t, :, :])
-        #             for tp in booImR.collections:
-        #                 tp.remove()
-        #             booImR = ax2.contour(dwd.R[prog + t, :, :],
-        #                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
-        #             plt.pause(0.1)
-                #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
-
-
-
-        result=verification(lawr,dwd,year, mon, day, hour, minute,progTime)
-        thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
-
-
-            #fig, ax = plt.subplots()
-            #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
-            #ax.bar(bin_edges[:-1]+0.1, histY, color='r', width = 0.2)
-            #plt.show(block=False)
-        if 0:
-            for t in range(progTime):
-                if t == 0:
-                    pls, axs = plt.subplots(1,2,figsize=(15,9))
-                    ax1=axs[1]
-                    prob = axs[0].imshow(lawr.probabilities[t,:,:])
-                    cb = plt.colorbar(prob, fraction = 0.046, pad = 0.04, ax=axs[0])
-                    imP = ax1.contour(lawr.prog_data[t, :, :],
-                                      contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                    imR = ax1.imshow(lawr.nested_data[prog + t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                    radarCircle2 = mpatches.Circle(
-                        (int(lawr.probabilities[t, :, :].shape[0] / 2), int(lawr.prog_data[t, :, :].shape[1] / 2)),
-                        20000 / res, color='w', linewidth=1, fill=0)
-                    ax1.add_patch(radarCircle2)
-                    ax1.set_xlim([0, lawr.d_s + lawr.cRange * 4])
-                    ax1.set_ylim([lawr.d_s + lawr.cRange * 4, 0])
-                    s1 = plt.colorbar(imR, fraction = 0.046, pad = 0.04, format=matplotlib.ticker.ScalarFormatter())
-                    s1.set_clim(0, np.nanmax(lawr.prog_data))
-                    s1.set_ticks(contours)
-                    s1.draw_all()
-                    plt.tight_layout()
-                else:
-                    imR.set_data(lawr.nested_data[prog + t, :, :])
-                    prob.set_data(lawr.probabilities[t,:,:])
-                    for tp in imP.collections:
-                        tp.remove()
-                    imP = ax1.contour(lawr.prog_data[t, :, :], contours,
-                                      norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap)
-                if len(str(dwd.second[dwd.trainTime + t])) == 1:
-                    seconds = '0' + str(dwd.second[dwd.trainTime + t])
-                else:
-                    seconds = str(dwd.second[dwd.trainTime + t])
-                plt.savefig(
-                    '/scratch/local1/plots/prognosis_' + timeStr + '/probability_' + str(year) + strMon + strDay + str(
-                        dwd.hour[dwd.trainTime + t]) + str(
-                        dwd.minute[dwd.trainTime + t]) + seconds + '.png')
-
-
-        print(datetime.now()-startTime)
-
-        return result
-    except Exception as e:
-        nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
-
-        result = np.nan
-        print(e)
-        return result
+        return
 year = 2016
 
 
@@ -479,3 +165,38 @@ result = prognosis([2016,6,2,7,40,90],0)
 #pool.close()
 #pool.join()
 # #
+import os
+import shutil
+path = '/home/zmaw/u231126/radar/public_html/temp_data'
+homepath = '/scratch/local1/temp_radar_data'
+newdata = 0
+for root, dirs, files in os.walk(path):
+    params = [[[], []] for i in range(10)]
+    for i, filename in enumerate(files):
+        # I use absolute path, case you want to move several dirs.
+        base, extension = os.path.splitext(filename)
+        params[i][0] = filename
+        params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))
+while True:
+    for root, dirs, files in os.walk(path):
+        for i, filename in enumerate(files):
+            # I use absolute path, case you want to move several dirs.
+            base, extension = os.path.splitext(filename)
+            oldname = os.path.join(os.path.abspath(root), filename)
+            if ((filename == 'lawr_latest.nc') | (filename == 'dwd_latest.nc')) & (params[i][0] == filename) & ~(
+                    params[i][1] == datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))):
+                print(filename + ' is changed')
+                params[i][0] = filename
+                params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))
+                newname = base + '_' + str(params[i][1].minute) + '_' + str(params[i][1].second) + extension
+                newpath = os.path.join(homepath, base)
+                newname = os.path.join(newpath, newname)
+                shutil.copy(oldname, newname)
+                print('copied ' + newname)
+                newdata = 1
+            else:
+                params[i][0] = filename
+                params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))
+
+    time.sleep(1)
+
