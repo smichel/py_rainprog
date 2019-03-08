@@ -241,16 +241,17 @@
 \chapter{Introduction}
 \pagenumbering{arabic}
 \chapter{Meteorological Forecasting}
+People always had the desire to forecast weather conditions. Until modern times the forecasts were based on local weather observation, folklore and rule of thumb. With the development of telecommunication the modern age of weather forecasting began \citep{Moore}. After \cite{Sene2009} and \cite{Pierce12} meteorological forecasting techniques nowadays can be generally divided into 3 categories:
 \begin{itemize}
-	\item Nowcasting
-	\item Numerical weather prediction (NWP)
-	\item Statistical methods
+	\item Nowcasting - weather forecasting for up to 6 hours based on the current meteorological state of the atmosphere. Observations can include local weather radars, weather stations and satellite measurements.
+	\item Numerical weather prediction (NWP) - NWP models utilize prognostic mathematical models of the atmosphere and oceans to predict the future state of the atmosphere based on current weather observations.
+	\item Statistical methods - use statistical techniques, like regressions to estimate future conditions.
 \end{itemize}
+The listed meteorological forecasting techniques show skill on different timescales due to their model characteristics (Figure \ref{fig:prognosisquality}). Nowcasting relies on the extrapolation of observation data of satellites, radars and other measurements. This results in a high forecasting skill for short lead times of the forecast. Since nowcasting does not use prognostic equations and the forecast relies on the initial data the forecast quality quickly falls off with time. NWP use four-dimensional models of the atmosphere to predict future meteorological states. Due to the nature of NWP, caused by the data assimilation and the initialization of the model.
 \section{Nowcasting}
 \label{chap:nowcasting}
 Nowcasting aims to estimate a future state of the atmosphere, such as clouds and storms, based on their current location, track, speed and the rate of their growth or decay. Nowcasting techniques are mostly used with weather radar applications but are also applied to satellite observations of clouds or thunderstorms, and are used in forecasting for tropical cyclones, hurricanes and typhoons.\\
 In combination with weather radar data the aim of nowcasting is to estimate the development of storms, how they move and evolve in the next few hours. This is based on its present and recent location, extend, speed and track. The accuracy of forecasts depend on the local climatological conditions and topography, the type of precipitation event and the resolution and range of the weather radar data. For widespread frontal precipitation events nowcasting methods show skill for maximum lead times of up to 3-6 hours. Lead time for convective events are much shorter due to their short lifetimes \citep{Sene2009}.
-
 \begin{figure}[!htbp]
 	\centering
 	\begin{tikzpicture}[
@@ -271,23 +272,23 @@ In combination with weather radar data the aim of nowcasting is to estimate the 
 	xmax=19.5,
 	ymax=8.5
 	]
-	\draw[thick] (0,8) .. controls (3.5,6) and (4.5,1.5) .. (8,0.5);
+	\draw[thick] (0,8) .. controls (3.5,6) and (4,1.5) .. (6.5,0.5);
 	\node at (12,7.5) [text width=5cm] {Extrapolation of the current atmospheric state using radar observations};
-	\draw [<-] (2.6,6.3)--(4.5,7.5);
+	\draw [<-] (2.5,6.3)--(4.5,7.5);
 	
 	\draw[thick] (0,4) .. controls (4,5) and (6,3) .. (11,1.8);
 	\node at (11.5,5.5) [text width=5cm] {Mesoscale NWP model};
 	\draw [<-] (4.5,4.1)--(6,5);
 	
 	\draw[thick] (3.2,0.3) .. controls (9,1.5) and (10.5,3.3) .. (19.5,1);
-	\node at (13,4) [text width=5cm] {Synoptic-scale NWP model with Model Output Statistics};
-	\draw [<-] (12.3,2.3)--(13.3,3.3);
+	\node at (13.2,4) [text width=5cm] {Synoptic-scale NWP model with Model Output Statistics};
+	\draw [<-] (12.3,2.3)--(13.8,3.3);
 	\end{axis}
 	\end{tikzpicture}
 	\caption{A schematic showing the quality of weather forecasts, defined by their accuracy and the achievable detail, as a function of lead time. Created after \cite{Pierce12} and \cite{Browning1980}.}
 	\label{fig:prognosisquality}
-\end{figure}
-
+\end{figure}\\
+The development of nowcasting began with simple advection or extrapolation of precipitation. The clouds or storms were merely translated based on their current speed and direction. First applications of this technique were done by \cite{hilst1960} and \cite{Noel}. An important conclusion found in these early demonstrations was the positive correlation between the size of precipitation features and their predictability. Small features tend to have a shorter lifetime than large features. Small scale features have a typical lifetime of less than 30 minutes \cite{Sene2009}.
 
 \section{Fieldbased}
 \section{Cellbased}
