@@ -146,7 +146,7 @@ for mon in months:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-result = prognosis([2016,6,2,7,40,90],0)
+#result = prognosis([2016,6,2,7,40,90],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -159,11 +159,11 @@ result = prognosis([2016,6,2,7,40,90],0)
 #                                day, hour, minute))
 # print(datetime.now() - startTime)
 
-#startTime = datetime.now()
-#pool = mp.Pool(4)
-#results = pool.starmap(prognosis, zip(dates,t))
-#pool.close()
-#pool.join()
+startTime = datetime.now()
+pool = mp.Pool(4)
+results = pool.starmap(prognosis, zip(dates,t))
+pool.close()
+pool.join()
 # #
 import os
 import shutil

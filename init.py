@@ -1284,9 +1284,6 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
 
     roc_far = np.zeros([time,len(prob_thresholds)])
     roc_hr = np.zeros([time,len(prob_thresholds)])
-    roc_far2 = np.zeros([time, len(prob_thresholds)])
-    roc_hr2 = np.zeros([time, len(prob_thresholds)])
-
 
     for i, p in enumerate(prob_thresholds):
         p_dat = lawr.probabilities>p
@@ -1303,9 +1300,6 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
 
             roc_hr[t,i] = hit[t,i]/event[t,i]
             roc_far[t,i] = f_alert[t,i]/nonevent[t,i]
-            roc_hr2[t,i] = np.sum(p_dat[t,:,:])/np.sum(r_dat[t,:,:])
-            roc_far2[t,i] = np.sum(~p_dat[t,:,:])/np.sum(~r_dat[t,:,:])
-
 
     y_score_bin_mean = np.zeros([time,num_prob-1])
     empirical_prob_pos = np.copy(y_score_bin_mean)
@@ -1323,8 +1317,8 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
     result = Results(hit, miss, f_alert, corr_zero, roc_hr,roc_far,year, mon, day, hour, minute,
                      dwd.gaussMeans, dwd.covNormAngle, lawr.gaussMeans, lawr.covNormAngle, lawr.probabilities[0, :, :],
                      lawr.probabilities[-1, :, :])
-    result.roc_hr = roc_hr2
-    result.roc_far = roc_far2
+    result.roc_hr = roc_hr
+    result.roc_far = roc_far
     result.bs=bs
     result.y_score_bin_mean =y_score_bin_mean
     result.empirical_prob_pos = empirical_prob_pos

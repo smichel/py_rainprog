@@ -307,19 +307,18 @@ For the post-processing and quality controlling of the radar data the DWD has de
 %100 km x 100 km box around PATTERN radar position taken from the whole radar image
 %DWSR/5001/SDP/CE
 \FloatBarrier
-\section{Hamburg Radar Data}
-%TODO 
+\section{PATTERN Radar Data}
 The Precipitation and Attenuation Estimates from a High-Resolution Weather Radar Network (PATTERN) project aimed to investigate low cost local area weather radars (LAWR) and if they can operate as a complement to nationwide radar networks \citep{Lengfeld2014}. One radar in the PATTERN project is set up in the city of Hamburg on top of the Geomatikum in a height of 90\,m above ground (black circle in Figure \ref{fig:radarOverview}). The location of the radar is 53.56833°\,N, 9.97997°\,E and has a distance of approx. 30\,km to the Boostedt radar. The radar operates on a frequency of 9410\,MHz and a wavelength of approx. 3.2\,µm. This classifies the radar as a X-band radar. The X-band radars in the PATTERN project are not capable of measuring in Doppler or dual-polarisation mode \citep{Lengfeld2014}.\\
-The Hamburg radar data has a range resolution of 60\,m, 1° angular resolution and a temporal resolution of 30\,s. The maximum range is 20\,km. The technical specifications of the Hamburg radars are listed in Table \ref{tab:radarspec}.
+The PATTERN radar data has a range resolution of 60\,m, 1° angular resolution and a temporal resolution of 30\,s. The maximum range is 20\,km. The technical specifications of the PATTERN radars are listed in Table \ref{tab:radarspec}.
 % https://wetterradar.uni-hamburg.de/index.php?id=4035
 
 \begin{table}[!htbp]
 	\centering
-	\caption[]{Hamburg and DWD radar specifications from \citep{Lengfeld2014} and \citep{Frech2013}.}
+	\caption[]{PATTERN and DWD radar specifications from \citep{Lengfeld2014} and \citep{Frech2013}.}
 	\label{tab:radarspec}
 	\begin{tabular}{|l|l|l|}
 		\hline
-		Performance parameters &DWD & Hamburg radar\\\hline
+		Performance parameters &DWD & PATTERN\\\hline
 		Range resolution & 250\,m & 60\,m\\
 		Time resolution & 300\,s & 30\,s\\
 		Angular resolution & 1\deg & 2.8\deg\\
@@ -340,7 +339,7 @@ The Hamburg radar data has a range resolution of 60\,m, 1° angular resolution a
 	\label{fig:radarOverview}
 \end{figure}
 \chapter{Prognosis Model}
-The developed prognosis model is a combination of a linear advection model and a probabilistic nowcasting model. It uses radar precipitation fields from the Boostedt and Hamburg radar to perform a short-term precipitation forecast. The prognosis is based on field based motion detection between two consecutive radar scans, motivated by identifying local maxima and their movement over time in the precipitation field.
+The developed prognosis model is a combination of a linear advection model and a probabilistic nowcasting model. It uses radar precipitation fields from DWD and PATTERN to perform a short-term precipitation forecast. The prognosis is based on field based motion detection between two consecutive radar scans, motivated by identifying local maxima and their movement over time in the precipitation field.
 \section{Overview}
 The general workflow of the model is given in Figure \ref{fig:model}. In the following sections a more detailed description for the model and the used methods is given. Before the model can be launched, several parameters and paths to the input fields need to be set. %(section \ref{subsec:param}). 
 Then the radar data for DWD and PATTERN (section \ref{chap:data}) is read. This radar data is then gridded and interpolated to their respective grids (section \ref{subsec:grid}). Now both the DWD and PATTERN radar data is on a Cartesian grid and ready for further usage. \\
@@ -907,8 +906,9 @@ The occurrence of precipitation can be regarded as a binary event. Either it rai
 	\end{tikzpicture}
 	\caption[Contingency Table for Nonprobabilistic Forecasts of Binary Events]{Contingency table for nonprobabilistic forecasts of binary events. Four different scenarios are possible. In case of the scenario $a$, where both the observation and the forecast show a \textbf{Yes}, the forecast was successful. This pair is called \textit{hit}. The other desirable outcome of the forecast is an observation and forecast of a \textbf{No}. This is represented with a $d$ and called \textit{correct rejection}. In the $b$ scenario, called \textit{false alert}, the event was forecast to occur but did not happen. In the last case $c$ the event was not forecast but did occur. This scenario is called \textit{miss}. The marginal totals are shown on the bottom and right of the boxes. These indicate how often each of the events were forecast and observed. The total number of forecasts is $n$. After \cite{Wilks}.}
 	\label{fig:contingency}
-\end{figure}\\
-Evaluating probabilistic forecasts is less intuitive than evaluating nonprobabilistic forecasts. Unless the probability forecast shows values of either 0.0 or 1.0, there is no right or wrong for a single forecast. 
+\end{figure}
+\\
+Evaluating probabilistic forecasts is less intuitive than evaluating nonprobabilistic forecasts. Unless the probability forecast shows values of either 0.0 or 1.0, there is no right or wrong for a single forecast. To evaluate probabilistic forecasts the procedures in the following sections are used.
 \label{subsec:eval}
 \citep{Wilks}
 \subsection{Brier Score}
@@ -1013,7 +1013,7 @@ By comparing the calibration function to the 1:1 line of the perfect forecast, s
 		\end{tikzpicture}
 		\subcaption{Overforecasting (wet bias)} 
 	\end{subfigure}
-	\,
+	\quad
 	\begin{subfigure}{0.5\textwidth}
 		\centering
 		\begin{tikzpicture}[dot/.style={circle,inner sep=3pt,fill,name=#1},
@@ -1081,7 +1081,7 @@ By comparing the calibration function to the 1:1 line of the perfect forecast, s
 		\end{tikzpicture}
 		\subcaption{Poor resolution (overconfident)} 
 	\end{subfigure}
-	\,
+	\quad
 	\begin{subfigure}{0.5\textwidth}
 		\centering
 		\begin{tikzpicture}[dot/.style={circle,inner sep=3pt,fill,name=#1},
@@ -1121,19 +1121,9 @@ By comparing the calibration function to the 1:1 line of the perfect forecast, s
 	\label{fig:calibration}
 \end{figure}\\
 The calibration curve in Figure \ref{fig:calibration}c depicts the characteristics of forecasts showing poor resolution. This means the observed relative frequencies $p(o_1|y_i)$ depend only weakly on the forecast and are close to the climatological probability \citep{Wilks}.
-%TODO Hier noch über die calibration curve mit good resolution in figure d.
+Hier noch über die calibration curve mit good resolution in figure d.
 \subsection{ROC Skill Score}
-The relative operating characteristic (ROC) is a measure of the quality of probability forecasts that compares the false alarm rate to the hit rate for specific probability bins (Figure \ref{fig:roc}). Following the nomenclature from the contingency table in Figure \ref{fig:contingency} the false alarm rate (FAR) and hit rate (HR) for a deterministic forecast are calculated by:
-\begin{equation}
-	FAR = \frac{b}{b + d}
-	\label{eq:FAR}
-\end{equation}
-and
-\begin{equation}
-	HR = \frac{a}{a + c}.
-	\label{eq:HR}
-\end{equation}
-The false alarm rate has values between 0 and 1, where 0 is desirable and shows how often an event was forecast to occur but did not occur. The hit rate also has values between 0 and 1, where 1 is desirable and indicates how often an event was forecast to occur and did occur.
+The relative operating characteristic (ROC) is a measure of the quality of probability forecasts that compares the false alarm rate to the hit rate for specific probability bins \citep{Kharin2003}. The ROC is derived from the comparison between two probability distributions. One distribution represents the evidence strength associated with the occurrence of the event and the other distribution represents the non-event distribution.
 \begin{figure}[!htbp]
 	\centering
 	\begin{tikzpicture}[dot/.style={circle,inner sep=1.5pt,fill,name=#1},
@@ -1168,7 +1158,7 @@ The false alarm rate has values between 0 and 1, where 0 is desirable and shows 
 	\node [label=below:{10\%},dot=J] at (0.75,0.97) {};
 	\node [dot=K] at (1,1) {};
 	\draw (A)--(B)--(C)--(D)--(E)--(F)--(G)--(H)--(I)--(J)--(K);
-	
+
 	\node [dot=BA] at (0,0) {};
 	\node [dot=BB] at (0.1,0.25) {};	
 	\node [dot=BC] at (0.16,0.4) {};	
@@ -1179,7 +1169,7 @@ The false alarm rate has values between 0 and 1, where 0 is desirable and shows 
 	\node [dot=BH] at (0.52,0.75) {};	
 	\node [dot=BI] at (0.7,0.85) {};	
 	\node [dot=BJ] at (1,1) {};	
-	
+
 	\draw[fill=black!10,fill opacity = 0.65] (BA.center)--(BB.center)--(BC.center)--(BD.center)--(BE.center)--(BF.center)--(BG.center)--(BH.center) --(BI.center) -- (BJ.center)-- (1,0)--cycle;
 	\node at (0.45,0.55) [text width=3cm] {Random\\forecast};
 	\draw [->] (0.34,0.49)--(0.37,0.38);
@@ -1190,9 +1180,7 @@ The false alarm rate has values between 0 and 1, where 0 is desirable and shows 
 	\end{tikzpicture}
 	\caption[ROC Diagram]{ROC diagram for exemplary data. The solid dots represent pairs of false alarm rate and hit rate.} 
 	\label{fig:roc}
-\end{figure}\\
-The ROC is derived from the comparison between two probability distributions. One distribution represents the evidence strength associated with the occurrence of the event and the other distribution represents the non-event distribution \citep{Kharin2003}. From these two distributions the false alarm rate and the hit rate are obtained as a function of probability. To calculate the ROC skill score for a probabilistic forecast the forecast is divided into probability intervals. Frequently used intervals are 10\% bins and are also used in this thesis. With a contingency table (Figure \ref{fig:contingency}) the false alarm rate and hit rate are calculated for each probability bin. For example the hit rate for the 70\% probability bin is the sum of hits (represented with $a$ in Figure \ref{fig:contingency})  above 70\% divided by total number of events.
-
+\end{figure}
 
 \chapter{Results and Discussion}
 % beispiel für problem bei intensivierung result = prognosis([2016,6,13,19,20,60],0) dwd, ca. 20 zeitschritt, großer sprung aufgrund von intensivierung und abschwächung einer regen wolke
