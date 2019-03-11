@@ -15,6 +15,7 @@ import cv2
 from datetime import datetime
 import h5py
 import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 
@@ -600,34 +601,6 @@ class DWDData(radarData, Totalfield):
             filename (str): Name of radar data file.
 
         '''
-
-        with netCDF4.Dataset(filepath) as nc:
-
-            try:
-                data = nc.variables['reflectivity'][:][:][:]
-                if np.ma.is_masked(data):
-                    data.fill_value = -32.5
-                    self.z = data.filled()
-                else:
-                    self.z = data
-                self.azi = nc.variables['azimuth'][:]
-                self.r = nc.variables['range'][:]
-                self.time = nc.variables['time'][:]
-
-
-            except:
-                data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
-                if np.ma.is_masked(data):
-                    data.fill_value = -32.5
-                    self.z = data.filled()
-                else:
-                    self.z = data
-
-                self.azi = nc.variables['Azimuth'][:]
-                self.r = nc.variables['Distance'][:]
-                self.time = nc.variables['Time'][:]
-
-
         with h5py.File(filePath, 'r') as boo:
             # radar site coordinates and elevation
             lon_site = boo.get('where').attrs['lon']
@@ -790,16 +763,11 @@ class LawrData(radarData, Totalfield):
         with netCDF4.Dataset(filepath) as nc:
 
             try:
-                data = nc.variables['reflectivity'][:][:][:]
-                if np.ma.is_masked(data):
-                    data.fill_value = -32.5
-                    self.z = data.filled()
-                else:
-                    self.z = data
-                self.azi = nc.variables['azimuth'][:]
+                data = nc.variables['dbz_ac1'][:][:][:]
+                self.dbz = data
+                self.azi = nc.variables['azi'][:]
                 self.r = nc.variables['range'][:]
                 self.time = nc.variables['time'][:]
-
 
             except:
                 data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
