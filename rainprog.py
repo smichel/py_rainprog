@@ -9,6 +9,7 @@ import matplotlib.patches as mpatches
 from scipy.interpolate import griddata, RegularGridInterpolator
 from multiprocessing import Process
 from createblob import createblob
+import subprocess
 from init import Square, Totalfield, LawrData, DWDData, radarData, get_metangle, create_sample, importance_sampling, \
     z2rainrate, findRadarSite, getFiles, nesting, booDisplacement, verification,dwdFileSelector,lawrFileSelector,get_Grid, Results
 import multiprocessing as mp
@@ -84,7 +85,7 @@ def prognosis(date, t):
         for i,file in enumerate(lawrSelectedFiles[1:]):
             lawr.addTimestep(lawrDirectoryPath+'/'+file)
 
-        lawr.setStart(date)
+        lawr.startTime = -lawr.trainTime
         lawr.initial_maxima()
 
 
@@ -112,7 +113,39 @@ def prognosis(date, t):
 
         dwd.nested_data[:, (dwd.dist_nested > dwd.r.max())] = 0
         lawr.extrapolation(dwd,progTime,prog,probabilityFlag)
-        return
+
+
+        outf = 'test.mp4'
+        cmdstring = ('ffmpeg',
+                     '-y', '-r', '5',  # overwrite, 30fps
+                     '-s', '%dx%d' % (700, 700),  # size of image string
+                     '-pix_fmt', 'argb',  # format
+                     '-f', 'rawvideo', '-i', '-', '-b:v', '3M', '-crf', '14', # input from pipe, bitrate, compression
+                     # tell ffmpeg to expect raw video from the pipe
+                     '-vcodec', 'mpeg4', outf)  # output encoding
+
+
+        f = plt.figure(frameon=True, figsize=(7, 7))
+        ax1 = f.add_subplot(111)
+        p = subprocess.Popen(cmdstring, stdin=subprocess.PIPE)
+        for t in range(progTime):
+            im = lawr.nested_data[t, :, :]
+            im[lawr.dist_nested >= np.max(lawr.r)] = 0
+            if t == 0:
+                imP = ax1.imshow(im,cmap=cmap)
+                #plt.show(block=False)
+                s1 = plt.colorbar(imP)
+                s1.set_clim(0, 1)
+                s1.draw_all()
+            else:
+                imP.set_data(im)
+            f.canvas.draw()
+
+            string = f.canvas.tostring_argb()
+
+            p.stdin.write(string)
+
+        p.communicate()
 year = 2016
 
 
@@ -167,6 +200,8 @@ result = prognosis([2016,6,2,7,40,90],0)
 # #
 import os
 import shutil
+import time
+import datetime
 path = '/home/zmaw/u231126/radar/public_html/temp_data'
 homepath = '/scratch/local1/temp_radar_data'
 newdata = 0
@@ -177,13 +212,20 @@ for root, dirs, files in os.walk(path):
         base, extension = os.path.splitext(filename)
         params[i][0] = filename
         params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))
+        oldname = os.path.join(os.path.abspath(root), filename)
+        if ((filename == 'lawr_single_attcorr_latest')|(filename == 'lawr_dual_latest.nc') | (filename == 'dwd_latest.nc')):
+            newname = base + '_' + str(params[i][1].minute) + '_' + str(params[i][1].second) + extension
+            newpath = os.path.join(homepath, base)
+            newname = os.path.join(newpath, newname)
+            shutil.copy(oldname, newname)
+            print('copied ' + newname)
 while True:
     for root, dirs, files in os.walk(path):
         for i, filename in enumerate(files):
             # I use absolute path, case you want to move several dirs.
             base, extension = os.path.splitext(filename)
             oldname = os.path.join(os.path.abspath(root), filename)
-            if ((filename == 'lawr_latest.nc') | (filename == 'dwd_latest.nc')) & (params[i][0] == filename) & ~(
+            if ((filename == 'lawr_single_attcorr_latest')|(filename == 'lawr_dual_latest.nc') | (filename == 'dwd_latest.nc')) & (params[i][0] == filename) & ~(
                     params[i][1] == datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))):
                 print(filename + ' is changed')
                 params[i][0] = filename
