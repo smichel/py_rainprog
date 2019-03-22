@@ -242,3 +242,37 @@ while True:
 
     time.sleep(1)
 
+contours = [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100]
+
+cmdstring = ('ffmpeg',
+             '-y', '-r', '5',  # overwrite, 30fps
+             '-s', '%dx%d' % (1000, 1000),  # size of image string
+             '-pix_fmt', 'argb',  # format
+             '-f', 'rawvideo', '-i', '-', '-b:v', '3M', '-crf', '14',  # input from pipe, bitrate, compression
+             # tell ffmpeg to expect raw video from the pipe
+             '-vcodec', 'mpeg4', outf)  # output encoding
+f = plt.figure(frameon=True, figsize=(10, 10))
+ax1 = f.add_subplot(111)
+p = subprocess.Popen(cmdstring, stdin=subprocess.PIPE)
+for t in range(len(ta)):
+    im = lawr.nested_data[t, :, :]
+    im[lawr.dist_nested >= np.max(lawr.r)] = 0
+    if t == 0:
+        imP = ax1.imshow(im, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
+        # plt.show(block=False)
+        s = plt.colorbar(imP, format=matplotlib.ticker.ScalarFormatter())
+        s.set_label('Precipitation in mm/h')
+        s.set_clim(0.1, 100)
+        s.set_ticks(contours)
+        s.draw_all()
+
+    else:
+        imP.set_data(im)
+    plt.title((datetime.datetime(1970, 1, 1, 0, 0) + datetime.timedelta(lawr.time[t])).ctime())
+    f.canvas.draw()
+
+    string = f.canvas.tostring_argb()
+
+    p.stdin.write(string)
+
+p.communicate()
