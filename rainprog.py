@@ -41,48 +41,17 @@ def prognosis(date, t):
         minute=date[4]
         progTime=date[5]
         startTime = datetime.now()
-        if len(str(hour)) == 1:
-            strHour = '0' + str(hour)
-        else:
-            strHour = str(hour)
-
-        if len(str(mon)) == 1:
-            strMon = '0' + str(mon)
-        else:
-            strMon = str(mon)
-        if len(str(day)) == 1:
-            strDay = '0' + str(day)
-        else:
-            strDay = str(day)
-
-
-
-        #fp = 'G:/Rainprog/m4t_HHG_wrx00_l2_dbz_v00_20160607150000.nc'
-        #directoryPath = 'G:/Rainprog/boo/'
-
-        dwdDirectoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+strMon+'/'+strDay
-        lawrDirectoryPath = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/'
-        fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ strMon +'/HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
-        #directoryPath = 'E:/radardata/02/'
-        #fp = 'E:/radardata/'+'HHGlawr2016'+strMon+strDay+ strHour + '_111_L1.nc'
-
+        dwdDirectoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+str(mon).zfill(2)+'/'+str(day).zfill(2)
+        lawrDirectoryPath = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ str(mon).zfill(2) +'/'
+        #fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ str(mon).zfill(2) +'/HHGlawr2016'+str(mon).zfill(2)+str(day).zfill(2)+ str(hour).zfill(2) + '_111_L1.nc'
         res = 100
-        smallVal = 2
         rainThreshold = 0.5
-        distThreshold = 19000
         prog = int(minute*2)
         trainTime = 6
-        numMaxes = 20
-        useRealData = 1
-        prognosis = 1
         statistics = 0
         livePlot = 0
         probabilityFlag = 1
-        trackingTime = 6
-        samples = 16
-        blobDisplacementX = -3
-        blobDisplacementY = -1
-        timeSteps = prog + progTime
+        rain_threshold = 0.5
         contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
         booFileList = sorted(os.listdir(dwdDirectoryPath))
         dwdTime = list((mon,day,hour,prog))
@@ -128,8 +97,10 @@ def prognosis(date, t):
         if np.sum(dwd.prog_data[:, ((dwd.dist_nested >= lawr.r[-1]) & (dwd.dist_nested <= lawr.dist_nested.max()))]>rainThreshold)<100:
             nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
             result = Results(nan_dummy, nan_dummy, nan_dummy, nan_dummy, nan_dummy, nan_dummy, nan_dummy, nan_dummy,
-                             nan_dummy, nan_dummy, year, mon, day, hour, minute)
-            return result
+                             nan_dummy, nan_dummy, year, mon, day, hour, minute,np.nan,np.nan)
+            print(str(mon)+'_'+str(day)+'_'+str(hour)+ '_'+str(minute)+' has no rain.')
+            print(datetime.now() - startTime)
+            #return result
 
 
         # for t in range(test2.trainTime):
@@ -369,9 +340,23 @@ def prognosis(date, t):
         #                                  contours, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1))
         #             plt.pause(0.1)
                 #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
+        real_data = lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx + progTime, :, :] > rain_threshold
 
+        f = netCDF4.Dataset('/scratch/local1/radardata/prognosis2/'+str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute) + '_prognosis.nc', 'w', format='NETCDF4')  # 'w' stands for write
+        tempgrp = f.createGroup('Prognosis Data')
+        tempgrp.createDimension('time', len(lawr.probabilities))
+        tempgrp.createDimension('x', lawr.probabilities.shape[1])
+        tempgrp.createDimension('y', lawr.probabilities.shape[2])
 
-
+        TIME = tempgrp.createVariable('Time', np.int32, 'time')
+        Probabilities= tempgrp.createVariable('probabilities', 'f4', ('time','x','y'),zlib=True)
+        Real_data = tempgrp.createVariable('historic_data', 'i', ('time','x','y'),zlib=True)
+        Dist_nested = tempgrp.createVariable('dist_nested', 'f4', ('x','y'),zlib=True)
+        TIME[:] = lawr.time[lawr.progStartIdx:lawr.progStartIdx + progTime]
+        Probabilities[:,:,:] = lawr.probabilities
+        Real_data[:, :, :] = real_data
+        Dist_nested[:,:] = lawr.dist_nested
+        f.close()
         result=verification(lawr,dwd,year, mon, day, hour, minute,progTime)
         thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
 
@@ -417,16 +402,18 @@ def prognosis(date, t):
                         dwd.hour[dwd.trainTime + t]) + str(
                         dwd.minute[dwd.trainTime + t]) + seconds + '.png')
 
+        print(str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute)+' finished.')
+        print(datetime.now() - startTime)
 
-        print(datetime.now()-startTime)
-
-        return result
+        #return result
     except Exception as e:
         nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
 
         result = np.nan
+        print(str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute)+' has failed.')
+        print(datetime.now() - startTime)
         print(e)
-        return result
+        #return result
 year = 2016
 
 
@@ -436,31 +423,34 @@ num_r = len(rain_thresholds)
 
 
 
-progTime = 90
 
 
 
-months= [6]
+months= [5,6,7,8]
+#may = [[5,22],[5,23]]
+#june = [[6,2],[6,13],[6,14],[6,18],[6,23],[6,24],[6,25]]
+#july = [7,21]
+#aug = [8,28]
+days = [[5,22],[5,23],[6,2],[6,13],[6,25],[7,21],[8,28],[6,14],[6,18],[6,23],[6,24]]
 startHour = 0
-days =[2,13,14,18,23,24,25]
 endHour = 23
 minutes=np.arange(0,59,10)
 runs = len(minutes)
 hours = np.arange(startHour,endHour)
+progTime = 120
 
 dimensions = [len(months), len(days), len(hours),len(minutes),progTime,num_r]
 
 
 dates = []
-for mon in months:
-    for day in days:
-        for hour in hours:
-            for minute in minutes:
-                dates.append([year, mon, day, hour, minute, progTime])
+for day in days:
+    for hour in hours:
+        for minute in minutes:
+            dates.append([year, day[0],day[1], hour, minute, progTime])
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-#result = prognosis([2016,6,2,7,40,90],0)
+#prognosis(dates[42],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -475,7 +465,9 @@ t = np.arange(len(dates))
 
 startTime = datetime.now()
 pool = mp.Pool(4)
-results = pool.starmap(prognosis, zip(dates,t))
+pool.starmap(prognosis, zip(dates,t))
 pool.close()
 pool.join()
+#
+#np.save('/scratch/local1/radardata/results.npy',results)
 # #

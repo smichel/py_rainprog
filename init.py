@@ -1285,6 +1285,12 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
     result = Results(hit, miss, f_alert, corr_zero, roc_hr,roc_far,year, mon, day, hour, minute,
                      dwd.gaussMeans, dwd.covNormAngle, lawr.gaussMeans, lawr.covNormAngle, lawr.probabilities[0, :, :],
                      lawr.probabilities[-1, :, :])
+    result.hit = hit
+    result.miss = miss
+    result.f_alert = f_alert
+    result.corr_zero = corr_zero
+    result.event = event
+    result.nonevent = nonevent
     result.roc_hr = roc_hr
     result.roc_far = roc_far
     result.bs=bs
