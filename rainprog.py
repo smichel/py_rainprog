@@ -450,7 +450,7 @@ for day in days:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-#prognosis(dates[42],0)
+prognosis(dates[42],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -463,11 +463,11 @@ t = np.arange(len(dates))
 #                                day, hour, minute))
 # print(datetime.now() - startTime)
 
-startTime = datetime.now()
-pool = mp.Pool(4)
-pool.starmap(prognosis, zip(dates,t))
-pool.close()
-pool.join()
+#startTime = datetime.now()
+#pool = mp.Pool(4)
+#pool.starmap(prognosis, zip(dates,t))
+#pool.close()
+#pool.join()
 #
 #np.save('/scratch/local1/radardata/results.npy',results)
 # #
