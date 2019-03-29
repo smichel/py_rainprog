@@ -342,7 +342,7 @@ def prognosis(date, t):
                 #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
         real_data = lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx + progTime, :, :] > rain_threshold
 
-        f = netCDF4.Dataset('/scratch/local1/radardata/prognosis2/'+str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute) + '_prognosis.nc', 'w', format='NETCDF4')  # 'w' stands for write
+        f = netCDF4.Dataset('/scratch/local1/radardata/prognosis3/'+str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute) + '_prognosis.nc', 'w', format='NETCDF4')  # 'w' stands for write
         tempgrp = f.createGroup('Prognosis Data')
         tempgrp.createDimension('time', len(lawr.probabilities))
         tempgrp.createDimension('x', lawr.probabilities.shape[1])
@@ -450,7 +450,7 @@ for day in days:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-prognosis(dates[42],0)
+#prognosis(dates[42],0)
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -463,11 +463,11 @@ prognosis(dates[42],0)
 #                                day, hour, minute))
 # print(datetime.now() - startTime)
 
-#startTime = datetime.now()
-#pool = mp.Pool(4)
-#pool.starmap(prognosis, zip(dates,t))
-#pool.close()
-#pool.join()
+startTime = datetime.now()
+pool = mp.Pool(4)
+pool.starmap(prognosis, zip(dates,t))
+pool.close()
+pool.join()
 #
 #np.save('/scratch/local1/radardata/results.npy',results)
 # #
