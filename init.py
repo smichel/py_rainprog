@@ -902,7 +902,7 @@ class LawrData(radarData, Totalfield):
         self.kernel = self.kernel/np.sum(self.kernel)
         self.prog_data = np.zeros([self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
-        rainThreshold=3
+        rainThreshold=0.5
         self.progStartIdx = self.startTime + self.trainTime
         self.prog_data[:, :] = self.nested_data[self.progStartIdx, :, :]
         self.prog_start = 3 * ['']

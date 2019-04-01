@@ -10,11 +10,62 @@ def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
 cmap = plt.get_cmap('BuPu')
 newcmap=truncate_colormap(cmap,0.2,1)
 newcmap.set_under('1')
-plt.rcParams.update({'font.size': 22})
-plt.rcParams["figure.figsize"] = (9,6)
+#plt.rcParams["figure.figsize"] = (9,6)
+params = {"pgf.texsystem": "pdflatex"}
+plt.rcParams.update(params)
+
+
+plt.rcParams.update({'font.size': 10.5})
+plt.rcParams["figure.figsize"] = (3,3)
+fig, ax = plt.subplots(1)
+dataArea1 =self.nested_data[t+1,
+                        (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+                        (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+dat = ax.imshow(dataArea1, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1),cmap=newcmap)
+plt.plot(48,48,marker='X',color='red',markersize=8)
+plt.plot(48+int(cIdx[1] - 0.5 * len(c)),48+int(cIdx[0] - 0.5 * len(c)),marker='X',color='black',markersize=8)
+s = plt.colorbar(dat, format=matplotlib.ticker.ScalarFormatter(),fraction=0.046, pad=0.04)
+s.set_label('Precipitation in mm/h')
+s.set_clim(0.1, 100)
+s.set_ticks(contours)
+s.draw_all()
+ax.grid(linewidth=0.5)
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
+ax.set_xticklabels(ax.get_xticks()*0.1)
+ax.set_yticklabels(ax.get_yticks()*0.1)
+ax.invert_yaxis()
+plt.tight_layout(pad=0)
+fig.savefig('/home/zmaw/u300675/ma_rainprog/displacement_t1.pgf')
 
 fig, ax = plt.subplots(1)
+dataArea1 =self.nested_data[t,
+                       (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+                       (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+dat = ax.imshow(dataArea1, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1),cmap=newcmap)
+corrAreaRect = mpatches.Rectangle((24,24),48,48,color='r',linewidth=1,fill=0)
+ax.add_patch(corrAreaRect)
+plt.plot(48,48,marker='X',color='red',markersize=8)
+s = plt.colorbar(dat, format=matplotlib.ticker.ScalarFormatter(),fraction=0.046, pad=0.04)
+s.set_label('Precipitation in mm/h')
+s.set_clim(0.1, 100)
+s.set_ticks(contours)
+s.draw_all()
+ax.set_xticklabels(ax.get_xticks()*0.1)
+ax.set_yticklabels(ax.get_yticks()*0.1)
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
+ax.grid(linewidth=0.5)
+ax.invert_yaxis()
+plt.tight_layout(pad=0)
+fig.savefig('/home/zmaw/u300675/ma_rainprog/displacement_t0.pgf')
 
+
+
+
+plt.rcParams.update({'font.size': 10.5})
+plt.rcParams["figure.figsize"] = (4,4)
+fig, ax = plt.subplots(1)
 dataArea1 =self.nested_data[t+1,
                         (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
                         (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
@@ -27,8 +78,10 @@ s.set_clim(0.1, 100)
 s.set_ticks(contours)
 s.draw_all()
 ax.grid(linewidth=0.5)
-ax.set_xticklabels(ax.get_xticks()*0.25)
-ax.set_yticklabels(ax.get_yticks()*0.25)
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
+ax.set_xticklabels(ax.get_xticks()*0.1)
+ax.set_yticklabels(ax.get_yticks()*0.1)
 ax.invert_yaxis()
 plt.show()
 
@@ -45,29 +98,32 @@ s.set_label('Precipitation in mm/h')
 s.set_clim(0.1, 100)
 s.set_ticks(contours)
 s.draw_all()
-ax.set_xticklabels(ax.get_xticks()*0.25)
-ax.set_yticklabels(ax.get_yticks()*0.25)
+ax.set_xticklabels(ax.get_xticks()*0.1)
+ax.set_yticklabels(ax.get_yticks()*0.1)
 ax.grid(linewidth=0.5)
 ax.invert_yaxis()
 plt.show()
 
 
-plt.rcParams.update({'font.size': 22})
-plt.rcParams["figure.figsize"] = (9,6)
+
+plt.rcParams["figure.figsize"] = (5,5)
 fig,ax = plt.subplots(1)
 corr = ax.imshow(c, cmap=plt.get_cmap('inferno_r'))
-s = plt.colorbar(corr)
+s = plt.colorbar(corr,fraction=0.046, pad=0.04)
 s.set_clim(0,np.max(c))
-s.set_label('Squared Euclidean Distance')
-s.ax.tick_params(labelsize=18)
+s.set_label('Inverse Similarity in $\mathrm{mm^{2}/h^{2}}$')
 s.draw_all()
 plt.plot(25,25,marker='X',color='ghostwhite',markersize=8)
 plt.plot(cIdx[1],cIdx[0],marker='X',color='black',markersize=8)
-ax.set_xticklabels(ax.get_xticks()*0.25)
-ax.set_yticklabels(ax.get_yticks()*0.25)
+ax.set_xticklabels(ax.get_xticks()*0.1)
+ax.set_yticklabels(ax.get_yticks()*0.1)
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
 ax.grid(linewidth=0.5)
 ax.invert_yaxis()
+plt.tight_layout()
 plt.show()
+fig.savefig('/home/zmaw/u300675/ma_rainprog/correlation_matrix.pgf')
 
 
 import matplotlib.patches as mpatches
@@ -162,6 +218,8 @@ ax.invert_yaxis()
 plt.rcParams.update({'font.size': 22})
 
 
+
+
 col = np.concatenate(
     [np.zeros([1, np.max(dwd.progField.activeIds)])+0.5, np.random.rand(2, np.max(dwd.progField.activeIds))])
 plt.figure(figsize=(8, 8))
@@ -182,6 +240,37 @@ ax.set_xticklabels(ax.get_xticks() * 0.25)
 ax.set_yticklabels(ax.get_yticks() * 0.25)
 ax.legend((pnt,cross),('Accepted Track','Rejected Track'),numpoints=1)
 ax.invert_yaxis()
+
+
+col = np.concatenate(
+    [np.random.rand(1,np.max(lawr.progField.activeIds))*0.7, np.random.rand(2, np.max(lawr.progField.activeIds))])
+plt.rcParams.update({'font.size': 10.5})
+plt.rcParams["figure.figsize"] = (5.5,5.5)
+fig,ax = plt.subplots(1)
+for i, field in enumerate(lawr.progField.activeFields):
+    for t in field.histMaxima:
+        pnt, = plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:, field.id - 1], marker='o',linestyle='None',markersize=4)
+pnt, = plt.plot(-100,-100,color='black',marker='o',linestyle='None',markersize=4)
+for i, field in enumerate(lawr.progField.inactiveFields):
+    for t in field.histMaxima:
+        cross, = plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x',linestyle='None',markersize=4)
+plt.gca().invert_yaxis()
+plt.show(block=False)
+ax.grid(linewidth=0.5)
+ax.set_xlim([20,420])
+ax.set_ylim([20,420])
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
+ax.set_xticks([20,120,220,320,420])
+ax.set_yticks([20,120,220,320,420])
+ax.set_xticklabels((ax.get_xticks()-20) * 0.1)
+ax.set_yticklabels((ax.get_yticks()-20) * 0.1)
+ax.legend((pnt,cross),('Accepted Track','Rejected Track'),numpoints=1)
+fig.savefig('/home/zmaw/u300675/ma_rainprog/tracks.pgf')
+
+
+
+#ax.invert_yaxis()
 
 import cv2
 import numpy as np
@@ -256,7 +345,106 @@ gl2.xlabels_top = False
 gl2.ylabels_left = False
 
 plt.show()
-
+plt.rcParams.update({'font.size': 11})
+plt.rcParams["figure.figsize"] = (6,6)
 
 
 np.trapz(results[t].roc_hr[-1,::-1],results[t].roc_far[-1,::-1])
+
+
+plt.rcParams.update({'font.size': 10.5})
+plt.rcParams["figure.figsize"] = (2.8,2.8)
+fig, ax = plt.subplots(1)
+dataArea1 =self.nested_data[t+1,
+                        (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+                        (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+dat = ax.imshow(dataArea1, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1),cmap=newcmap)
+plt.plot(dataArea1.shape[0]/2,dataArea1.shape[0]/2,marker='X',color='red',markersize=8)
+plt.plot(dataArea1.shape[0]/2+int(cIdx[1] - 0.5 * len(c)),dataArea1.shape[0]/2+int(cIdx[0] - 0.5 * len(c)),marker='X',color='black',markersize=8)
+s = plt.colorbar(dat, format=matplotlib.ticker.ScalarFormatter(),fraction=0.046, pad=0.04)
+s.set_label('Precipitation in mm/h')
+s.set_clim(0.1, 100)
+s.set_ticks(contours)
+s.draw_all()
+ax.set_xticks([0,10,20,30])
+ax.set_yticks([0,10,20,30])
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
+ax.grid(linewidth=0.5)
+ax.invert_yaxis()
+plt.tight_layout(pad=0)
+fig.savefig('/home/zmaw/u300675/ma_rainprog/displacement_t1.pgf')
+
+fig, ax = plt.subplots(1)
+dataArea1 =self.nested_data[t,
+                       (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
+                       (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
+dat = ax.imshow(dataArea1, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1),cmap=newcmap)
+corrAreaRect = mpatches.Rectangle((dataArea1.shape[0]/4,dataArea1.shape[0]/4),dataArea1.shape[0]/2,dataArea1.shape[0]/2,color='r',linewidth=2,fill=0)
+ax.add_patch(corrAreaRect)
+plt.plot(dataArea1.shape[0]/2,dataArea1.shape[0]/2,marker='X',color='red',markersize=8)
+s = plt.colorbar(dat, format=matplotlib.ticker.ScalarFormatter(),fraction=0.046, pad=0.04)
+s.set_label('Precipitation in mm/h')
+s.set_clim(0.1, 100)
+s.set_ticks(contours)
+s.draw_all()
+ax.set_xticks([0,10,20,30])
+ax.set_yticks([0,10,20,30])
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
+ax.grid(linewidth=0.5)
+ax.invert_yaxis()
+plt.tight_layout(pad=0)
+fig.savefig('/home/zmaw/u300675/ma_rainprog/displacement_t0.pgf')
+
+
+t= 0
+fig, ax = plt.subplots(1)
+im = ax.imshow(lawr.nested_data[lawr.startTime+t, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
+plt.show(block=False)
+o, = plt.plot(*np.transpose(lawr.progField.return_histMaxima(0)[:, 2:0:-1]), 'rX')
+maxima = lawr.progField.return_histMaxima(0)[:, 2:0:-1]
+for u in range(len(maxima)):
+    proxCircle = mpatches.Circle((maxima[u,0],maxima[u,1]),3000/lawr.resolution,color='k',linewidth=1,fill=0)
+    ax.add_patch(proxCircle)
+s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+s.set_clim(0.1, 100)
+s.set_label('Precipitation in mm/h')
+s.set_ticks(contours)
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+s.draw_all()
+ax.invert_yaxis()
+fig.savefig('/home/zmaw/u300675/ma_rainprog/maxima_overview_zoom.pgf')
+
+t = 0
+fig, ax = plt.subplots(1)
+im = ax.imshow(dwd.nested_data[0, :, :], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
+plt.show(block=False)
+maximas = ['']
+for x in range(len(dwd.progField.activeFields)):
+    o, = plt.plot(dwd.progField.activeFields[x].maxima[0][2],dwd.progField.activeFields[x].maxima[0][1], 'rX')
+s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter())
+s.set_clim(0.1, 100)
+s.set_ticks(contours)
+ax.set_xlim([50,448])
+ax.set_ylim([448,50])
+ax.grid(linewidth=0.5)
+s.draw_all()
+ax.set_xticks([50,150,250,350,450])
+ax.set_yticks([50,150,250,350,450])
+ax.set_xlabel('Extend in km')
+ax.set_ylabel('Extend in km')
+ax.set_xticklabels((ax.get_xticks()-50) * 0.25)
+ax.set_yticklabels((ax.get_yticks()-50) * 0.25)
+ax.invert_yaxis()
+fig.savefig('/home/zmaw/u300675/ma_rainprog/maximaOverview.pgf')

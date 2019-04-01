@@ -7,7 +7,7 @@ from init import reliability_curve
 
 params = {"pgf.texsystem": "pdflatex"}
 plt.rcParams.update(params)
-dir = '/scratch/local1/radardata/prognosis2/'
+dir = '/scratch/local1/radardata/prognosis3/'
 days = np.array([[5,22],[5,23],[6,2],[6,13],[6,25],[7,21],[8,28],[6,14],[6,18],[6,23],[6,24]])
 col = [np.random.rand(3, len(days))]
 filelist = os.listdir(dir)
@@ -16,7 +16,7 @@ nc = netCDF4.Dataset(dir + filelist[0])
 
 time = len(nc.groups['Prognosis Data'].variables['Time'][:])
 dist_nested = nc.groups['Prognosis Data'].variables['dist_nested'][:][:]
-rain_threshold = 0.5
+rain_threshold = .5
 bin_width = 0.1
 prob_thresholds = np.arange(0, 1.01, bin_width)
 num_prob = len(prob_thresholds)

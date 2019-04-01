@@ -31,7 +31,7 @@ def gauss(x, *p):
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
 
-def prognosis(date, t):
+def prognosis(date):
     try:
 
         year =date[0]
@@ -450,7 +450,7 @@ for day in days:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-#prognosis(dates[42],0)
+prognosis([2016,6,2,9,0,120])
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -463,11 +463,11 @@ t = np.arange(len(dates))
 #                                day, hour, minute))
 # print(datetime.now() - startTime)
 
-startTime = datetime.now()
-pool = mp.Pool(4)
-pool.starmap(prognosis, zip(dates,t))
-pool.close()
-pool.join()
+#startTime = datetime.now()
+#pool = mp.Pool(4)
+#pool.starmap(prognosis, zip(dates,t))
+#pool.close()
+#pool.join()
 #
 #np.save('/scratch/local1/radardata/results.npy',results)
 # #
