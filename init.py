@@ -2,7 +2,9 @@ import os
 import numpy as np
 import numpy.ma as ma
 import netCDF4
+import time
 import scipy.spatial.qhull as qhull
+import xarray as xr
 from osgeo import osr
 from scipy.interpolate import griddata, RegularGridInterpolator, interp1d
 from scipy.ndimage import map_coordinates
@@ -13,6 +15,7 @@ from numba import jit
 from wradlib_snips import make_2D_grid, reproject
 import cv2
 from datetime import datetime
+import datetime
 import h5py
 import matplotlib
 matplotlib.use('TkAgg')
@@ -83,11 +86,6 @@ class radarData:
         except ValueError:
             self.covNormAngle = np.nan
             self.gaussMeans = np.nan
-
-
-
-
-
 
 class Square:
 
@@ -318,9 +316,9 @@ class Totalfield:
         for i in range(len(self.activeFields)):
             maxima[i, 0:3] = self.activeFields[i].maxima
 
-        mask = maxima[:, 0] > self.rainThreshold
-        maxima = maxima[mask]
-        status = status[mask]
+        #mask = maxima[:, 0] > self.rainThreshold
+        #maxima = maxima[mask]
+        #status = status[mask]
 
         middle = nestedData.shape
         dist = np.sqrt(
@@ -328,15 +326,15 @@ class Totalfield:
         maxima = maxima[dist < self.distThreshold, :]
         status = status[dist < self.distThreshold]
 
-        maximaProx = np.empty([len(maxima)])
-        for q in range(len(maxima)):
-            maximaProx[q] = np.mean([nestedData[int(maxima[q, 1] - 1), int(maxima[q, 2])],
-                                     nestedData[int(maxima[q, 1] + 1), int(maxima[q, 2])],
-                                     nestedData[int(maxima[q, 1]), int(maxima[q, 2] - 1)],
-                                     nestedData[int(maxima[q, 1]), int(maxima[q, 2] + 1)]])
+        #maximaProx = np.empty([len(maxima)])
+        #for q in range(len(maxima)):
+        #    maximaProx[q] = np.mean([nestedData[int(maxima[q, 1] - 1), int(maxima[q, 2])],
+        #                             nestedData[int(maxima[q, 1] + 1), int(maxima[q, 2])],
+        #                             nestedData[int(maxima[q, 1]), int(maxima[q, 2] - 1)],
+        #                             nestedData[int(maxima[q, 1]), int(maxima[q, 2] + 1)]])
 
-        maxima = maxima[maximaProx > self.rainThreshold, :]
-        status = status[maximaProx > self.rainThreshold]
+        #maxima = maxima[maximaProx > self.rainThreshold, :]
+        #status = status[maximaProx > self.rainThreshold]
 
         status=list(status)
 
@@ -448,7 +446,7 @@ class Totalfield:
 
         fieldNums = 0
         for field in reversed(self.activeFields):
-            if field.lifeTime < self.trainTime-1:
+            if field.lifeTime < 3:
                 self.rejectedFields.add(field)
                 self.activeFields.remove(field)
             else:
@@ -587,7 +585,7 @@ class Totalfield:
 
 class DWDData(radarData, Totalfield):
 
-    def __init__(self, filePath):
+    def __init__(self, filePath,dwdTime):
 
         '''Read in DWD radar data.
 
@@ -601,52 +599,93 @@ class DWDData(radarData, Totalfield):
             filename (str): Name of radar data file.
 
         '''
-        with h5py.File(filePath, 'r') as boo:
-            # radar site coordinates and elevation
-            lon_site = boo.get('where').attrs['lon']
-            lat_site = boo.get('where').attrs['lat']
-            alt_site = boo.get('where').attrs['height']
-            self.sitecoords = (lon_site, lat_site, alt_site)
-            self.elevation = boo.get('dataset1/where').attrs['elangle']
+        if os.path.splitext(filePath)[1]=='.nc':
+            with xr.open_dataset(filePath) as dataset:
+                try:
+                    data = dataset['reflectivity'].values
+                    if np.ma.is_masked(data):
+                        data.fill_value = -32.5
+                        self.refl = data.filled()
+                    else:
+                        self.refl = data
+                    self.azi = dataset['azimuth']
+                    self.r = dataset['range']
+                    self.time = dataset.time.values
 
-            # Number of azimuth rays, start azimuth, azimuth steps
-            az_rays = boo.get('dataset1/where').attrs['nrays']
-            az_start = boo.get('dataset1/where').attrs['startaz']
-            az_steps = boo.get('dataset1/how').attrs['angle_step']
+                except:
+                    data = dataset['CLT_Corr_Reflectivity'].values
+                    if np.ma.is_masked(data):
+                        data.fill_value = -32.5
+                        self.refl = data.filled()
+                    else:
+                        self.refl = data
+                    self.azi = dataset['azimuth']
+                    self.r = dataset['range']
+                    self.time = dataset.time.values
 
-            # Number of range bins, start range, range steps
-            r_bins = boo.get('dataset1/where').attrs['nbins']
-            r_start = boo.get('dataset1/where').attrs['rstart']
-            r_steps = boo.get('dataset1/where').attrs['rscale']
+            self.refl[np.isnan(self.refl)] = -32.5
+            self.time = (self.time - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+        else:
+            with h5py.File(filePath, 'r') as boo:
+                # radar site coordinates and elevation
+                lon_site = boo.get('where').attrs['lon']
+                lat_site = boo.get('where').attrs['lat']
+                alt_site = boo.get('where').attrs['height']
+                self.sitecoords = (lon_site, lat_site, alt_site)
+                self.elevation = boo.get('dataset1/where').attrs['elangle']
 
-            # Azimuth and range arrays
-            self.r = np.arange(r_start, r_start + r_bins*r_steps, r_steps)
-            self.azi = np.arange(az_start, az_start + az_rays*az_steps, az_steps)
+                # Number of azimuth rays, start azimuth, azimuth steps
+                az_rays = boo.get('dataset1/where').attrs['nrays']
+                az_start = boo.get('dataset1/where').attrs['startaz']
+                az_steps = boo.get('dataset1/how').attrs['angle_step']
 
-            # Corrected reflectivity data
-            gain = boo.get('dataset1/data1/what').attrs['gain']
-            offset = boo.get('dataset1/data1/what').attrs['offset']
-            refl = boo.get('dataset1/data1/data')
-            self.refl = refl*gain + offset
-            self.time = boo.get('what').attrs['time']
-            self.hour = []
-            self.minute = []
-            self.second = []
-            self.hour.append(int("".join(map(chr, self.time))[0:2]))
-            self.minute.append(int("".join(map(chr, self.time))[2:4]))
-            self.second.append(int("".join(map(chr, self.time))[4:6]))
+                # Number of range bins, start range, range steps
+                r_bins = boo.get('dataset1/where').attrs['nbins']
+                r_start = boo.get('dataset1/where').attrs['rstart']
+                r_steps = boo.get('dataset1/where').attrs['rscale']
 
+                # Azimuth and range arrays
+                self.r = np.arange(r_start, r_start + r_bins*r_steps, r_steps)
+                self.azi = np.arange(az_start, az_start + az_rays*az_steps, az_steps)
 
+                # Corrected reflectivity data
+                gain = boo.get('dataset1/data1/what').attrs['gain']
+                offset = boo.get('dataset1/data1/what').attrs['offset']
+                refl = boo.get('dataset1/data1/data')
+                self.refl = refl*gain + offset
+                self.time = boo.get('what').attrs['time']
+                self.date =boo.get('what').attrs['date']
+                year = int("".join(map(chr, self.date))[0:4])
+                mon = int("".join(map(chr, self.date))[4:6])
+                day = int("".join(map(chr, self.date))[6:8])
+                hour = int("".join(map(chr, self.time))[0:2])
+                minute = int("".join(map(chr, self.time))[2:4])
+                second = int("".join(map(chr, self.time))[4:6])
+
+                self.hour = []
+                self.minute = []
+                self.second = []
+
+                self.hour.append(hour)
+                self.minute.append(minute)
+                self.second.append(second)
+
+                self.time = time.mktime((datetime.datetime(year,mon,day,hour,minute,second)+datetime.timedelta(hours=1)).utctimetuple())
+
+            #time = (time - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+        #self.startTime = np.argmin(np.abs(time.mktime((datetime.datetime(date[0],date[1],date[2],date[3],date[4])-
+        #                                               datetime.timedelta(hours=-1,minutes=self.trainTime/2)).utctimetuple())-self.time))
         super().__init__(filePath)
-        self.resolution = 250  # horizontal resolution in m
+
+        self.sitecoords = [10.04683, 54.0044]
+        self.resolution = 200  # horizontal resolution in m
         self.trainTime = 6  # 6 Timesteps for training to find the displacement vector (equals 25 minutes)
         self.numMaxima = 20  # number of tracked maxima
-        self.distThreshold = 45000
+        self.distThreshold = 50000
         self.getGrid()
         self.offset = self.cRange * 2
         self.nested_data[0, self.offset:self.offset + self.d_s, self.offset:self.offset + self.d_s] = self.gridding()
         self.startTime=0 # number of the file where the startpoint for the prognosis is
-        # self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
 
     def getGrid(self):
         mett_azi = met2math_angle(self.azi)
@@ -664,7 +703,7 @@ class DWDData(radarData, Totalfield):
         lawr_sitecoords = [9.973997, 53.56833]
         #lawr_cartcoords = reproject(lawr_sitecoords, projection_target=proj_cart)
         boo_cartcoords = reproject(self.sitecoords[0:2], projection_target=proj_cart)
-        max_dist = 50000
+        max_dist = 60000
         self.polar_grid= reproject(points+boo_cartcoords, projection_source=proj_cart, projection_target=proj_geo)
         self.cRange = int(6000 / self.resolution)
 
@@ -716,19 +755,63 @@ class DWDData(radarData, Totalfield):
 
 
     def addTimestep(self, filePath):
-        with h5py.File(filePath, 'r') as boo:
-            gain = boo.get('dataset1/data1/what').attrs['gain']
-            offset = boo.get('dataset1/data1/what').attrs['offset']
-            refl = boo.get('dataset1/data1/data')
-            self.refl = refl * gain + offset
-            time = boo.get('what').attrs['time']
-            self.hour.append(int("".join(map(chr, time))[0:2]))
-            self.minute.append(int("".join(map(chr, time))[2:4]))
-            self.second.append(int("".join(map(chr, time))[4:6]))
-            nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
-            nested_data[0, self.offset: self.d_s + self.offset,
-            self.offset: self.d_s + self.offset] = self.gridding()
-            self.nested_data = np.vstack((self.nested_data, nested_data))
+        if os.path.splitext(filePath)[1]=='.nc':
+            with xr.open_dataset(filePath) as dataset:
+                try:
+                    data = dataset['reflectivity'].values
+                    if np.ma.is_masked(data):
+                        data.fill_value = -32.5
+                        self.refl = data.filled()
+                    else:
+                        self.refl = data
+                    self.azi = dataset['azimuth'].values
+                    self.r = dataset['range'].values
+                    timedummy = dataset.time.values
+
+                except:
+                    data = dataset['CLT_Corr_Reflectivity'].values
+                    if np.ma.is_masked(data):
+                        data.fill_value = -32.5
+                        self.refl = data.filled()
+                    else:
+                        self.refl = data
+                    self.azi = dataset['azimuth'].values
+                    self.r = dataset['range'].values
+                    timedummy = dataset.time.values
+
+                timedummy = (timedummy - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+                self.refl[np.isnan(self.refl)] = -32.5
+                self.time = np.append(self.time, timedummy)
+                nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+                nested_data[0, self.offset: self.d_s + self.offset,
+                self.offset: self.d_s + self.offset] = self.gridding()
+                self.nested_data = np.vstack((self.nested_data, nested_data))
+
+        else:
+            with h5py.File(filePath, 'r') as boo:
+                gain = boo.get('dataset1/data1/what').attrs['gain']
+                offset = boo.get('dataset1/data1/what').attrs['offset']
+                refl = boo.get('dataset1/data1/data')
+                self.refl = refl * gain + offset
+                timedummy = boo.get('what').attrs['time']
+                date =boo.get('what').attrs['date']
+
+                year = int("".join(map(chr, date))[0:4])
+                mon = int("".join(map(chr, date))[4:6])
+                day = int("".join(map(chr, date))[6:8])
+                hour = int("".join(map(chr, timedummy))[0:2])
+                minute = int("".join(map(chr, timedummy))[2:4])
+                second = int("".join(map(chr, timedummy))[4:6])
+
+                self.hour.append(int("".join(map(chr, timedummy))[0:2]))
+                self.minute.append(int("".join(map(chr, timedummy))[2:4]))
+                self.second.append(int("".join(map(chr, timedummy))[4:6]))
+                self.time = np.append(self.time, time.mktime((datetime.datetime(year,mon,day,hour,minute,second)+datetime.timedelta(hours=1)).utctimetuple()))
+
+                nested_data = np.zeros([1, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+                nested_data[0, self.offset: self.d_s + self.offset,
+                self.offset: self.d_s + self.offset] = self.gridding()
+                self.nested_data = np.vstack((self.nested_data, nested_data))
 
     def timeInterpolation(self, timeSteps):
         # faster implementation of the timeInterpolation
@@ -741,47 +824,68 @@ class DWDData(radarData, Totalfield):
     def extrapolation(self, progTimeSteps):
 
         self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
+        filtersize = 10 # default filtersize
+        if np.any(filtersize < (3 * np.max(self.covNormAngle_norm))):
+            filtersize = np.int(np.max(self.covNormAngle_norm*3))
+        variancefactor= 1
+        rho = (self.covNormAngle_norm[0,1]*variancefactor)/(np.sqrt(self.covNormAngle_norm[0,0]*variancefactor)*np.sqrt(self.covNormAngle_norm[1,1])*variancefactor)
+        [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
+        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle_norm[0,0])*variancefactor,np.sqrt(self.covNormAngle_norm[1,1])*variancefactor,rho,-self.gaussMeans_norm[0],-self.gaussMeans_norm[1])
+        self.kernel = self.kernel/np.sum(self.kernel)
 
         for t in range(progTimeSteps):
-            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.gaussMeans[0]/10)*t, (self.gaussMeans[1]/10)*t)
+            if t == 0:
+                self.prog_data[t, :, :] = self.nested_data[-1,:,:]>self.rainThreshold
+                self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t,:,:], -1, self.kernel)
 
-            self.second.append(self.second[-1]+30)
-            self.hour.append(self.hour[-1])
-            self.minute.append(self.minute[-1])
-            if self.second[-1] >= 60:
-                self.second[-1] = self.second[-1] % 60
-                self.minute[-1] += 1
-                if self.minute[-1] >= 60:
-                    self.hour[-1] += 1
-                    self.minute[-1] = 0
+            #self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.gaussMeans[0]/10)*t, (self.gaussMeans[1]/10)*t)
+            else:
+                self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t-1,:,:], -1, self.kernel)
 
+            self.time = np.append(self.time, self.time[-1] + 30)
 
 class LawrData(radarData, Totalfield):
 
-    def __init__(self, filepath):
+    def __init__(self, filePath):
 
-        with netCDF4.Dataset(filepath) as nc:
-
+        with xr.open_dataset(filePath) as dataset:
             try:
-                data = nc.variables['dbz_ac1'][:][:][:]
-                self.dbz = data
-                self.azi = nc.variables['azi'][:]
-                self.r = nc.variables['range'][:]
-                self.time = nc.variables['time'][:]
-
-            except:
-                data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
+                data = dataset['reflectivity'].values
                 if np.ma.is_masked(data):
                     data.fill_value = -32.5
-                    self.z = data.filled()
+                    self.refl = data.filled()
                 else:
-                    self.z = data
+                    self.refl = data
+                try:
+                    self.azi = dataset['azimuth'].values
+                    self.r = dataset['range'].values
 
-                self.azi = nc.variables['Azimuth'][:]
-                self.r = nc.variables['Distance'][:]
-                self.time = nc.variables['Time'][:]
+                except:
+                    self.azi = dataset['Azimuth'].values
+                    self.r = dataset['Distance'].values
 
-            super().__init__(filepath)
+                self.r = dataset['range'].values
+                self.time = dataset.time.values
+
+            except:
+                data = dataset['CLT_Corr_Reflectivity'].values
+                if np.ma.is_masked(data):
+                    data.fill_value = -32.5
+                    self.refl = data.filled()
+                else:
+                    self.refl = data
+                try:
+                    self.azi = dataset['azimuth'].values
+                    self.r = dataset['range'].values
+
+                except:
+                    self.azi = dataset['Azimuth'].values
+                    self.r = dataset['Distance'].values
+                    self.time = dataset.Time.values
+
+            self.refl[np.isnan(self.refl)] = -32.5
+            self.time = (self.time - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+            super().__init__(filePath)
             self.trainTime = 10  # 10 Timesteps for training to find the displacement vector (equals 5 minutes)
             self.numMaxima = 20  # number of tracked maxima
             self.resolution = 100
@@ -809,6 +913,7 @@ class LawrData(radarData, Totalfield):
         xPolar = np.reshape(xPolar, (333 * 360, 1))
         yPolar = np.outer(self.r, aziSin)
         yPolar = np.reshape(yPolar, (333 * 360, 1))
+        self.nesting_factor = 2
         self.points = np.concatenate((xPolar, yPolar), axis=1)
 
         self.xCar = np.arange(-20000, 20000 + 1, self.resolution).squeeze()
@@ -817,12 +922,12 @@ class LawrData(radarData, Totalfield):
         [self.XCar, self.YCar] = np.meshgrid(self.xCar, self.yCar)
 
         self.Lon,self.Lat = get_Grid(self.sitecoords,20000,self.resolution)
-        self.Lon_nested, self.Lat_nested = get_Grid(self.sitecoords, 20000 + self.cRange * 2 * self.resolution, self.resolution)
+        self.Lon_nested, self.Lat_nested = get_Grid(self.sitecoords, 20000 + self.cRange * self.nesting_factor * self.resolution, self.resolution)
 
         self.dist = np.sqrt(np.square(self.xCar) + np.square(self.YCar))
 
-        xCar_nested = np.arange(-20000 - self.cRange * 2 * self.resolution,
-                                20000 + self.cRange * 2 * self.resolution + 1, self.resolution).squeeze()
+        xCar_nested = np.arange(-20000 - self.cRange * self.nesting_factor * self.resolution,
+                                20000 + self.cRange * self.nesting_factor * self.resolution + 1, self.resolution).squeeze()
         yCar_nested = np.copy(xCar_nested)
 
         [XCar_nested, YCar_nested] = np.meshgrid(xCar_nested, yCar_nested)
@@ -845,72 +950,93 @@ class LawrData(radarData, Totalfield):
 
     def gridding(self):
 
-        rPolar = z2rainrate(self.z)
+        rPolar = z2rainrate(self.refl)
         R = np.empty([self.timeSteps, self.d_s, self.d_s])
-        nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+        nested_data = np.zeros([self.timeSteps, self.d_s + self.nesting_factor * 2 * self.cRange, self.d_s + self.nesting_factor * 2 * self.cRange])
 
         for t in range(nested_data.shape[0]):
             rPolarT = rPolar[t, :, :].T
             rPolarT = np.reshape(rPolarT, (333 * 360, 1)).squeeze()
             R[t, :, :] = np.reshape(self.interpolate(rPolarT.flatten(), self.vtx, self.wts), (self.d_s, self.d_s))
             R[t, (self.dist >= np.max(self.r))] = 0
-            nested_data[t, 2 * self.cRange: 2 * self.cRange + self.d_s,
-            2 * self.cRange: 2 * self.cRange + self.d_s] = R[t, :, :]
+            nested_data[t, self.nesting_factor  * self.cRange: self.nesting_factor  * self.cRange + self.d_s,
+            self.nesting_factor  * self.cRange: self.nesting_factor  * self.cRange + self.d_s] = R[t, :, :]
 
         nested_data = np.nan_to_num(nested_data)
         return nested_data
 
     def addTimestep(self,filePath):
-        with netCDF4.Dataset(filePath) as nc:
+        with xr.open_dataset(filePath) as dataset:
             try:
-                self.dbz = nc.variables['dbz_ac1'][:][:][:]
-                self.azi = nc.variables['azi'][:]
-                self.r = nc.variables['range'][:]
-                time = nc.variables['time'][:]
-
-            except:
-                data = nc.variables['CLT_Corr_Reflectivity'][:][:][:]
+                data = dataset['reflectivity'].values
                 if np.ma.is_masked(data):
                     data.fill_value = -32.5
-                    self.z = data.filled()
+                    self.refl = data.filled()
                 else:
-                    self.z = data
+                    self.refl = data
+                try:
+                    self.azi = dataset['azimuth'].values
+                    self.r = dataset['range'].values
+                    time = dataset.time.values
+                except:
+                    self.azi = dataset['Azimuth'].values
+                    self.r = dataset['Distance'].values
+                    time = dataset.Time.values
+                self.r = dataset['range'].values
 
-                self.azi = nc.variables['Azimuth'][:]
-                self.r = nc.variables['Distance'][:]
-                time = nc.variables['Time'][:]
 
+            except:
+                data = dataset['CLT_Corr_Reflectivity'].values
+                if np.ma.is_masked(data):
+                    data.fill_value = -32.5
+                    self.refl = data.filled()
+                else:
+                    self.refl = data
+                try:
+                    self.azi = dataset['azimuth'].values
+                    self.r = dataset['range'].values
+                    time = dataset.time.values
+                except:
+                    self.azi = dataset['Azimuth'].values
+                    self.r = dataset['Distance'].values
+                    time = dataset.Time.values
+
+            time = (time - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+            self.refl[np.isnan(self.refl)] = -32.5
             self.time = np.append(self.time, time)
-            nested_data = np.zeros([self.timeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+            nested_data = np.zeros([self.timeSteps, self.d_s + self.nesting_factor * 2 * self.cRange, self.d_s + self.nesting_factor * 2 * self.cRange])
             nested_data[:,:,:] = self.gridding()
             self.nested_data = np.vstack((self.nested_data,nested_data))
     def setStart(self,date):
         import time
         import datetime
-        self.startTime = np.where(int(time.mktime((datetime.datetime(date[0],date[1],date[2],date[3],date[4])-
-                                              datetime.timedelta(hours=-1,minutes=self.trainTime/2)).utctimetuple()))==self.time)[0][0]
+        self.startTime = np.argmin(np.abs(time.mktime((datetime.datetime(date[0],date[1],date[2],date[3],date[4])-
+                                                       datetime.timedelta(hours=-1,minutes=self.trainTime/2)).utctimetuple())-self.time))
 
-    def extrapolation(self, dwd, progTimeSteps, prog,probabilityFlag):
-        self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
-        self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, 64)
+    def extrapolation(self, dwd, progTimeSteps, prog,probabilityFlag,variancefactor=1):
         filtersize = 10 # default filtersize
-        if np.any(filtersize < (3 * np.max(self.covNormAngle))):
-            filtersize = np.int(np.max(self.covNormAngle*3))
-        rho = self.covNormAngle[0,1]/(np.sqrt(self.covNormAngle[0,0])*np.sqrt(self.covNormAngle[1,1]))
+
+        if np.any(filtersize < (5 * np.max(self.covNormAngle))):
+            filtersize = np.int(np.max(self.covNormAngle*5))
+        rho = (self.covNormAngle[0, 1] * variancefactor) / (
+                    np.sqrt(self.covNormAngle[0, 0]) * variancefactor * np.sqrt(
+                self.covNormAngle[1, 1]) * variancefactor)
         [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
-        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0]),np.sqrt(self.covNormAngle[1,1]),rho,-self.gaussMeans[0],-self.gaussMeans[1])
+        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0])*variancefactor,np.sqrt(self.covNormAngle[1,1])*variancefactor,rho,-self.gaussMeans[0],-self.gaussMeans[1])
         self.kernel = self.kernel/np.sum(self.kernel)
-        self.prog_data = np.zeros([self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
-        self.probabilities = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
+
+        # self.kernel2 = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0])*1.1,np.sqrt(self.covNormAngle[1,1])*1.1,rho,-self.gaussMeans[0],-self.gaussMeans[1])
+        # self.kernel2 = self.kernel2/np.sum(self.kernel2)
+
+        self.prog_data = np.copy(self.nested_data[0,:,:])
+        self.probabilities = np.zeros([progTimeSteps, self.prog_data.shape[0],self.prog_data.shape[1]])
+        #self.probabilities2 = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         rainThreshold=0.5
         self.progStartIdx = self.startTime + self.trainTime
         self.prog_data[:, :] = self.nested_data[self.progStartIdx, :, :]
         self.prog_start = 3 * ['']
-        self.prog_start[0] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[0:2])
-        self.prog_start[1] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[2:4])
-        self.prog_start[2] = int(datetime.utcfromtimestamp(self.time[self.progStartIdx]).strftime('%H%M%S')[4:6])
-        self.dwdProgStartIdx = np.where((np.asarray(dwd.hour[dwd.trainTime:]) == self.prog_start[0]) & (
-                    np.asarray(dwd.minute[dwd.trainTime:]) == self.prog_start[1]) & ((np.asarray(dwd.second[dwd.trainTime:]) - np.mod(dwd.second[dwd.trainTime:],30)) == self.prog_start[2]))[0][0]
+
+        self.dwdProgStartIdx = np.argmin(np.abs(dwd.time - self.time[self.progStartIdx]))
 
         self.prog_data[:, :] = nesting(self.prog_data[:, :], self.dist_nested, self.target_nested,
                                           dwd.prog_data[self.dwdProgStartIdx, :, :], dwd, self.r[-1],
@@ -918,15 +1044,23 @@ class LawrData(radarData, Totalfield):
                                           self.Lat_nested, self.Lon_nested)
 
         if probabilityFlag:
-            self.probabilities[0,:,:] = self.nested_data[self.progStartIdx,:,:]>rainThreshold
+            self.probabilities[0,:,:] = self.nested_data[self.progStartIdx,:,:]>self.rainThreshold
 
             self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
-                                          dwd.prog_data[self.dwdProgStartIdx, :, :]>rainThreshold, dwd, self.r[-1],
+                                          dwd.prog_data[self.dwdProgStartIdx, :, :], dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
             self.probabilities[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel)
 
+            # self.probabilities2[0,:,:] = self.nested_data[self.progStartIdx,:,:]>self.rainThreshold
+            #
+            # self.probabilities2[0,:,:] = nesting(self.probabilities2[0, :, :], self.dist_nested, self.target_nested,
+            #                               dwd.prog_data[self.dwdProgStartIdx, :, :]>rainThreshold, dwd, self.r[-1],
+            #                               self.rainThreshold, self,
+            #                               self.Lat_nested, self.Lon_nested)
+            #
+            # self.probabilities2[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel2)
         #self.prog_data[0,:,:] = cv2.filter2D(self.prog_data[0,:,:],-1,self.kernel)
         for t in range(1,progTimeSteps):
             #self.prog_data[t, :, :] = self.prog_data[t - 1, :, :]
@@ -941,11 +1075,18 @@ class LawrData(radarData, Totalfield):
                 self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
 
                 self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
-                                              dwd.prog_data[self.dwdProgStartIdx + t, :, :]>rainThreshold, dwd, self.r[-1],
+                                              dwd.prog_data[self.dwdProgStartIdx + t, :, :], dwd, self.r[-1],
                                               self.rainThreshold, self,
                                               self.Lat_nested, self.Lon_nested)
                 self.probabilities[t, :, :] = cv2.filter2D(self.probabilities[t, :, :], -1, self.kernel)
 
+                # self.probabilities2[t, :, :] = self.probabilities2[t - 1, :, :]
+                #
+                # self.probabilities2[t, :, :] = nesting(self.probabilities2[t, :, :], self.dist_nested, self.target_nested,
+                #                               dwd.prog_data[self.dwdProgStartIdx + t, :, :]>rainThreshold, dwd, self.r[-1],
+                #                               self.rainThreshold, self,
+                #                               self.Lat_nested, self.Lon_nested)
+                # self.probabilities2[t, :, :] = cv2.filter2D(self.probabilities2[t, :, :], -1, self.kernel2)
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)
     b = np.full_like(z, 1.9, dtype=np.double)
@@ -1136,7 +1277,7 @@ def dwdFileSelector(directoryPath, time, trainTime = 6):
     day = np.asarray([int(x[39:41]) for x in booFileList])
     hour = np.asarray([int(x[41:43]) for x in booFileList])
     min = np.asarray([int(x[43:45]) for x in booFileList])
-    idx = np.where((time[2]==hour)&((time[3]/2)-(time[3]/2)%5==min))[0][0]
+    idx = np.where((time[0]==year)&(time[1]==mon)&(time[2]==day)&(time[3]==hour)&((time[4]/2)-(time[4]/2)%5==min))[0][0]
     selectedFiles = booFileList[idx-trainTime:idx+1]
     return selectedFiles
 
@@ -1169,7 +1310,7 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rai
     HHGLonInBOO = (lawr.Lon_nested[:, :] - dwd.Lon_nested[lonstart[0], lonstart[1]]) / (
         dwd.Lon_nested[lonend[0], lonend[1]] - dwd.Lon_nested[lonstart[0], lonstart[1]]) * (lonend[1] - lonstart[1]) + lonstart[1]
 
-    if np.sum(boo_prog_data[boo_pixels]>rainthreshold):
+    if np.sum(boo_prog_data[boo_pixels]>lawr.rainThreshold):
         prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[
             hhg_pixels])        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
     return  prog_data
@@ -1269,7 +1410,7 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
             roc_hr[t,i] = hit[t,i]/event[t,i]
             roc_far[t,i] = f_alert[t,i]/nonevent[t,i]
 
-    y_score_bin_mean = np.zeros([time,num_prob-1])
+    y_score_bin_mean = np.zeros([time,num_prob])
     empirical_prob_pos = np.copy(y_score_bin_mean)
     sample_num = np.copy(y_score_bin_mean)
     for t in range(time):
@@ -1302,7 +1443,7 @@ def verification(lawr,dwd, year, mon, day, hour, minute,progTime):
     result.realStart = real_data[0,:,:]
     return result
 
-def reliability_curve(y_true, y_score, bins=10, normalize=False):
+def reliability_curve(y_true, y_score, bins=11, normalize=False):
     """Compute reliability curve
 
     Reliability curves allow checking if the predicted probabilities of a
@@ -1359,7 +1500,7 @@ def reliability_curve(y_true, y_score, bins=10, normalize=False):
         y_score = (y_score - y_score.min()) / (y_score.max() - y_score.min())
 
     bin_width = 1.0 / bins
-    bin_centers = np.linspace(0, 1.0 - bin_width, bins) + bin_width / 2
+    bin_centers = np.linspace(0, 1.0, bins)
 
     y_score_bin_mean = np.empty(bins)
     empirical_prob_pos = np.empty(bins)

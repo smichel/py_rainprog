@@ -132,11 +132,13 @@ from cartopy.io.img_tiles import OSM,GoogleTiles
 import matplotlib.pyplot as plt
 import matplotlib.dates
 import matplotlib.patches as mpatches
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
+fig = plt.figure()
 osm_tiles = OSM()
 plt.rcParams["figure.figsize"] = (9,6)
-plt.rcParams.update({'font.size': 20})
-ax = plt.axes(projection=ccrs.PlateCarree())
+plt.rcParams.update({'font.size': 10.5})
+ax = fig.add_subplot(111,projection=ccrs.PlateCarree())
 ax.coastlines()
 gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
                   linewidth=1, color='gray', alpha=0.5, linestyle='--')
@@ -144,7 +146,6 @@ gl.xlabels_top = False
 gl.ylabels_left = False
 rect = mpatches.Rectangle((6,0),12,84,linewidth=2,fill=False,color='red')
 ax.add_patch(rect)
-
 google = GoogleTiles()
 mercator = google.crs
 
@@ -169,12 +170,18 @@ xy_rect=mercator.transform_points(ccrs.PlateCarree(),x_rect,y_rect)
 radarRect = mpatches.Rectangle(xy_rect[0],width=xy_rect[1,0]-xy_rect[0,0],height=xy_rect[1,1]-xy_rect[0,1], color='b',fill=0)
 ax2.add_patch(radarRect)
 ax2.scatter(xy_pat_T[0],xy_pat_T[1],color='k',marker='x')
+lon_formatter = LongitudeFormatter(zero_direction_label=True)
+lat_formatter = LatitudeFormatter()
+ax2.xaxis.set_major_formatter(lon_formatter)
+ax2.yaxis.set_major_formatter(lat_formatter)
+ax2.set_xticks([8,9,10,11,12], crs=ccrs.PlateCarree())
+ax2.set_yticks([53,54,55], crs=ccrs.PlateCarree())
+fig2.savefig('/home/zmaw/u300675/ma_rainprog/radaroverview.pgf')
 
-gl2 = ax2.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                  linewidth=0.5, color='gray', alpha=0.2, linestyle='--')
-gl2.xlabels_top = False
-gl2.ylabels_left = False
-
+#gl2 = ax2.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+#                  linewidth=0.5, color='gray', alpha=0.2, linestyle='--')
+#gl2.xlabels_top = False
+#gl2.ylabels_right = False
 plt.show()
 
 
@@ -266,7 +273,7 @@ ax.set_yticks([20,120,220,320,420])
 ax.set_xticklabels((ax.get_xticks()-20) * 0.1)
 ax.set_yticklabels((ax.get_yticks()-20) * 0.1)
 ax.legend((pnt,cross),('Accepted Track','Rejected Track'),numpoints=1)
-fig.savefig('/home/zmaw/u300675/ma_rainprog/tracks.pgf')
+#fig.savefig('/home/zmaw/u300675/ma_rainprog/tracks.pgf')
 
 
 
@@ -319,7 +326,7 @@ google = GoogleTiles()
 mercator = google.crs
 osm_tiles = OSM()
 plt.rcParams["figure.figsize"] = (11,7)
-plt.rcParams.update({'font.size': 14})
+plt.rcParams.update({'font.size': 10.5})
 fig2 = plt.figure()
 ax2 = fig2.add_subplot(111,projection=mercator)
 
@@ -338,11 +345,14 @@ ax2.scatter(xy_emden_T[0], xy_emden_T[1], color='k', marker='x')
 radarCircle_dwd = mpatches.Circle(xy=xy_boo_T, radius=250000, color='r', linewidth=1, fill=0, transform=mercator)
 ax2.add_patch(radarCircle_dwd)
 ax2.scatter(xy_boo_T[0], xy_boo_T[1], color='r', marker='x')
-
-gl2 = ax2.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                  linewidth=0.5, color='gray', alpha=0.2, linestyle='--')
-gl2.xlabels_top = False
-gl2.ylabels_left = False
+lon_formatter = LongitudeFormatter(zero_direction_label=True)
+lat_formatter = LatitudeFormatter()
+ax2.xaxis.set_major_formatter(lon_formatter)
+ax2.yaxis.set_major_formatter(lat_formatter)
+ax2.set_xticks([5,7,9,11,13,15], crs=ccrs.PlateCarree())
+ax2.set_yticks([47,49,51,53,55], crs=ccrs.PlateCarree())
+ax2.grid()
+fig2.savefig('/home/zmaw/u300675/ma_rainprog/dwdradars.pgf')
 
 plt.show()
 plt.rcParams.update({'font.size': 11})
@@ -353,7 +363,6 @@ np.trapz(results[t].roc_hr[-1,::-1],results[t].roc_far[-1,::-1])
 
 
 plt.rcParams.update({'font.size': 10.5})
-plt.rcParams["figure.figsize"] = (2.8,2.8)
 fig, ax = plt.subplots(1)
 dataArea1 =self.nested_data[t+1,
                         (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
@@ -452,3 +461,67 @@ ax.set_xticklabels((ax.get_xticks()-50) * 0.25)
 ax.set_yticklabels((ax.get_yticks()-50) * 0.25)
 ax.invert_yaxis()
 fig.savefig('/home/zmaw/u300675/ma_rainprog/maximaOverview.pgf')
+
+testcmap = plt.get_cmap('jet', 11)    # 11 discrete colors
+testcmap.set_under('white')
+
+fig, ax = plt.subplots(1)
+dat = ax.imshow(test2, cmap=testcmap)
+ax.set_xlabel('Pixels')
+ax.set_xticks([0,10,20,30])
+ax.set_ylabel('Pixels')
+s = plt.colorbar(dat, fraction=0.046, pad=0.04)
+s.set_clim(0.001,1)
+s.draw_all()
+s.set_label('Arbitrary Units')
+ax.grid()
+ax.invert_yaxis()
+plt.tight_layout()
+fig.savefig('/home/zmaw/u300675/ma_rainprog/prognosis_t1.pgf')
+
+
+
+
+
+plt.rcParams["figure.figsize"] = (4,4)
+fig, ax = plt.subplots(1)
+im = ax.imshow(test3, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1),cmap=newcmap)
+s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(),fraction=0.046, pad=0.04)
+s.set_clim(0.1, 100)
+s.set_label('Precipitation in mm/h')
+s.set_ticks(contours)
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+s.draw_all()
+ax.invert_yaxis()
+plt.tight_layout()
+
+fig.savefig('/home/zmaw/u300675/ma_rainprog/attenuation_boo.pgf')
+
+fig, ax = plt.subplots(1)
+im = ax.imshow(lawr.nested_data[80,:,:], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1),cmap=newcmap)
+ellipse = mpatches.Ellipse((110,320),120,240,angle=-40,color='r',linewidth=1,fill=0)
+ax.add_patch(ellipse)
+ellipse = mpatches.Ellipse((220,350),70,140,angle=-40,color='r',linewidth=1,fill=0)
+ax.add_patch(ellipse)
+s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(),fraction=0.046, pad=0.04)
+s.set_clim(0.1, 100)
+s.set_label('Precipitation in mm/h')
+s.set_ticks(contours)
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+s.draw_all()
+ax.invert_yaxis()
+plt.tight_layout()
+
+fig.savefig('/home/zmaw/u300675/ma_rainprog/attenuation_lawr.pgf')

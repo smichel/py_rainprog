@@ -1,6 +1,6 @@
 import numpy as np
 import netCDF4
-import os
+import os,sys
 from datetime import datetime
 import matplotlib
 #matplotlib.use('TkAgg')
@@ -14,8 +14,21 @@ from init import Square, Totalfield, LawrData, DWDData, radarData, get_metangle,
 import multiprocessing as mp
 
 #plt.rcParams['image.cmap'] = 'gist_ncar'
-cmap = plt.get_cmap('viridis')
-cmap.colors[0] = [0.75, 0.75, 0.75]
+import matplotlib.patches as mpatches
+
+import matplotlib.colors as colors
+contours = [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100]
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+    new_cmap = colors.LinearSegmentedColormap.from_list(
+        'cmaptest',cmap(np.linspace(minval, maxval, n)))
+    return new_cmap
+cmap = plt.get_cmap('BuPu')
+newcmap=truncate_colormap(cmap,0.2,1)
+newcmap.set_under('1')
+#plt.rcParams["figure.figsize"] = (9,6)
+params = {"pgf.texsystem": "pdflatex"}
+plt.rcParams.update(params)
 
 # Define model function to be used to fit to the data above:
 def gauss(x, *p):
@@ -31,7 +44,7 @@ def gauss(x, *p):
 #fp = '/home/zmaw/u300675/pattern_data/m4t_BKM_wrx00_l2_dbz_v00_20130426120000.nc' difficult field to predict
 
 
-def prognosis(date):
+def prognosis(date,t):
     try:
 
         year =date[0]
@@ -44,8 +57,9 @@ def prognosis(date):
         dwdDirectoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+str(mon).zfill(2)+'/'+str(day).zfill(2)
         lawrDirectoryPath = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ str(mon).zfill(2) +'/'
         #fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ str(mon).zfill(2) +'/HHGlawr2016'+str(mon).zfill(2)+str(day).zfill(2)+ str(hour).zfill(2) + '_111_L1.nc'
+        #dwdDirectoryPath = '/scratch/local1/radardata/simon/nonconvective/dwd/level1'
+        #lawrDirectoryPath = '/scratch/local1/radardata/simon/nonconvective/lawr/HHG/level1_cband/'
         res = 100
-        rainThreshold = 0.5
         prog = int(minute*2)
         trainTime = 6
         statistics = 0
@@ -54,17 +68,16 @@ def prognosis(date):
         rain_threshold = 0.5
         contours = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]
         booFileList = sorted(os.listdir(dwdDirectoryPath))
-        dwdTime = list((mon,day,hour,prog))
+        dwdTime = list((year, mon,day,hour,prog))
 
         dwdSelectedFiles = dwdFileSelector(dwdDirectoryPath, dwdTime, trainTime)
 
 
 
-        dwd = DWDData(dwdDirectoryPath + '/' + dwdSelectedFiles[0])
+        dwd = DWDData(dwdDirectoryPath + '/' + dwdSelectedFiles[0],dwdTime)
 
         for i,file in enumerate(dwdSelectedFiles[1:]):
             dwd.addTimestep(dwdDirectoryPath + '/' + file)
-            #print(file)
         dwd.initial_maxima()
         dwd.find_displacement(0)
 
@@ -77,29 +90,43 @@ def prognosis(date):
         lawr.setStart(date)
         lawr.initial_maxima()
 
+        resFactor = (dwd.resolution/lawr.resolution) # resolution factor  between dwd and lawr
+        if np.any(np.abs([x/10*resFactor for x in dwd.gaussMeans])<1):
+            lawr.progField.deltaT=int(np.ceil(1/np.max(np.abs([x/10*resFactor for x in dwd.gaussMeans]))))+1
 
-        if np.any(np.abs([x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans])<1):
-            lawr.progField.deltaT=int(np.ceil(np.min(1/np.min(np.abs([x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans])))))+1
+            if lawr.progField.deltaT > 5:
+                lawr.progField.deltaT = 5
+
         lawr.find_displacement(prog)
 
-        if np.any(np.isnan(lawr.covNormAngle)) or lawr.normEqualOneSum<3*len(lawr.progField.activeIds) or len(lawr.progField.activeFields):
-            lawr.covNormAngle = dwd.covNormAngle
-            lawr.gaussMeans = [x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans]
+        if np.any(np.isnan(lawr.covNormAngle)) or lawr.progField.deltaT>8 or len(lawr.progField.activeFields):
+            lawr.covNormAngle = np.cov((dwd.progField.return_fieldHistX().flatten() / 10) * resFactor, dwd.progField.return_fieldHistY().flatten() / 10 * resFactor)
+            lawr.gaussMeans = [x/10*resFactor for x in dwd.gaussMeans]
+
+
 
         if np.any(np.isnan(dwd.covNormAngle)):
             dwd.covNormAngle = lawr.covNormAngle
-            dwd.gaussMeans = [x*10/(dwd.resolution/lawr.resolution) for x in lawr.gaussMeans]
+            dwd.gaussMeans = [x*10/resFactor for x in lawr.gaussMeans]
+            dwd.covNormAngle_norm = np.cov(lawr.progField.return_fieldHistX().flatten() / resFactor,
+                                           lawr.progField.return_fieldHistY().flatten() / resFactor)
+            dwd.gaussMeans_norm = [x/resFactor for x in lawr.gaussMeans]
 
+        else:
+            dwd.covNormAngle_norm = np.cov(dwd.progField.return_fieldHistX().flatten() / 10,
+                                           dwd.progField.return_fieldHistY().flatten() / 10)
+            dwd.gaussMeans_norm = [x/10 for x in dwd.gaussMeans]
 
         dwd.extrapolation(progTime+12)
         dwd.HHGPos = findRadarSite(lawr,dwd)
         dwd.set_auxillary_geoData(dwd,lawr,dwd.HHGPos)
-        if np.sum(dwd.prog_data[:, ((dwd.dist_nested >= lawr.r[-1]) & (dwd.dist_nested <= lawr.dist_nested.max()))]>rainThreshold)<100:
+        if np.sum(dwd.prog_data[:, ((dwd.dist_nested >= lawr.r[-1]) & (dwd.dist_nested <= lawr.dist_nested.max()))]>lawr.rainThreshold)<100:
             nan_dummy = np.zeros([progTime, len(rain_thresholds)]) * np.nan
             result = Results(nan_dummy, nan_dummy, nan_dummy, nan_dummy, nan_dummy, nan_dummy, nan_dummy, nan_dummy,
                              nan_dummy, nan_dummy, year, mon, day, hour, minute,np.nan,np.nan)
             print(str(mon)+'_'+str(day)+'_'+str(hour)+ '_'+str(minute)+' has no rain.')
             print(datetime.now() - startTime)
+            return
             #return result
 
 
@@ -275,8 +302,8 @@ def prognosis(date):
 
         #if not useRealData:
         resScale=1
-
-        lawr.extrapolation(dwd,progTime,prog,probabilityFlag)
+        variancefactor = 6
+        lawr.extrapolation(dwd,progTime,prog,probabilityFlag,variancefactor)
 
         if 1:
             if livePlot:
@@ -342,7 +369,7 @@ def prognosis(date):
                 #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
         real_data = lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx + progTime, :, :] > rain_threshold
 
-        f = netCDF4.Dataset('/scratch/local1/radardata/prognosis3/'+str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute) + '_prognosis.nc', 'w', format='NETCDF4')  # 'w' stands for write
+        f = netCDF4.Dataset('/scratch/local1/radardata/prognosis12_variance6/'+str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute) + '_prognosis.nc', 'w', format='NETCDF4')  # 'w' stands for write
         tempgrp = f.createGroup('Prognosis Data')
         tempgrp.createDimension('time', len(lawr.probabilities))
         tempgrp.createDimension('x', lawr.probabilities.shape[1])
@@ -350,14 +377,16 @@ def prognosis(date):
 
         TIME = tempgrp.createVariable('Time', np.int32, 'time')
         Probabilities= tempgrp.createVariable('probabilities', 'f4', ('time','x','y'),zlib=True)
+        #Probabilities2 = tempgrp.createVariable('probabilities_11', 'f4', ('time', 'x', 'y'), zlib=True)
         Real_data = tempgrp.createVariable('historic_data', 'i', ('time','x','y'),zlib=True)
         Dist_nested = tempgrp.createVariable('dist_nested', 'f4', ('x','y'),zlib=True)
         TIME[:] = lawr.time[lawr.progStartIdx:lawr.progStartIdx + progTime]
         Probabilities[:,:,:] = lawr.probabilities
+        #Probabilities2[:, :, :] = lawr.probabilities2
         Real_data[:, :, :] = real_data
         Dist_nested[:,:] = lawr.dist_nested
         f.close()
-        result=verification(lawr,dwd,year, mon, day, hour, minute,progTime)
+        #result=verification(lawr,dwd,year, mon, day, hour, minute,progTime)
         thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
 
 
@@ -412,7 +441,9 @@ def prognosis(date):
         result = np.nan
         print(str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute)+' has failed.')
         print(datetime.now() - startTime)
-        print(e)
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        print(exc_type, fname, exc_tb.tb_lineno)
         #return result
 year = 2016
 
@@ -434,8 +465,7 @@ months= [5,6,7,8]
 days = [[5,22],[5,23],[6,2],[6,13],[6,25],[7,21],[8,28],[6,14],[6,18],[6,23],[6,24]]
 startHour = 0
 endHour = 23
-minutes=np.arange(0,59,10)
-runs = len(minutes)
+minutes=[0,10,20,30,40,50]
 hours = np.arange(startHour,endHour)
 progTime = 120
 
@@ -450,7 +480,9 @@ for day in days:
 t = np.arange(len(dates))
 #investigate 13.6 18:20
 
-prognosis([2016,6,2,9,0,120])
+#prognosis([2016,6,24,18,0,120],0)
+#prognosis([2016,3,1,20,0,120],0)
+
 # startTime = datetime.now()
 # results2 = []
 # for date in dates:
@@ -463,11 +495,12 @@ prognosis([2016,6,2,9,0,120])
 #                                day, hour, minute))
 # print(datetime.now() - startTime)
 
-#startTime = datetime.now()
-#pool = mp.Pool(4)
-#pool.starmap(prognosis, zip(dates,t))
-#pool.close()
-#pool.join()
-#
+startTime = datetime.now()
+pool = mp.Pool(4)
+pool.starmap(prognosis, zip(dates,t))
+pool.close()
+pool.join()
+print(datetime.now() - startTime)
+
 #np.save('/scratch/local1/radardata/results.npy',results)
 # #
