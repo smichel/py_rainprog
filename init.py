@@ -463,13 +463,7 @@ class Totalfield:
             field.sum_square = myoutput.sum_square
             field.sum_square_delta = myoutput.sum_square_delta
             field.totalLength = np.sqrt(np.square(field.histMaxima[0].squeeze()[1]-field.histMaxima[-1].squeeze()[1])+np.square(field.histMaxima[0].squeeze()[2]-field.histMaxima[-1].squeeze()[2]))
-            # plt.figure()
-            # plt.scatter([x[0, 1] for x in self.activeFields[i].histMaxima],
-            #             [x[0, 2] for x in self.activeFields[i].histMaxima])
-            # plt.plot(np.asarray([x[0, 1] for x in self.activeFields[i].histMaxima]),
-            #          f(self.betas[i], np.asarray([x[0, 1] for x in self.activeFields[i].histMaxima])))
-            # plt.title(str(i))
-            # plt.show(block=False)
+
         for i in reversed(range(len(self.activeFields))):
 
             if self.activeFields[i].sum_square>self.activeFields[i].totalLength/2:
@@ -580,8 +574,6 @@ class Totalfield:
             else:
                 return fields
         return fields
-
-
 
 class DWDData(radarData, Totalfield):
 
@@ -821,16 +813,15 @@ class DWDData(radarData, Totalfield):
         self.R = interpolating_function(z_).transpose()
 
 
-    def extrapolation(self, progTimeSteps):
+    def extrapolation(self, progTimeSteps,varianceFactor=1):
 
         self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
         filtersize = 10 # default filtersize
         if np.any(filtersize < (3 * np.max(self.covNormAngle_norm))):
             filtersize = np.int(np.max(self.covNormAngle_norm*3))
-        variancefactor= 1
-        rho = (self.covNormAngle_norm[0,1]*variancefactor)/(np.sqrt(self.covNormAngle_norm[0,0]*variancefactor)*np.sqrt(self.covNormAngle_norm[1,1])*variancefactor)
+        rho = (self.covNormAngle_norm[0,1]*varianceFactor)/(np.sqrt(self.covNormAngle_norm[0,0]*varianceFactor)*np.sqrt(self.covNormAngle_norm[1,1])*varianceFactor)
         [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
-        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle_norm[0,0])*variancefactor,np.sqrt(self.covNormAngle_norm[1,1])*variancefactor,rho,-self.gaussMeans_norm[0],-self.gaussMeans_norm[1])
+        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle_norm[0,0])*varianceFactor,np.sqrt(self.covNormAngle_norm[1,1])*varianceFactor,rho,-self.gaussMeans_norm[0],-self.gaussMeans_norm[1])
         self.kernel = self.kernel/np.sum(self.kernel)
 
         for t in range(progTimeSteps):
@@ -1313,7 +1304,7 @@ def nesting(prog_data, nested_dist, nested_points, boo_prog_data, dwd, rMax, rai
     if np.sum(boo_prog_data[boo_pixels]>lawr.rainThreshold):
         prog_data[hhg_pixels] = interp2d(boo_prog_data, HHGLatInBOO[hhg_pixels], HHGLonInBOO[
             hhg_pixels])        #prog_data[hhg_pixels] = griddata(boo.HHG_cart_points[boo_pixels.flatten()], boo_prog_data[boo_pixels].flatten(), nested_points[hhg_pixels.flatten()], method='cubic')
-    return  prog_data
+    return prog_data
 
 def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
 
@@ -1324,24 +1315,47 @@ def booDisplacement(boo, boo_prog_data, displacementX, displacementY):
     return boo_prog_data
 
 def leastsquarecorr(dataArea, corrArea):
-        # %Calculates a leastsquare correlation between 2 matrices c and d
+    """
+    Calculates the least squared difference between two input arrays.
+    coraArea array moves over the dataArea array.
 
-    # cLen = len(dataArea)-len(corrArea)+1
-    # c_d = np.zeros([cLen, cLen])
-    #
-    # k = 0
-    # m = 0
-    # for i in range(cLen):
-    #     for j in range(cLen):
-    #         c_d[k, m] = np.sum(np.square(dataArea[i:i + cLen-1, j:j + cLen-1] - corrArea))
-    #         m += 1
-    #     m = 0
-    #     k += 1
+    Parameters
+    ----------
+        dataArea (numpy.ndarray): 2d array, the larger array (m x m)
+        corrArea (numpy.ndarray): 2d array, the smaller array (n x n)
 
+    Returns
+    -------
+    (numpy.ndarray):
+        least squared differences of both arrays size should be (n x n)
+    """
     c_d = np.sum((image.extract_patches_2d(dataArea, corrArea.shape) - corrArea) ** 2, axis=(1, 2)).reshape(np.array(dataArea.shape) - corrArea.shape + 1)
     return c_d
 
 def twodgauss(x, y, sigma1, sigma2, rho, mu1, mu2):
+    """
+    Constructs and returns a bivariate normal distribution.
+
+    This function creates a bivariate normal distribution with the specifics from the input.
+    x and y create the grid for the distribution. They have to be created with np.meshgrid beforehand.
+    For example with [y,x] = np.meshgrid(np.arange(-5,5),np.arange(-5,5). The 0 has to be in the middle of the created
+    x,y arrays.
+
+    Parameters
+    ----------
+        x (numpy.ndarray): 2d array containing x grid for the bivariate normal distribution
+        y (numpy.ndarray): 2d array containing y grid for the bivariate normal distribution
+        sigma1 (float): standard deviation of variable 1
+        sigma2 (float); standard deviation of variable 2
+        rho (float): correlation between variable 1 and variable 2
+        mu1 (float): mean of variable 1
+        mu2 (float): mean of variable 2
+
+    Returns
+    -------
+    (numpy.ndarray):
+        bivariate normal distribution for the input parameters with the size of the input grids
+    """
     return 1 / (2 * np.pi * sigma1 * sigma2 * np.sqrt(1 - rho ** 2)) * np.exp(-1 / (2 * (1 - rho ** 2)) * (
            (x - mu1) ** 2 / sigma1 ** 2 - (2 * rho * (x - mu1) * (y - mu2) / (sigma1 * sigma2)) + (
            y - mu2) ** 2 / sigma2 ** 2))
