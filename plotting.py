@@ -164,8 +164,8 @@ xy_pat = [9.9734,53.56833]
 xy_pat_T = mercator.transform_point(xy_pat[0],xy_pat[1],ccrs.PlateCarree())
 radarCircle_pat = mpatches.Circle(xy=xy_pat_T, radius=20000*1.73, color='k', linewidth=1, fill=0,transform = mercator)
 ax2.add_patch(radarCircle_pat)
-x_rect = np.array([9.2167,10.7473])
-y_rect = np.array([53.11,54.0215])
+x_rect = np.array([9.0671469606965474,10.90388580413939])
+y_rect = np.array([53.018473372584012,54.111564718254151])
 xy_rect=mercator.transform_points(ccrs.PlateCarree(),x_rect,y_rect)
 radarRect = mpatches.Rectangle(xy_rect[0],width=xy_rect[1,0]-xy_rect[0,0],height=xy_rect[1,1]-xy_rect[0,1], color='b',fill=0)
 ax2.add_patch(radarRect)
@@ -462,22 +462,45 @@ ax.set_yticklabels((ax.get_yticks()-50) * 0.25)
 ax.invert_yaxis()
 fig.savefig('/home/zmaw/u300675/ma_rainprog/maximaOverview.pgf')
 
+
+plt.rcParams["figure.figsize"] = (2.8,2.8)
 testcmap = plt.get_cmap('jet', 11)    # 11 discrete colors
 testcmap.set_under('white')
-
+test2 = np.zeros([20,20])
+test2[6,13] = 1
+test2[11:13,11:13] =1
 fig, ax = plt.subplots(1)
 dat = ax.imshow(test2, cmap=testcmap)
 ax.set_xlabel('Pixels')
-ax.set_xticks([0,10,20,30])
+ax.set_xticks([0,5,10,15])
 ax.set_ylabel('Pixels')
 s = plt.colorbar(dat, fraction=0.046, pad=0.04)
 s.set_clim(0.001,1)
+s.set_ticks([0.0, 0.2,0.4,0.6,0.8,1.0])
+s.set_ticklabels([0.0, 0.2,0.4,0.6,0.8,1.0])
+s.draw_all()
+s.set_label('Arbitrary Units')
+ax.grid()
+ax.invert_yaxis()
+plt.tight_layout()
+fig.savefig('/home/zmaw/u300675/ma_rainprog/prognosis_t0.pgf')
+
+fig, ax = plt.subplots(1)
+dat = ax.imshow(cv2.filter2D(test2,-1,lawr.kernel), cmap=testcmap)
+ax.set_xlabel('Pixels')
+ax.set_xticks([0,5,10,15])
+ax.set_ylabel('Pixels')
+s = plt.colorbar(dat, fraction=0.046, pad=0.04)
+s.set_clim(0.001,1)
+s.set_ticks([0.0, 0.2,0.4,0.6,0.8,1.0])
+s.set_ticklabels([0.0, 0.2,0.4,0.6,0.8,1.0])
 s.draw_all()
 s.set_label('Arbitrary Units')
 ax.grid()
 ax.invert_yaxis()
 plt.tight_layout()
 fig.savefig('/home/zmaw/u300675/ma_rainprog/prognosis_t1.pgf')
+
 
 
 
@@ -525,3 +548,194 @@ ax.invert_yaxis()
 plt.tight_layout()
 
 fig.savefig('/home/zmaw/u300675/ma_rainprog/attenuation_lawr.pgf')
+
+
+
+
+
+
+plt.rcParams["figure.figsize"] = (3.2,3.2)
+plt.rcParams.update({'font.size': 10.5})
+##prog 30 min
+progdata =  np.copy(lawr.probabilities[60,:,:])
+progdata[lawr.dist_nested > lawr.r[-1]]=0
+test = np.copy(progdata)
+test[test<0.01]=np.nan
+
+fig, ax = plt.subplots(1)
+im = ax.imshow(test, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1),cmap=plt.get_cmap('BuPu',10))
+s = plt.colorbar(im, fraction=0.046, pad=0.04)
+ellipse = mpatches.Ellipse((400,205),60,80,angle=0,color='g',linewidth=1,fill=0)
+ax.add_patch(ellipse)
+ellipse = mpatches.Ellipse((370,280),60,60,angle=-40,color='g',linewidth=1,fill=0)
+ax.add_patch(ellipse)
+#ellipse = mpatches.Ellipse((270,110),160,100,angle=90,color='r',linewidth=1,fill=0)
+#ax.add_patch(ellipse)
+s.set_clim(0, 1)
+s.set_label('Precipitation probability')
+s.set_ticks([0,0.2,0.4,0.6,0.8,1])
+s.set_ticklabels([0.0,0.2,0.4,0.6,0.8,1.0])
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+s.draw_all()
+ax.invert_yaxis()
+plt.tight_layout()
+plt.savefig('/home/zmaw/u300675/ma_rainprog/prog30_std7.pgf')
+
+hhg_60 = np.copy(lawr.nested_data[lawr.progStartIdx+60,:,:])
+hhg_60[hhg_60<0.5]=0
+hhg_60[hhg_60>0.5]=1
+fig, ax = plt.subplots(1)
+im = ax.imshow(hhg_60,cmap=plt.get_cmap('Greys',2))
+ellipse = mpatches.Ellipse((370,280),60,60,angle=-40,color='g',linewidth=1,fill=0)
+ax.add_patch(ellipse)
+ellipse = mpatches.Ellipse((400,205),60,80,angle=0,color='g',linewidth=1,fill=0)
+ax.add_patch(ellipse)
+#ellipse = mpatches.Ellipse((200,110),110,100,angle=-40,color='b',linewidth=1,fill=0)
+#ax.add_patch(ellipse)
+s = plt.colorbar(im,fraction=0.046, pad=0.04)
+s.set_clim(0.0001,1)
+s.set_ticks([0,1])
+s.set_ticklabels([0.0,1.0])
+s.set_label('Precipitation > 0.5 mm/h')
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+ax.invert_yaxis()
+plt.tight_layout()
+plt.savefig('/home/zmaw/u300675/ma_rainprog/real30_std7.pgf')
+
+hhg_0 = np.copy(lawr.nested_data[lawr.progStartIdx,:,:])
+hhg_0[hhg_0<0.5]=0
+hhg_0[hhg_0>0.5]=1
+fig, ax = plt.subplots(1)
+im = ax.imshow(hhg_0,cmap=plt.get_cmap('Greys',2))
+#ellipse = mpatches.Ellipse((370,230),110,100,angle=-40,color='b',linewidth=1,fill=0)
+#ax.add_patch(ellipse)
+s = plt.colorbar(im,fraction=0.046, pad=0.04)
+s.set_clim(0.0001,1)
+s.set_ticks([0,1])
+s.set_ticklabels([0.0,1.0])
+s.set_label('Precipitation > 0.5 mm/h')
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+ax.invert_yaxis()
+plt.tight_layout()
+plt.savefig('/home/zmaw/u300675/ma_rainprog/real0_std7.pgf')
+
+
+hhg_120 = np.copy(lawr.nested_data[lawr.progStartIdx+119,:,:])
+hhg_120[hhg_120<0.5]=0
+hhg_120[hhg_120>0.5]=1
+fig, ax = plt.subplots(1)
+im = ax.imshow(hhg_120,cmap=plt.get_cmap('Greys',2))
+s = plt.colorbar(im,fraction=0.046, pad=0.04)
+s.set_clim(0.0001,1)
+s.set_ticks([0,1])
+s.set_ticklabels([0.0,1.0])
+s.set_label('Precipitation > 0.5 mm/h')
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+ax.invert_yaxis()
+plt.tight_layout()
+plt.savefig('/home/zmaw/u300675/ma_rainprog/real60_std7.pgf')
+
+
+progdata =  np.copy(lawr.probabilities[-1,:,:])
+progdata[lawr.dist_nested > lawr.r[-1]]=0
+test = np.copy(progdata)
+test[test<0.01]=np.nan
+
+fig, ax = plt.subplots(1)
+im = ax.imshow(test, norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1),cmap=plt.get_cmap('BuPu',10))
+s = plt.colorbar(im, fraction=0.046, pad=0.04)
+s.set_clim(0, 1)
+s.set_label('Precipitation probability')
+s.set_ticks([0,0.2,0.4,0.6,0.8,1])
+s.set_ticklabels([0.0,0.2,0.4,0.6,0.8,1.0])
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+s.draw_all()
+ax.invert_yaxis()
+plt.tight_layout()
+plt.savefig('/home/zmaw/u300675/ma_rainprog/prog60_std7.pgf')
+
+
+##rse error
+probs = np.copy(lawr.probabilities[60,:,:])
+probs[lawr.dist_nested>lawr.r[-1]] = 0
+
+rse =  probs-(lawr.nested_data[lawr.progStartIdx+60,:,:]>0.5)
+rse[lawr.dist_nested>lawr.r[-1]] = np.nan
+rse_s = np.square(rse)
+rse_s[rse_s<0.01]=np.nan
+
+fig, ax = plt.subplots(1)
+im = ax.imshow(rse_s, cmap=plt.get_cmap('Reds',10))
+ellipse = mpatches.Ellipse((370,280),60,60,angle=-40,color='g',linewidth=1,fill=0)
+ax.add_patch(ellipse)
+ellipse = mpatches.Ellipse((400,205),60,80,angle=0,color='g',linewidth=1,fill=0)
+ax.add_patch(ellipse)
+s = plt.colorbar(im, fraction=0.046, pad=0.04)
+s.set_clim(0, 1)
+s.set_label('Squared difference')
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+s.draw_all()
+ax.invert_yaxis()
+plt.tight_layout()
+plt.savefig('/home/zmaw/u300675/ma_rainprog/diff30_std7.pgf')
+
+probs = np.copy(lawr.probabilities[-1,:,:])
+probs[lawr.dist_nested>lawr.r[-1]] = 0
+
+rse =  probs-(lawr.nested_data[lawr.progStartIdx+119,:,:]>0.5)
+rse[lawr.dist_nested>lawr.r[-1]] = np.nan
+rse_s = np.square(rse)
+rse_s[rse_s<0.01]=np.nan
+
+fig, ax = plt.subplots(1)
+im = ax.imshow(rse_s, cmap=plt.get_cmap('Reds',10))
+s = plt.colorbar(im, fraction=0.046, pad=0.04)
+s.set_clim(0, 1)
+s.set_label('Squared difference')
+ax.grid(linewidth=0.5)
+ax.set_xticks([0,100,200,300,400])
+ax.set_yticks([0,100,200,300,400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks()*0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks()*0.1).astype(int))
+s.draw_all()
+ax.invert_yaxis()
+plt.tight_layout()
+plt.savefig('/home/zmaw/u300675/ma_rainprog/diff60_std7.pgf')

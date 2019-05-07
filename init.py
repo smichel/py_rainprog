@@ -1005,10 +1005,10 @@ class LawrData(radarData, Totalfield):
                                                        datetime.timedelta(hours=-1,minutes=self.trainTime/2)).utctimetuple())-self.time))
 
     def extrapolation(self, dwd, progTimeSteps, prog,probabilityFlag,variancefactor=1):
-        filtersize = 10 # default filtersize
+        filtersize = 15 # default filtersize
 
-        if np.any(filtersize < (5 * np.max(self.covNormAngle))):
-            filtersize = np.int(np.max(self.covNormAngle*5))
+        if np.any(filtersize < (np.max(np.abs(self.gaussMeans))+variancefactor * np.max(self.covNormAngle))):
+            filtersize += np.int(np.max(self.covNormAngle*variancefactor))
         rho = (self.covNormAngle[0, 1] * variancefactor) / (
                     np.sqrt(self.covNormAngle[0, 0]) * variancefactor * np.sqrt(
                 self.covNormAngle[1, 1]) * variancefactor)
@@ -1343,17 +1343,24 @@ def twodgauss(x, y, sigma1, sigma2, rho, mu1, mu2):
 
     Parameters
     ----------
-        x (numpy.ndarray): 2d array containing x grid for the bivariate normal distribution
-        y (numpy.ndarray): 2d array containing y grid for the bivariate normal distribution
-        sigma1 (float): standard deviation of variable 1
-        sigma2 (float); standard deviation of variable 2
-        rho (float): correlation between variable 1 and variable 2
-        mu1 (float): mean of variable 1
-        mu2 (float): mean of variable 2
+        x : numpy.ndarray
+            2d array containing x grid for the bivariate normal distribution
+        y : numpy.ndarray
+            2d array containing y grid for the bivariate normal distribution
+        sigma1 : float
+            standard deviation of variable 1
+        sigma2 : float
+            standard deviation of variable 2
+        rho : float
+            correlation between variable 1 and variable 2
+        mu1 : float
+            mean of variable 1
+        mu2 : float
+            mean of variable 2
 
     Returns
     -------
-    (numpy.ndarray):
+    numpy.ndarray
         bivariate normal distribution for the input parameters with the size of the input grids
     """
     return 1 / (2 * np.pi * sigma1 * sigma2 * np.sqrt(1 - rho ** 2)) * np.exp(-1 / (2 * (1 - rho ** 2)) * (

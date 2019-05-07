@@ -303,7 +303,7 @@ def prognosis(date,t):
 
         #if not useRealData:
         resScale=1
-        variancefactor = 8
+        variancefactor = 7
         lawr.extrapolation(dwd,progTime,prog,probabilityFlag,variancefactor)
 
         if 1:
@@ -370,26 +370,25 @@ def prognosis(date,t):
                 #plt.savefig('/scratch/local1/plots/test_prognosis_timestep_'+str(t)+'.png')
         real_data = lawr.nested_data[lawr.progStartIdx:lawr.progStartIdx + progTime, :, :] > rain_threshold
 
-        f = netCDF4.Dataset('/scratch/local1/radardata/prognosis12_variance8/'+str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute) + '_prognosis.nc', 'w', format='NETCDF4')  # 'w' stands for write
-        tempgrp = f.createGroup('Prognosis Data')
-        tempgrp.createDimension('time', len(lawr.probabilities))
-        tempgrp.createDimension('x', lawr.probabilities.shape[1])
-        tempgrp.createDimension('y', lawr.probabilities.shape[2])
-
-        TIME = tempgrp.createVariable('Time', np.int32, 'time')
-        Probabilities= tempgrp.createVariable('probabilities', 'f4', ('time','x','y'),zlib=True)
-        #Probabilities2 = tempgrp.createVariable('probabilities_11', 'f4', ('time', 'x', 'y'), zlib=True)
-        Real_data = tempgrp.createVariable('historic_data', 'i', ('time','x','y'),zlib=True)
-        Dist_nested = tempgrp.createVariable('dist_nested', 'f4', ('x','y'),zlib=True)
-        TIME[:] = lawr.time[lawr.progStartIdx:lawr.progStartIdx + progTime]
-        Probabilities[:,:,:] = lawr.probabilities
-        #Probabilities2[:, :, :] = lawr.probabilities2
-        Real_data[:, :, :] = real_data
-        Dist_nested[:,:] = lawr.dist_nested
-        f.close()
+        # f = netCDF4.Dataset('/scratch/local1/radardata/prognosis12_variance10/'+str(mon) + '_' + str(day) +'_'+str(hour)+ '_' + str(minute) + '_prognosis.nc', 'w', format='NETCDF4')  # 'w' stands for write
+        # tempgrp = f.createGroup('Prognosis Data')
+        # tempgrp.createDimension('time', len(lawr.probabilities))
+        # tempgrp.createDimension('x', lawr.probabilities.shape[1])
+        # tempgrp.createDimension('y', lawr.probabilities.shape[2])
+        #
+        # TIME = tempgrp.createVariable('Time', np.int32, 'time')
+        # Probabilities= tempgrp.createVariable('probabilities', 'f4', ('time','x','y'),zlib=True)
+        # #Probabilities2 = tempgrp.createVariable('probabilities_11', 'f4', ('time', 'x', 'y'), zlib=True)
+        # Real_data = tempgrp.createVariable('historic_data', 'i', ('time','x','y'),zlib=True)
+        # Dist_nested = tempgrp.createVariable('dist_nested', 'f4', ('x','y'),zlib=True)
+        # TIME[:] = lawr.time[lawr.progStartIdx:lawr.progStartIdx + progTime]
+        # Probabilities[:,:,:] = lawr.probabilities
+        # #Probabilities2[:, :, :] = lawr.probabilities2
+        # Real_data[:, :, :] = real_data
+        # Dist_nested[:,:] = lawr.dist_nested
+        # f.close()
         #result=verification(lawr,dwd,year, mon, day, hour, minute,progTime)
         thresholds=[0.1,0.2,0.5,1,2,5,10,20,30]
-
 
             #fig, ax = plt.subplots()
             #ax.bar(bin_edges[:-1]-0.1, histX, color='b', width = 0.2)
@@ -1278,7 +1277,7 @@ dates =[[2016, 6, 24, 3, 30],
  [2016, 8, 28, 4, 50],
  [2016, 6, 25, 22, 30]]
 
-#prognosis([2016,6,24,18,0,120],0)
+prognosis([2016,6,2,9,0,120],0)
 #prognosis([2016,3,1,20,0,120],0)
 
 # startTime = datetime.now()
@@ -1294,12 +1293,12 @@ dates =[[2016, 6, 24, 3, 30],
 # print(datetime.now() - startTime)
 t = np.arange(len(dates))
 
-startTime = datetime.now()
-pool = mp.Pool(4)
-pool.starmap(prognosis, zip(dates,t))
-pool.close()
-pool.join()
-print(datetime.now() - startTime)
+#startTime = datetime.now()
+#pool = mp.Pool(4)
+#pool.starmap(prognosis, zip(dates,t))
+#pool.close()
+#pool.join()
+#print(datetime.now() - startTime)
 
 #np.save('/scratch/local1/radardata/results.npy',results)
 # #
