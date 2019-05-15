@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 class radarData:
 
     def __init__(self, path):
-        self.rainThreshold = 0.5
+        self.rainThreshold = 0.1
 
     def set_auxillary_geoData(self, dwd, lawr, HHGposition):
         dwd.HHGdist = np.sqrt(np.square(dwd.XCar_nested - dwd.XCar_nested.min() - HHGposition[0] * dwd.resolution) +
@@ -54,7 +54,7 @@ class radarData:
             Totalfield.findmaxima([], self.nested_data[self.startTime, :, :], self.cRange, self.numMaxima,
                                   self.rainThreshold, self.distThreshold, self.dist_nested, self.resolution),
             self.rainThreshold, self.distThreshold, self.dist_nested, self.numMaxima, self.nested_data,
-            self.resolution, self.cRange, self.trainTime, self.d_s)
+            self.resolution, self.cRange, self.trainTime, self.d_s,self.timeDiff)
         self.progField.deltaT = 1
 
     def find_displacement(self,prog):
@@ -62,7 +62,8 @@ class radarData:
             if len(self.progField.activeFields) < self.numMaxima:
                 self.progField.assign_ids()
             self.progField.test_maxima(self.nested_data[self.startTime + t,:,:])
-            self.progField.prog_step(self.startTime+t)
+            timeDiff = int(np.diff([self.time[self.startTime+t], self.time[self.startTime+t+1]])*24*60*60)
+            self.progField.prog_step(self.startTime+t,timeDiff)
             self.progField.update_fields()
 
         self.progField.test_angles2()
@@ -148,7 +149,7 @@ class Square:
 
 class Totalfield:
 
-    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime,d_s):
+    def __init__(self, fields, rainThreshold, distThreshold, dist, numMaxes, nested_data, res, cRange, trainTime,d_s,timeDiff):
         self.activeFields = fields
         self.rejectedFields = []
         self.inactiveFields = []
@@ -174,6 +175,7 @@ class Totalfield:
         self.sum_square = []
         self.betas = []
         self.d_s = d_s
+        self.timeDiff = timeDiff
         self.assign_ids()
     def return_maxima(self):
         maxima = np.empty([len(self.activeFields), 3])
@@ -317,9 +319,9 @@ class Totalfield:
         for i in range(len(self.activeFields)):
             maxima[i, 0:3] = self.activeFields[i].maxima
 
-        mask = maxima[:, 0] > self.rainThreshold
-        maxima = maxima[mask]
-        status = status[mask]
+        #mask = maxima[:, 0] > self.rainThreshold
+        #maxima = maxima[mask]
+        #status = status[mask]
 
         middle = nestedData.shape
         dist = np.sqrt(
@@ -327,15 +329,15 @@ class Totalfield:
         maxima = maxima[dist < self.distThreshold, :]
         status = status[dist < self.distThreshold]
 
-        maximaProx = np.empty([len(maxima)])
-        for q in range(len(maxima)):
-            maximaProx[q] = np.mean([nestedData[int(maxima[q, 1] - 1), int(maxima[q, 2])],
-                                     nestedData[int(maxima[q, 1] + 1), int(maxima[q, 2])],
-                                     nestedData[int(maxima[q, 1]), int(maxima[q, 2] - 1)],
-                                     nestedData[int(maxima[q, 1]), int(maxima[q, 2] + 1)]])
+        #maximaProx = np.empty([len(maxima)])
+        #for q in range(len(maxima)):
+        #    maximaProx[q] = np.mean([nestedData[int(maxima[q, 1] - 1), int(maxima[q, 2])],
+        #                             nestedData[int(maxima[q, 1] + 1), int(maxima[q, 2])],
+        #                             nestedData[int(maxima[q, 1]), int(maxima[q, 2] - 1)],
+        #                             nestedData[int(maxima[q, 1]), int(maxima[q, 2] + 1)]])
 
-        maxima = maxima[maximaProx > self.rainThreshold, :]
-        status = status[maximaProx > self.rainThreshold]
+        #maxima = maxima[maximaProx > self.rainThreshold, :]
+        #status = status[maximaProx > self.rainThreshold]
 
         status=list(status)
 
@@ -345,11 +347,11 @@ class Totalfield:
                 self.inactiveFields[-1].lifeTime = -1
                 del self.activeFields[i]
 
-    def prog_step(self,t):
+    def prog_step(self,t,timeDiff):
 
         for field in self.activeFields:
 
-            corrArea = self.nested_data[t-self.deltaT+1,
+            corrArea = self.nested_data[t,
                        (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
                        (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
             dataArea = self.nested_data[t+1,
@@ -361,8 +363,12 @@ class Totalfield:
             # http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_template.html
             c = leastsquarecorr(dataArea, corrArea)
             cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
-            field.shiftX = (cIdx[0] - 0.5 * len(c))/self.deltaT
-            field.shiftY = (cIdx[1] - 0.5 * len(c))/self.deltaT
+            if timeDiff>self.timeDiff:
+                timeDiff = timeDiff/self.timeDiff
+            else:
+                timeDiff = 1
+            field.shiftX = (cIdx[0] - 0.5 * len(c))/(timeDiff)
+            field.shiftY = (cIdx[1] - 0.5 * len(c))/(timeDiff)
             field.norm = np.linalg.norm([field.shiftX, field.shiftY])
 
             field.angle = get_metangle(field.shiftX, field.shiftY)
@@ -375,31 +381,6 @@ class Totalfield:
                                                   int(field.maxima[0, 2] + field.shiftY)]
             field.maxima[0, 1] = field.maxima[0, 1] + field.shiftX
             field.maxima[0, 2] = field.maxima[0, 2] + field.shiftY
-
-
-            # if field.norm == 1:
-            #     corrArea = self.nested_data[t,
-            #                (int(field.maxima[0, 1]) - self.cRange):(int(field.maxima[0, 1]) + self.cRange),
-            #                (int(field.maxima[0, 2]) - self.cRange):(int(field.maxima[0, 2]) + self.cRange)]
-            #     dataArea = self.nested_data[t + 2,
-            #                (int(field.maxima[0, 1]) - self.cRange * 2):(int(field.maxima[0, 1]) + self.cRange * 2),
-            #                (int(field.maxima[0, 2]) - self.cRange * 2):(int(field.maxima[0, 2]) + self.cRange * 2)]
-            #     c = leastsquarecorr(dataArea, corrArea)
-            #     cIdx = np.unravel_index((np.nanargmin(c)), c.shape)
-            #     field.shiftX = int(cIdx[0] - 0.5 * len(c))*0.5
-            #     field.shiftY = int(cIdx[1] - 0.5 * len(c))*0.5
-            #     field.norm = np.linalg.norm([field.shiftX, field.shiftY])
-            #     field.angle = get_metangle(field.shiftX, field.shiftY)
-            #     field.angle = field.angle.filled()
-            #     field.add_norm(field.norm)
-            #     field.add_angle(field.angle)
-            #     field.add_maximum(np.copy(field.maxima))
-            #     field.add_shift(field.shiftX, field.shiftY)
-            #     field.maxima[0, 0] = self.nested_data[t, int(field.maxima[0, 1] + field.shiftX),
-            #                                           int(field.maxima[0, 2] + field.shiftY)]
-            #     field.maxima[0, 1] = (field.maxima[0, 1] + field.shiftX)
-            #     field.maxima[0, 2] = (field.maxima[0, 2] + field.shiftY)
-
 
     def update_fields(self):
 
@@ -631,6 +612,7 @@ class DWDData(radarData, Totalfield):
         self.sitecoords = [10.04683, 54.0044]
         self.resolution = 250  # horizontal resolution in m
         self.trainTime = 6  # 6 Timesteps for training to find the displacement vector (equals 25 minutes)
+        self.timeDiff = 300
         self.numMaxima = 20  # number of tracked maxima
         self.distThreshold = 45000
         self.getGrid()
@@ -746,12 +728,25 @@ class DWDData(radarData, Totalfield):
         self.R = interpolating_function(z_).transpose()
 
 
-    def extrapolation(self, progTimeSteps):
+    def extrapolation(self, progTimeSteps,varianceFactor = 3):
 
         self.prog_data = np.zeros([progTimeSteps, self.nested_data.shape[1], self.nested_data.shape[2]])
+        filtersize = 15 # default filtersize
+        if np.any(filtersize < (3 * np.max(self.covNormAngle_norm))):
+            filtersize = np.int(np.max(self.covNormAngle_norm*3))
+        rho = (self.covNormAngle_norm[0,1]*varianceFactor)/(np.sqrt(self.covNormAngle_norm[0,0]*varianceFactor)*np.sqrt(self.covNormAngle_norm[1,1])*varianceFactor)
+        [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
+        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle_norm[0,0])*varianceFactor,np.sqrt(self.covNormAngle_norm[1,1])*varianceFactor,rho,-self.gaussMeans_norm[0],-self.gaussMeans_norm[1])
+        self.kernel = self.kernel/np.sum(self.kernel)
 
         for t in range(progTimeSteps):
-            self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.gaussMeans[0]/10)*t, (self.gaussMeans[1]/10)*t)
+            if t == 0:
+                self.prog_data[t, :, :] = self.nested_data[-1,:,:]>self.rainThreshold
+                self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t,:,:], -1, self.kernel)
+
+            #self.prog_data[t, :, :] = booDisplacement(self,self.nested_data[-1,:,:], (self.gaussMeans[0]/10)*t, (self.gaussMeans[1]/10)*t)
+            else:
+                self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t-1,:,:], -1, self.kernel)
             self.time = np.append(self.time,self.time[-1]+30/86400)
 
 class LawrData(radarData, Totalfield):
@@ -789,6 +784,7 @@ class LawrData(radarData, Totalfield):
             self.numMaxima = 20  # number of tracked maxima
             self.resolution = 100
             self.timeSteps = len(self.time)
+            self.timeDiff=30
             self.distThreshold = 19000
             aziCorr = -5
             self.azi = np.mod(self.azi + aziCorr, 360)
@@ -893,38 +889,38 @@ class LawrData(radarData, Totalfield):
             nested_data[:,:,:] = self.gridding()
             self.nested_data = np.vstack((self.nested_data,nested_data))
 
-    def extrapolation(self, dwd, progTimeSteps,probabilityFlag):
-        self.yx, self.xy = np.meshgrid(np.arange(0, 4 * self.cRange + self.d_s), np.arange(0, 4 * self.cRange + self.d_s))
-        self.xSample, self.ySample = create_sample(self.gaussMeans, self.covNormAngle, 64)
-        filtersize = 10 # default filtersize
-        if np.any(filtersize < (3 * np.max(self.covNormAngle))):
-            filtersize = np.int(np.max(self.covNormAngle*3))
-        rho = self.covNormAngle[0,1]/(np.sqrt(self.covNormAngle[0,0])*np.sqrt(self.covNormAngle[1,1]))
+    def extrapolation(self, dwd, progTimeSteps,variancefactor):
+        filtersize = 15 # default filtersize
+
+        if np.any(filtersize < (np.max(np.abs(self.gaussMeans))+variancefactor * np.max(self.covNormAngle))):
+            filtersize += np.int(np.max(self.covNormAngle*variancefactor))
+        rho = (self.covNormAngle[0, 1] * variancefactor) / (
+                    np.sqrt(self.covNormAngle[0, 0]) * variancefactor * np.sqrt(
+                self.covNormAngle[1, 1]) * variancefactor)
         [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
-        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0]),np.sqrt(self.covNormAngle[1,1]),rho,-self.gaussMeans[0],-self.gaussMeans[1])
+        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0])*variancefactor,np.sqrt(self.covNormAngle[1,1])*variancefactor,rho,-self.gaussMeans[0],-self.gaussMeans[1])
         self.kernel = self.kernel/np.sum(self.kernel)
+
         self.prog_data = np.zeros([self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
-        rainThreshold=0.5
         self.progStartIdx = -1
         self.prog_data[:, :] = self.nested_data[-1, :, :]
         self.prog_start = 3 * ['']
-        self.dwdProgStartIdx = np.where(self.time==dwd.time)
+        self.dwdProgStartIdx = np.argmin(np.abs(dwd.time - self.time[self.progStartIdx]))
 
         self.prog_data[:, :] = nesting(self.prog_data[:, :], self.dist_nested, self.target_nested,
                                           dwd.prog_data[self.dwdProgStartIdx, :, :], dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
-        if probabilityFlag:
-            self.probabilities[0,:,:] = self.nested_data[self.progStartIdx,:,:]>rainThreshold
+        self.probabilities[0,:,:] = self.nested_data[self.progStartIdx,:,:]>self.rainThreshold
 
-            self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
-                                          dwd.prog_data[self.dwdProgStartIdx, :, :]>rainThreshold, dwd, self.r[-1],
+        self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
+                                          dwd.prog_data[self.dwdProgStartIdx, :, :]>self.rainThreshold, dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
-            self.probabilities[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel)
+        self.probabilities[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel)
 
         #self.prog_data[0,:,:] = cv2.filter2D(self.prog_data[0,:,:],-1,self.kernel)
         for t in range(1,progTimeSteps):
@@ -936,14 +932,13 @@ class LawrData(radarData, Totalfield):
 
             #self.prog_data[t, :, :] = cv2.filter2D(self.prog_data[t, :, :], -1, self.kernel)
 
-            if probabilityFlag:
-                self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
+            self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
 
-                self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
-                                              dwd.prog_data[self.dwdProgStartIdx + t, :, :]>rainThreshold, dwd, self.r[-1],
-                                              self.rainThreshold, self,
-                                              self.Lat_nested, self.Lon_nested)
-                self.probabilities[t, :, :] = cv2.filter2D(self.probabilities[t, :, :], -1, self.kernel)
+            self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
+                                                  dwd.prog_data[self.dwdProgStartIdx + t, :, :]>self.rainThreshold, dwd, self.r[-1],
+                                                  self.rainThreshold, self,
+                                                  self.Lat_nested, self.Lon_nested)
+            self.probabilities[t, :, :] = cv2.filter2D(self.probabilities[t, :, :], -1, self.kernel)
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)

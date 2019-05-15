@@ -19,33 +19,34 @@ contours = [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
 dir = '/scratch/local1/temp_radar_data/lawr_single_attcorr_latest/'
 
-da = sorted(os.listdir('/scratch/local1/temp_radar_data/dwd_latest/'))
-ta = sorted(os.listdir('/scratch/local1/temp_radar_data/lawr_dual_latest/'))
+lawr_dir = '/scratch/local1/temp_radar_data/lawr_dual_latest/'
+os.chdir(lawr_dir)
+ta = sorted(os.listdir(lawr_dir),key=os.path.getmtime)
+dwd_dir = '/scratch/local1/temp_radar_data/dwd_latest/'
+os.chdir(dwd_dir)
+da = sorted(os.listdir(dwd_dir),key=os.path.getmtime)
 
-os.chdir(dir)
-tes = sorted(os.listdir(dir),key=os.path.getmtime)
-te = tes[1:-43]
-lawr = LawrData('/scratch/local1/temp_radar_data/lawr_dual_latest/'+ta[50])
-ta = ta[51:62]
-dwd = DWDData('/scratch/local1/temp_radar_data/dwd_latest/dwd_latest_31_16.nc')
 
-for t in range(len(da[6:12])):
-    dwd.addTimestep('/scratch/local1/temp_radar_data/dwd_latest/'+da[6+t])
-    print(da[6+t])
+lawr = LawrData('/scratch/local1/temp_radar_data/lawr_dual_latest/'+ta[0])
+dwd = DWDData('/scratch/local1/temp_radar_data/dwd_latest/'+da[0])
 
-for t in range(len(ta)):
-    lawr.addTimestep('/scratch/local1/temp_radar_data/lawr_dual_latest/'+ta[t])
+for t in range(len(da[1:])):
+    dwd.addTimestep('/scratch/local1/temp_radar_data/dwd_latest/'+da[t+1])
+
+for t in range(len(ta[1:])):
+    lawr.addTimestep('/scratch/local1/temp_radar_data/lawr_dual_latest/'+ta[t+1])
 
 dwd.initial_maxima()
 dwd.find_displacement(0)
-dwd.gaussMeans = [10,2]
-dwd.extrapolation(50)
+#dwd.gaussMeans = [10,2]
+dwd.covNormAngle_norm = np.cov(dwd.progField.return_fieldHistX().flatten() / 10,
+                                           dwd.progField.return_fieldHistY().flatten() / 10)
+dwd.gaussMeans_norm = [x/10 for x in dwd.gaussMeans]
+dwd.extrapolation(50+15)
 
-lawr.startTime = -lawr.trainTime
+lawr.startTime = -11
 lawr.initial_maxima()
 lawr.find_displacement(-lawr.trainTime)
-lawr.covNormAngle = np.array([[0,0],[0,0]])
-lawr.gaussMeans = [x / 10 * (dwd.resolution / lawr.resolution) for x in dwd.gaussMeans]
 
 dwd.HHGPos = findRadarSite(lawr, dwd)
 dwd.set_auxillary_geoData(dwd, lawr, dwd.HHGPos)

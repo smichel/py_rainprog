@@ -129,7 +129,7 @@ def prognosis(date, t):
         ax1 = f.add_subplot(111)
         p = subprocess.Popen(cmdstring, stdin=subprocess.PIPE)
         for t in range(progTime):
-            im = lawr.nested_data[t, :, :]
+            im = lawr.probabilities[t, :, :]
             im[lawr.dist_nested >= np.max(lawr.r)] = 0
             if t == 0:
                 imP = ax1.imshow(im,cmap=cmap)
@@ -197,7 +197,90 @@ result = prognosis([2016,6,2,7,40,90],0)
 #results = pool.starmap(prognosis, zip(dates,t))
 #pool.close()
 #pool.join()
-# #
+# # #
+import os
+import shutil
+import time
+import datetime
+path = '/home/zmaw/u231126/radar/public_html/temp_data'
+
+lawr_dir = '/scratch/local1/temp_radar_data/lawr_dual_latest/'
+dwd_dir = '/scratch/local1/temp_radar_data/dwd_latest/'
+
+homepath = '/scratch/local1/temp_radar_data'
+newdata = 0
+params = [[[], []] for i in range(20)]
+for i, filename in enumerate(os.listdir(path)):
+    # I use absolute path, case you want to move several dirs.
+    base, extension = os.path.splitext(filename)
+    params[i][0] = filename
+    params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(path+ '/' + filename))
+    oldname = os.path.join(os.path.abspath(path), filename)
+    if ((filename == 'lawr_dual_latest.nc') | (filename == 'dwd_latest.nc')):
+        newname = base + '_' + str(params[i][1].minute) + '_' + str(params[i][1].second) + extension
+        newpath = os.path.join(homepath, base)
+        newname = os.path.join(newpath, newname)
+        shutil.copy(oldname, newname)
+        print('copied ' + newname)
+while True:
+    for i, filename in enumerate(os.listdir(path)):
+        # I use absolute path, case you want to move several dirs.
+        base, extension = os.path.splitext(filename)
+        oldname = os.path.join(os.path.abspath(path), filename)
+        if ((filename == 'lawr_dual_latest.nc') | (filename == 'dwd_latest.nc')) & (params[i][0] == filename) & ~(
+                params[i][1] == datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + filename))):
+            print(filename + ' is changed')
+            params[i][0] = filename
+            params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(path+ '/' + filename))
+            newname = base + '_' + str(params[i][1].minute).zfill(2) + '_' + str(params[i][1].second).zfill(2) + extension
+            newpath = os.path.join(homepath, base)
+            newname = os.path.join(newpath, newname)
+            shutil.copy(oldname, newname)
+            print('copied ' + newname)
+            newdata = 1
+        else:
+            params[i][0] = filename
+            params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + filename))
+
+
+        if (newdata == 1) & (len(os.listdir(lawr_dir)) > 10) & (len(os.listdir(dwd_dir)) > 8):
+            try:
+                lawrTraintime = -10
+                dwdTraintime = -8
+
+                os.chdir(lawr_dir)
+                lawr_files = sorted(os.listdir(lawr_dir), key=os.path.getmtime)
+
+                os.chdir(dwd_dir)
+                dwd_files= sorted(os.listdir(dwd_dir), key=os.path.getmtime)
+
+                lawr = LawrData(lawr_dir+lawr_files[lawrTraintime])
+                dwd = DWDData(dwd_dir+dwd_files[dwdTraintime])
+
+                for t in range(len(lawr_files[lawrTraintime + 1:])):
+                    lawr.addTimestep(lawr_dir + lawr_files[lawrTraintime + 1 + t])
+
+                for t in range(len(dwd_files[dwdTraintime + 1:])):
+                    dwd.addTimestep(dwd_dir + dwd_files[dwdTraintime + 1 + t])
+
+                dwd.initial_maxima()
+                dwd.find_displacement(0)
+                dwd.covNormAngle_norm = np.cov(dwd.progField.return_fieldHistX().flatten() / 10,
+                                               dwd.progField.return_fieldHistY().flatten() / 10)
+                dwd.gaussMeans_norm = [x / 10 for x in dwd.gaussMeans]
+                lawr.startTime = -lawr.trainTime
+                lawr.initial_maxima()
+                lawr.find_displacement(-1)
+
+                newdata=0
+            except Exception as e:
+                print(e)
+                print('Prognosis failed')
+
+
+
+    time.sleep(1)
+
 import os
 import shutil
 import time
@@ -205,44 +288,91 @@ import datetime
 path = '/home/zmaw/u231126/radar/public_html/temp_data'
 homepath = '/scratch/local1/temp_radar_data'
 newdata = 0
-for root, dirs, files in os.walk(path):
-    params = [[[], []] for i in range(10)]
-    for i, filename in enumerate(files):
-        # I use absolute path, case you want to move several dirs.
-        base, extension = os.path.splitext(filename)
-        params[i][0] = filename
-        params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))
-        oldname = os.path.join(os.path.abspath(root), filename)
-        if ((filename == 'lawr_single_attcorr_latest')|(filename == 'lawr_dual_latest.nc') | (filename == 'dwd_latest.nc')):
-            newname = base + '_' + str(params[i][1].minute) + '_' + str(params[i][1].second) + extension
-            newpath = os.path.join(homepath, base)
-            newname = os.path.join(newpath, newname)
-            shutil.copy(oldname, newname)
-            print('copied ' + newname)
+newprogflag = 1
 while True:
-    for root, dirs, files in os.walk(path):
-        for i, filename in enumerate(files):
-            # I use absolute path, case you want to move several dirs.
-            base, extension = os.path.splitext(filename)
-            oldname = os.path.join(os.path.abspath(root), filename)
-            if ((filename == 'lawr_single_attcorr_latest')|(filename == 'lawr_dual_latest.nc') | (filename == 'dwd_latest.nc')) & (params[i][0] == filename) & ~(
-                    params[i][1] == datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))):
-                print(filename + ' is changed')
-                params[i][0] = filename
-                params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))
-                newname = base + '_' + str(params[i][1].minute) + '_' + str(params[i][1].second) + extension
-                newpath = os.path.join(homepath, base)
-                newname = os.path.join(newpath, newname)
-                shutil.copy(oldname, newname)
-                print('copied ' + newname)
-                newdata = 1
+
+    if newprogflag:
+        HHGTime = datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + 'lawr_dual_latest.nc'))
+        DWDTime = datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + 'dwd_latest.nc'))
+        lawr = LawrData(path + '/' + 'lawr_dual_latest.nc')
+        dwd = DWDData(path + '/' + 'dwd_latest.nc')
+        newprogflag = 0
+        print('Started new prognosis')
+
+    if datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + 'lawr_dual_latest.nc'))!=HHGTime:
+
+        lawr.addTimestep(path + '/' + 'lawr_dual_latest.nc')
+        HHGTime = datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + 'lawr_dual_latest.nc'))
+        print('added new lawr data')
+
+    if datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + 'dwd_latest.nc'))!=DWDTime:
+        dwd.addTimestep(path + '/' + 'dwd_latest.nc')
+        DWDTime = datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + 'dwd_latest.nc'))
+        print('added new dwd data')
+
+    if (len(lawr.nested_data)>8) & (len(dwd.nested_data)>10):
+        dwd.initial_maxima()
+        dwd.find_displacement(0)
+        dwd.extrapolation(60)
+
+        lawr.startTime = -lawr.trainTime
+        lawr.initial_maxima()
+        if np.any(np.abs([x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans])<1):
+            lawr.progField.deltaT=int(np.ceil(np.min(1/np.min(np.abs([x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans])))))+1
+        lawr.find_displacement(-lawr.trainTime)
+
+        if np.any(np.isnan(lawr.covNormAngle)) or lawr.normEqualOneSum<3*len(lawr.progField.activeIds) or len(lawr.progField.activeFields):
+            lawr.covNormAngle = dwd.covNormAngle
+            lawr.gaussMeans = [x/10*(dwd.resolution/lawr.resolution) for x in dwd.gaussMeans]
+
+        if np.any(np.isnan(dwd.covNormAngle)):
+            dwd.covNormAngle = lawr.covNormAngle
+            dwd.gaussMeans = [x*10/(dwd.resolution/lawr.resolution) for x in lawr.gaussMeans]
+
+        progTime = 60
+        dwd.extrapolation(progTime +12)
+        dwd.HHGPos = findRadarSite(lawr,dwd)
+        dwd.set_auxillary_geoData(dwd,lawr,dwd.HHGPos)
+        dwd.nested_data[:, (dwd.dist_nested > dwd.r.max())] = 0
+        lawr.extrapolation(dwd,progTime, 1, 7)
+
+        contours = [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100]
+
+        outf = 'test.mp4'
+        cmdstring = ('ffmpeg',
+                     '-y', '-r', '5',  # overwrite, 30fps
+                     '-s', '%dx%d' % (700, 700),  # size of image string
+                     '-pix_fmt', 'argb',  # format
+                     '-f', 'rawvideo', '-i', '-', '-b:v', '3M', '-crf', '14', # input from pipe, bitrate, compression
+                     # tell ffmpeg to expect raw video from the pipe
+                     '-vcodec', 'mpeg4', outf)  # output encoding
+
+
+        f = plt.figure(frameon=True, figsize=(7, 7))
+        ax1 = f.add_subplot(111)
+        p = subprocess.Popen(cmdstring, stdin=subprocess.PIPE)
+        for t in range(progTime):
+            im = lawr.probabilities[t, :, :]
+            im[lawr.dist_nested >= np.max(lawr.r)] = 0
+            if t == 0:
+                imP = ax1.imshow(im,cmap=cmap)
+                #plt.show(block=False)
+                s1 = plt.colorbar(imP)
+                s1.set_clim(0, 1)
+                s1.draw_all()
             else:
-                params[i][0] = filename
-                params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(root + '/' + filename))
+                imP.set_data(im)
+            f.canvas.draw()
+
+            string = f.canvas.tostring_argb()
+
+            p.stdin.write(string)
+
+        p.communicate()
+        newprogflag=1
+        print('issued new prognosis')
 
     time.sleep(1)
-
-contours = [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100]
 
 cmdstring = ('ffmpeg',
              '-y', '-r', '5',  # overwrite, 30fps
