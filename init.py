@@ -5,17 +5,12 @@ import netCDF4
 import scipy.spatial.qhull as qhull
 from osgeo import osr
 from scipy.interpolate import griddata, RegularGridInterpolator, interp1d
-from scipy.ndimage import map_coordinates
-from skimage.feature import match_template
 import scipy.odr
 from sklearn.feature_extraction import image
 from numba import jit
 from wradlib_snips import make_2D_grid, reproject
 import cv2
-from datetime import datetime
-import h5py
-import matplotlib
-import matplotlib.pyplot as plt
+
 
 
 class radarData:
@@ -57,7 +52,7 @@ class radarData:
             self.resolution, self.cRange, self.trainTime, self.d_s,self.timeDiff)
         self.progField.deltaT = 1
 
-    def find_displacement(self,prog):
+    def find_displacement(self):
         for t in range(self.trainTime):
             if len(self.progField.activeFields) < self.numMaxima:
                 self.progField.assign_ids()
@@ -618,7 +613,7 @@ class DWDData(radarData, Totalfield):
         self.getGrid()
         self.offset = self.cRange * 2
         self.nested_data[0, self.offset:self.offset + self.d_s, self.offset:self.offset + self.d_s] = self.gridding()
-        self.startTime=0 # number of the file where the startpoint for the prognosis is
+        self.startTime=-self.trainTime # number of the file where the startpoint for the prognosis is
         # self.data.addTimestep('/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/2016/06/02/ras07-pcpng01_sweeph5allm_any_00-2016060207053300-boo-10132-hd5')
 
     def getGrid(self):
@@ -904,23 +899,25 @@ class LawrData(radarData, Totalfield):
         self.prog_data = np.zeros([self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.probabilities = np.zeros([progTimeSteps, self.d_s + 4 * self.cRange, self.d_s + 4 * self.cRange])
         self.progStartIdx = -1
-        self.prog_data[:, :] = self.nested_data[-1, :, :]
+        self.prog_data[:, :] = self.nested_data[-1, :, :]>self.rainThreshold
         self.prog_start = 3 * ['']
         self.dwdProgStartIdx = np.argmin(np.abs(dwd.time - self.time[self.progStartIdx]))
-
+        dwd.total_data = np.vstack([dwd.nested_data>self.rainThreshold,dwd.prog_data])
         self.prog_data[:, :] = nesting(self.prog_data[:, :], self.dist_nested, self.target_nested,
-                                          dwd.prog_data[self.dwdProgStartIdx, :, :], dwd, self.r[-1],
+                                          dwd.total_data[self.dwdProgStartIdx, :, :], dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
+        self.time = np.array(self.time[-1])
 
         self.probabilities[0,:,:] = self.nested_data[self.progStartIdx,:,:]>self.rainThreshold
 
         self.probabilities[0,:,:] = nesting(self.probabilities[0, :, :], self.dist_nested, self.target_nested,
-                                          dwd.prog_data[self.dwdProgStartIdx, :, :]>self.rainThreshold, dwd, self.r[-1],
+                                          dwd.total_data[self.dwdProgStartIdx, :, :], dwd, self.r[-1],
                                           self.rainThreshold, self,
                                           self.Lat_nested, self.Lon_nested)
 
         self.probabilities[0, :, :] = cv2.filter2D(self.probabilities[0, :, :], -1, self.kernel)
+        self.time = np.append(self.time, self.time + 30 / 86400)
 
         #self.prog_data[0,:,:] = cv2.filter2D(self.prog_data[0,:,:],-1,self.kernel)
         for t in range(1,progTimeSteps):
@@ -935,10 +932,11 @@ class LawrData(radarData, Totalfield):
             self.probabilities[t, :, :] = self.probabilities[t - 1, :, :]
 
             self.probabilities[t, :, :] = nesting(self.probabilities[t, :, :], self.dist_nested, self.target_nested,
-                                                  dwd.prog_data[self.dwdProgStartIdx + t, :, :]>self.rainThreshold, dwd, self.r[-1],
+                                                  dwd.total_data[self.dwdProgStartIdx + t, :, :], dwd, self.r[-1],
                                                   self.rainThreshold, self,
                                                   self.Lat_nested, self.Lon_nested)
             self.probabilities[t, :, :] = cv2.filter2D(self.probabilities[t, :, :], -1, self.kernel)
+            self.time = np.append(self.time,self.time[-1]+30/86400)
 
 def z2rainrate(z):# Conversion between reflectivity and rainrate, a and b are empirical parameters of the function
     a = np.full_like(z, 77, dtype=np.double)

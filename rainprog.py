@@ -198,10 +198,27 @@ result = prognosis([2016,6,2,7,40,90],0)
 #pool.close()
 #pool.join()
 # # #
+from init import DWDData, LawrData, findRadarSite
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import matplotlib.colors as colors
+import matplotlib
+import os
+import datetime
+import subprocess
 import os
 import shutil
 import time
 import datetime
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+    new_cmap = colors.LinearSegmentedColormap.from_list(
+        'cmaptest',cmap(np.linspace(minval, maxval, n)))
+    return new_cmap
+cmap = plt.get_cmap('BuPu')
+newcmap=truncate_colormap(cmap,0.2,1)
+newcmap.set_under('1')
 path = '/home/zmaw/u231126/radar/public_html/temp_data'
 
 lawr_dir = '/scratch/local1/temp_radar_data/lawr_dual_latest/'
@@ -209,7 +226,15 @@ dwd_dir = '/scratch/local1/temp_radar_data/dwd_latest/'
 
 homepath = '/scratch/local1/temp_radar_data'
 newdata = 0
+progTime = 50
+frameRate = 5
+timer = 0
 params = [[[], []] for i in range(20)]
+
+def serial_date_to_string(srl_no):
+    new_date = datetime.datetime(1970,1,1,0,0) + datetime.timedelta(srl_no - 1)
+    return new_date.strftime("%Y-%m-%d-%h-%m-%s")
+
 for i, filename in enumerate(os.listdir(path)):
     # I use absolute path, case you want to move several dirs.
     base, extension = os.path.splitext(filename)
@@ -238,6 +263,8 @@ while True:
             shutil.copy(oldname, newname)
             print('copied ' + newname)
             newdata = 1
+            timer += 1
+
         else:
             params[i][0] = filename
             params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + filename))
@@ -258,28 +285,170 @@ while True:
                 dwd = DWDData(dwd_dir+dwd_files[dwdTraintime])
 
                 for t in range(len(lawr_files[lawrTraintime + 1:])):
-                    lawr.addTimestep(lawr_dir + lawr_files[lawrTraintime + 1 + t])
+                    try:
+                        lawr.addTimestep(lawr_dir + lawr_files[lawrTraintime + 1 + t])
+                    except:
+                        print(lawr_dir + lawr_files[lawrTraintime + 1 + t]+' is faulty.')
 
                 for t in range(len(dwd_files[dwdTraintime + 1:])):
-                    dwd.addTimestep(dwd_dir + dwd_files[dwdTraintime + 1 + t])
+                    try:
+                        dwd.addTimestep(dwd_dir + dwd_files[dwdTraintime + 1 + t])
+                    except:
+                        print(dwd_dir + dwd_files[dwdTraintime + 1 + t] + ' is faulty.')
 
                 dwd.initial_maxima()
-                dwd.find_displacement(0)
+                dwd.find_displacement()
                 dwd.covNormAngle_norm = np.cov(dwd.progField.return_fieldHistX().flatten() / 10,
                                                dwd.progField.return_fieldHistY().flatten() / 10)
                 dwd.gaussMeans_norm = [x / 10 for x in dwd.gaussMeans]
+
+                dwd.extrapolation(progTime+15)
                 lawr.startTime = -lawr.trainTime
                 lawr.initial_maxima()
-                lawr.find_displacement(-1)
+                lawr.find_displacement()
+
+                dwd.HHGPos = findRadarSite(lawr, dwd)
+                dwd.set_auxillary_geoData(dwd, lawr, dwd.HHGPos)
+
+                lawr.extrapolation(dwd, progTime, 3)
+                lawr.probabilities[:, lawr.dist_nested >= np.max(lawr.r)] = 0
+
+                outf = '/data/share/u231/pattern_mp4/prognosis.mp4'
+                #cmdstring = ('ffmpeg',
+                #             '-y', '-r', '5',  # overwrite, 30fps
+                #             '-s', '%dx%d' % (700, 700),  # size of image string
+                #             '-pix_fmt', 'argb',  # format
+                #             '-f', 'rawvideo', '-i', '-', '-b:v', '3M', '-crf', '14',
+                #             # input from pipe, bitrate, compression
+                #             # tell ffmpeg to expect raw video from the pipe
+                #             '-vcodec', 'libx264','mpeg4', outf)  # output encoding
+                fig = plt.figure()
+                fig.set_dpi(100)
+                fig.set_size_inches(7, 7)
+                ax1 = fig.add_subplot(111)
+                fig.gca().set_axis_off()
+                ax1.margins(0, 0)
+                ax1.axis('off')
+                fig.subplots_adjust(top=1, bottom=0, right=1, left=0,
+                                    hspace=0, wspace=0)
+                ax1.set_frame_on(False)
+                imP = ax1.imshow(lawr.probabilities[0, :, :], cmap=plt.get_cmap('BuPu', 10))
+                time_text = ax1.text(30, 30, serial_date_to_string(lawr.time[0]))
+
+
+                def animate(i):
+                    imP.set_data(lawr.probabilities[i, :, :])
+                    time_text.set_text(serial_date_to_string(lawr.time[0]))
+                    return [imP]
+
+
+                anim = animation.FuncAnimation(fig, animate,
+                                               frames=len(lawr.probabilities),
+                                               interval=200, repeat=1,
+                                               blit=True)
+                anim.save(outf, fps=5,
+                          extra_args=['-vcodec', 'h264',
+                                      '-pix_fmt', 'yuv420p'])
+                plt.close(fig)
+
+                os.chmod('/data/share/u231/pattern_mp4/prognosis.mp4', 0o755)
 
                 newdata=0
+
+
             except Exception as e:
                 print(e)
+                outf = '/data/share/u231/pattern_mp4/prognosis.mp4'
+                #cmdstring = ('ffmpeg',
+                #             '-y', '-r', '5',  # overwrite, 30fps
+                #             '-s', '%dx%d' % (700, 700),  # size of image string
+                #             '-pix_fmt', 'argb',  # format
+                #             '-f', 'rawvideo', '-i', '-', '-b:v', '3M', '-crf', '14',
+                #             # input from pipe, bitrate, compression
+                #             # tell ffmpeg to expect raw video from the pipe
+                #             '-vcodec', 'libx264','mpeg4', outf)  # output encoding
+                fig = plt.figure()
+                fig.set_dpi(100)
+                fig.set_size_inches(7, 7)
+                ax1 = fig.add_subplot(111)
+                fig.gca().set_axis_off()
+                ax1.margins(0, 0)
+                ax1.axis('off')
+                fig.subplots_adjust(top=1, bottom=0, right=1, left=0,
+                                    hspace=0, wspace=0)
+                ax1.set_frame_on(False)
+                norain = np.zeros([2,441,441])
+                imP = ax1.imshow(norain[0, :, :], cmap=plt.get_cmap('BuPu', 10))
+
+                def animate(i):
+                    imP.set_data(norain[i, :, :])
+                    return [imP]
+
+
+                anim = animation.FuncAnimation(fig, animate,
+                                               frames=len(norain),
+                                               interval=200,repeat=1,
+                                               blit=True)
+                anim.save(outf, fps=1,
+                          extra_args=['-vcodec', 'h264',
+                                      '-pix_fmt', 'yuv420p'])
+                plt.close(fig)
+
+                os.chmod('/data/share/u231/pattern_mp4/prognosis.mp4', 0o755)
                 print('Prognosis failed')
 
+    if timer%10==0:
+        now = time.time()
+        for f in os.listdir(lawr_dir):
 
+            f = os.path.join(lawr_dir, f)
+            if os.stat(f).st_mtime < now - 7200:
 
+                if os.path.isfile(f):
+                    os.remove(os.path.join(lawr_dir, f))
+        for f in os.listdir(dwd_dir):
+
+            f = os.path.join(dwd_dir, f)
+            if os.stat(f).st_mtime < now - 7200:
+
+                if os.path.isfile(f):
+                    os.remove(os.path.join(dwd_dir, f))
+        if timer > 10000:
+            timer = 0
     time.sleep(1)
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+test = np.random.random([20,50,50])
+cmdstring = ('ffmpeg',
+             '-f', 'rawvideo',
+             '-s', '%dx%d' % (700, 700),  # size of image string
+             '-i', '-',             # tell ffmpeg to expect raw video from the pipe
+             '-pix_fmt', 'yuv420p',  # format
+             '-y', # overwrite, 30fps
+             '-r', '5', #'-crf', '0',
+             # input from pipe, bitrate, compression
+
+             'test.mp4')  # output encoding '-b:v', '5M',
+
+f = plt.figure(frameon=True, figsize=(7, 7))
+ax1 = f.add_subplot(111)
+for t in range(len(test)):
+    im = test[t, :, :]
+    if t == 0:
+        imP = ax1.imshow(imyuv, cmap=plt.get_cmap('BuPu', 10))
+        ax1.axis('off')
+        # plt.show(block=False)
+    else:
+        imP.set_data(im)
+    f.canvas.draw()
+
+    string = f.canvas.tostring_argb()
+
+    p.stdin.write(string)
+
+p.communicate()
 
 import os
 import shutil

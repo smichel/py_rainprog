@@ -37,19 +37,20 @@ for t in range(len(ta[1:])):
     lawr.addTimestep('/scratch/local1/temp_radar_data/lawr_dual_latest/'+ta[t+1])
 
 dwd.initial_maxima()
-dwd.find_displacement(0)
+dwd.find_displacement()
 #dwd.gaussMeans = [10,2]
 dwd.covNormAngle_norm = np.cov(dwd.progField.return_fieldHistX().flatten() / 10,
                                            dwd.progField.return_fieldHistY().flatten() / 10)
 dwd.gaussMeans_norm = [x/10 for x in dwd.gaussMeans]
 dwd.extrapolation(50+15)
 
-lawr.startTime = -11
+lawr.startTime = -10
 lawr.initial_maxima()
-lawr.find_displacement(-lawr.trainTime)
+lawr.find_displacement()
 
 dwd.HHGPos = findRadarSite(lawr, dwd)
 dwd.set_auxillary_geoData(dwd, lawr, dwd.HHGPos)
 
 lawr.extrapolation(dwd, 50, 1)
+lawr.probabilities[:, lawr.dist_nested >= np.max(lawr.r)] = 0
 print('ding')
