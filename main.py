@@ -50,6 +50,9 @@ def main():
             newname = os.path.join(newpath, newname)
             shutil.copy(oldname, newname)
             print('copied ' + newname)
+
+
+    lawrDisplacementParameters = []
     while True:
         try:
             for i, filename in enumerate(os.listdir(path)):
@@ -74,10 +77,10 @@ def main():
                     params[i][1] = datetime.datetime.utcfromtimestamp(os.path.getmtime(path + '/' + filename))
 
 
-                if (newdata == 1) & (len(os.listdir(lawr_dir)) > 11) & (len(os.listdir(dwd_dir)) > 9):
+                if (newdata == 1) & (len(os.listdir(lawr_dir)) >= 11) & (len(os.listdir(dwd_dir)) >= 7):
                     try:
                         lawrTraintime = -10
-                        dwdTraintime = -8
+                        dwdTraintime = -6
 
                         os.chdir(lawr_dir)
                         lawr_files = sorted(os.listdir(lawr_dir), key=os.path.getmtime)
@@ -162,7 +165,7 @@ def main():
                                                            frames=len(lawr.probabilities),
                                                            interval=200, repeat=1,
                                                            blit=True)
-                            anim.save(outf, fps=5,
+                            anim.save(outf, fps=frameRate,
                                       extra_args=['-vcodec', 'h264',
                                                   '-pix_fmt', 'yuv420p'])
                             plt.close(fig)
@@ -194,6 +197,7 @@ def main():
                             norain = np.zeros([2, 441, 441])
                             imP = ax1.imshow(norain[0, :, :], cmap=plt.get_cmap('BuPu', 10))
                             norain_text = ax1.text(200, 220, 'No precipitation')
+                            time_text = ax1.text(30, 30, serial_date_to_string(lawr.time[0]+2/24))
 
                             def animate(i):
                                 imP.set_data(norain[i, :, :])
@@ -210,6 +214,7 @@ def main():
 
                             os.chmod('/data/share/u231/pattern_mp4/prognosis.mp4', 0o755)
                             print('Prognosis successful, no rain.')
+                            newdata=0
 
                     except Exception as e:
                         print(e)
@@ -234,6 +239,8 @@ def main():
                         ax1.set_frame_on(False)
                         norain = np.zeros([2,441,441])
                         imP = ax1.imshow(norain[0, :, :], cmap=plt.get_cmap('BuPu', 10))
+                        time_text = ax1.text(30, 30, datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
+
                         norain_text = ax1.text(160, 220, 'Failed to create prognosis or no precipitation')
                         def animate(i):
                             imP.set_data(norain[i, :, :])
