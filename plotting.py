@@ -739,3 +739,140 @@ s.draw_all()
 ax.invert_yaxis()
 plt.tight_layout()
 plt.savefig('/home/zmaw/u300675/ma_rainprog/diff60_std7.pgf')
+
+
+import cartopy.crs as ccrs
+from cartopy.io.img_tiles import OSM,GoogleTiles
+import matplotlib.pyplot as plt
+import matplotlib.dates
+import matplotlib.patches as mpatches
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+
+plt.rcParams["figure.figsize"] = (9,6)
+plt.rcParams.update({'font.size': 10.5})
+
+google = GoogleTiles()
+mercator = google.crs
+osm_tiles = OSM()
+
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111,projection=mercator)
+
+ax2.set_extent([8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714])
+ax2.add_image(osm_tiles, 8, interpolation='bilinear')
+
+ax2.imshow(dwd.nested_data[4,:,:], norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=cmap, extent= (8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714), transform=mercator)
+
+lon_formatter = LongitudeFormatter(zero_direction_label=True)
+lat_formatter = LatitudeFormatter()
+ax2.xaxis.set_major_formatter(lon_formatter)
+ax2.yaxis.set_major_formatter(lat_formatter)
+ax2.set_xticks([8,9,10,11,12], crs=ccrs.PlateCarree())
+ax2.set_yticks([53,54,55], crs=ccrs.PlateCarree())
+
+import geopandas as gpd
+alpha = 0.7
+pathshp = '/scratch/local1/shapefiles/hamburg-latest-free.shp'
+borders = gpd.read_file(pathshp + '/Hamburg_AL4.shp')
+hh_streets = gpd.read_file(pathshp + '/gis_osm_roads_free_1.shp')
+ns_streets = gpd.read_file('/scratch/local1/shapefiles/niedersachsen-latest-free.shp/gis_osm_roads_free_1.shp')
+sh_streets = gpd.read_file('/scratch/local1/shapefiles/schleswig-holstein-latest-free.shp/gis_osm_roads_free_1.shp')
+rivers = gpd.read_file(pathshp + '/gis_osm_water_a_free_1.shp')
+rivers[np.logical_or((rivers['code'] == 8200), (rivers['code'] == 8202))].plot(ax=ax1, color='b', alpha=alpha)
+hh_streets[np.logical_or((hh_streets['code'] == 5111), (hh_streets['code'] == 5112))].plot(ax=ax1, color='r',
+                                                                                           alpha=alpha)
+hh_streets[hh_streets['code'] == 5113].plot(ax=ax1, color=[1, 0.2, 0], alpha=alpha)
+sh_streets[np.logical_or((sh_streets['code'] == 5111), (sh_streets['code'] == 5112))].plot(ax=ax1, color='r',
+                                                                                           alpha=alpha)
+ns_streets[np.logical_or((ns_streets['code'] == 5111), (ns_streets['code'] == 5112))].plot(ax=ax1, color='r',
+                                                                                           alpha=alpha)
+sh_streets[sh_streets['code'] == 5113].plot(ax=ax1, color=[1, 0.2, 0], alpha=alpha)
+ns_streets[ns_streets['code'] == 5113].plot(ax=ax1, color=[1, 0.2, 0], alpha=alpha)
+
+
+borders.plot(ax=ax1, facecolor='none', edgecolor='k')
+
+pathshp = '/scratch/local1/shapefiles/hamburg-latest-free.shp'
+borders = gpd.read_file(pathshp + '/Hamburg_AL4.shp')
+extent = ([8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714])
+plt.rcParams["figure.figsize"] = (9,9)
+plt.rcParams.update({'font.size': 10.5})
+fig,ax= plt.subplots(1)
+#ax2.set_extent([8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714])
+im = ax.imshow(np.flipud(test[4,:,:]), norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap, extent= (8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714))
+s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
+s.set_clim(0,100)
+s.set_ticks(contours)
+ax.grid(linewidth=0.5)
+s.draw_all()
+alpha = 0.7
+borders.plot(ax=ax, facecolor='none', edgecolor='k')
+ax.set_xlim([dwd.Lon.min(),dwd.Lon.max()])
+ax.set_ylim([dwd.Lat.min(),dwd.Lat.max()])
+time_text = ax.text(9.1,54,datetime.fromtimestamp(dwd.time[0]).strftime("%d/%m/%Y %H:%M:%S"))
+
+fig,ax= plt.subplots(1)
+contours = [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100]
+
+for t in range(len(dwd.nested_data)):
+#ax2.set_extent([8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714])
+    if t==0:
+        im = ax.imshow(np.flipud(test[t,:,:]), norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap, extent= (8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714))
+        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
+        s.set_clim(0.1,100)
+        s.set_ticks(contours)
+        s.draw_all()
+        s.set_label('Precipitation in mm/h')
+        alpha = 0.7
+        borders.plot(ax=ax, facecolor='none', edgecolor='k')
+        ax.set_xlim([dwd.Lon.min(),dwd.Lon.max()])
+        ax.set_ylim([dwd.Lat.min(),dwd.Lat.max()])
+        ax.grid(linewidth=0.5)
+        plt.tight_layout()
+        time_text = ax.text(9.1,54,datetime.fromtimestamp(dwd.time[t]).strftime("%d/%m/%Y %H:%M:%S"))
+    else:
+        im.set_data(np.flipud(test[t,:,:]))
+        time_text.set_text(datetime.fromtimestamp(dwd.time[t]).strftime("%d/%m/%Y %H:%M:%S"))
+    plt.savefig('/home/zmaw/u300675/dwd_radar_'+str(t)+'.png')
+
+import geopandas as gpd
+alpha = 0.7
+
+pathshp = '/scratch/local1/shapefiles/hamburg-latest-free.shp'
+borders = gpd.read_file(pathshp + '/Hamburg_AL4.shp')
+import matplotlib.animation as animation
+test2 = np.copy(lawr.nested_data)
+test2[test2<0.01]=np.nan
+fig,ax=plt.subplots(1)
+im = ax.imshow(np.flipud(test2[t, :, :]), norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap,
+               extent=(lawr.Lon.min(), lawr.Lon.max(), lawr.Lat.min(), lawr.Lat.max()))
+s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
+s.set_clim(0.1,100)
+contours = [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100]
+s.set_ticks(contours)
+s.draw_all()
+s.set_label('Precipitation in mm/h')
+alpha = 0.7
+borders.plot(ax=ax, facecolor='none', edgecolor='k')
+ax.set_xlim([lawr.Lon.min(),lawr.Lon.max()])
+ax.set_ylim([lawr.Lat.min(),lawr.Lat.max()])
+ax.grid(linewidth=0.5)
+plt.tight_layout()
+time_text = ax.text(9.7,53.72,datetime.fromtimestamp(lawr.time[t]).strftime("%d/%m/%Y %H:%M:%S"))
+
+def animate(t):
+    im.set_data(np.flipud(test2[t,:,:]))
+    time_text.set_text(datetime.fromtimestamp(lawr.time[t]).strftime("%d/%m/%Y %H:%M:%S"))
+    return [im]
+
+
+anim = animation.FuncAnimation(fig, animate,frames=len(lawr.nested_data[0:41]),
+                                               interval=200, repeat=1,
+                                               blit=True)
+writer = animation.FFMpegWriter( fps=5, bitrate=2000,extra_args=['-vcodec', 'h264',
+                                      '-pix_fmt', 'yuv420p'])
+anim.save('/home/zmaw/u300675/lawr_radar_movie.mp4', writer=writer)
+
+
+
+
