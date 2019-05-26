@@ -871,7 +871,7 @@ anim = animation.FuncAnimation(fig, animate,frames=len(lawr.nested_data[0:41]),
                                                blit=True)
 writer = animation.FFMpegWriter( fps=5, bitrate=2000,extra_args=['-vcodec', 'h264',
                                       '-pix_fmt', 'yuv420p'])
-anim.save('/home/zmaw/u300675/lawr_radar_movie.mp4', writer=writer)
+anim.save('/home/zmaw/u300675/lawr_radar_prognosis.mp4', writer=writer)
 
 
 

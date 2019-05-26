@@ -1018,8 +1018,8 @@ class LawrData(radarData, Totalfield):
                 self.covNormAngle[1, 1]) * varianceFactor)
         [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
 
-        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0])*varianceFactor,np.sqrt(self.covNormAngle[1,1])*variancefactor,rho,-self.gaussMeans[0],-self.gaussMeans[1])
-        while np.sum(self.kernel)<(1-0.0001):
+        self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0])*varianceFactor,np.sqrt(self.covNormAngle[1,1])*varianceFactor,rho,-self.gaussMeans[0],-self.gaussMeans[1])
+        while np.sum(self.kernel)<(1-0.1):
             filtersize += 10  # default filtersize
             [y, x] = np.meshgrid(np.arange(-filtersize, filtersize + 1), np.arange(-filtersize, filtersize + 1))
 
