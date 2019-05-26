@@ -796,7 +796,7 @@ pathshp = '/scratch/local1/shapefiles/hamburg-latest-free.shp'
 borders = gpd.read_file(pathshp + '/Hamburg_AL4.shp')
 extent = ([8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714])
 plt.rcParams["figure.figsize"] = (9,9)
-plt.rcParams.update({'font.size': 10.5})
+plt.rcParams.update({'font.size': 16})
 fig,ax= plt.subplots(1)
 #ax2.set_extent([8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714])
 im = ax.imshow(np.flipud(test[4,:,:]), norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap, extent= (8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714))
@@ -875,4 +875,124 @@ anim.save('/home/zmaw/u300675/lawr_radar_movie.mp4', writer=writer)
 
 
 
+##tracks
+col = np.concatenate(
+    [np.random.rand(1,np.max(lawr.progField.activeIds))*0.7, np.random.rand(2, np.max(lawr.progField.activeIds))])
+plt.rcParams.update({'font.size': 16})
+plt.rcParams["figure.figsize"] = (6,6)
+fig,ax = plt.subplots(1)
+for i, field in enumerate(lawr.progField.activeFields):
+    for t in field.histMaxima:
+        pnt, = plt.plot(*np.transpose(t[0][2:0:-1]), color=col[:, field.id - 1], marker='o',linestyle='None',markersize=4)
+pnt, = plt.plot(-100,-100,color='black',marker='o',linestyle='None',markersize=4)
+for i, field in enumerate(lawr.progField.inactiveFields):
+    for t in field.histMaxima:
+        cross, = plt.plot(*np.transpose(t[0][2:0:-1]), color=(1, 0, 0), marker='x',linestyle='None',markersize=4)
+plt.gca().invert_yaxis()
+plt.show(block=False)
+ax.grid(linewidth=0.5)
+ax.set_xlim([20,420])
+ax.set_ylim([20,420])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticks([20,120,220,320,420])
+ax.set_yticks([20,120,220,320,420])
+ax.set_xticklabels(((ax.get_xticks()-20) * 0.1).astype(int))
+ax.set_yticklabels(((ax.get_yticks()-20) * 0.1).astype(int))
+ax.legend((pnt,cross),('Accepted Track','Rejected Track'),numpoints=1)
+plt.savefig('/home/zmaw/u300675/tracks.png')
 
+i = 0
+for t in range(prog - lawr.trainTime, prog):
+    if t == prog - lawr.trainTime:
+        fig, ax = plt.subplots(1)
+        im = ax.imshow(lawr.nested_data[t + lawr.startTime + lawr.trainTime, :, :],
+                       norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
+        plt.show(block=False)
+        o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'ko',
+                     markersize=10)
+
+        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
+        s.set_clim(0.1, 100)
+        s.set_ticks(contours)
+        s.set_label('Precipitation in mm/h')
+        ax.grid(linewidth=0.5)
+        ax.set_xticks([0, 100, 200, 300, 400])
+        ax.set_yticks([0, 100, 200, 300, 400])
+        ax.set_xlabel('Extent in km')
+        ax.set_ylabel('Extent in km')
+        ax.set_xticklabels((ax.get_xticks() * 0.1).astype(int))
+        ax.set_yticklabels((ax.get_yticks() * 0.1).astype(int))
+        s.draw_all()
+        ax.invert_yaxis()
+        plt.tight_layout()
+        time_text = ax.text(30, 400, datetime.fromtimestamp(lawr.time[t + lawr.startTime + lawr.trainTime]).strftime(
+            "%d/%m/%Y %H:%M:%S"))
+        # s.set_ticklabels(contourLabels)
+
+plt.savefig('/home/zmaw/u300675/analysis_-1.png')
+
+i = 0
+for t in range(prog - lawr.trainTime + 1, prog):
+    if t == prog - lawr.trainTime + 1:
+        fig, ax = plt.subplots(1)
+        im = ax.imshow(lawr.nested_data[t + lawr.startTime + lawr.trainTime, :, :],
+                       norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
+        plt.show(block=False)
+        n, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime - 1)[:, 2:0:-1]), 'ko',
+                     markersize=10)
+        o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'go',
+                     alpha=0.8, markersize=10)
+        s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
+        s.set_clim(0.1, 100)
+        s.set_ticks(contours)
+        s.set_label('Precipitation in mm/h')
+        ax.grid(linewidth=0.5)
+        ax.set_xticks([0, 100, 200, 300, 400])
+        ax.set_yticks([0, 100, 200, 300, 400])
+        ax.set_xlabel('Extent in km')
+        ax.set_ylabel('Extent in km')
+        ax.set_xticklabels((ax.get_xticks() * 0.1).astype(int))
+        ax.set_yticklabels((ax.get_yticks() * 0.1).astype(int))
+        s.draw_all()
+        time_text = ax.text(30, 400, datetime.fromtimestamp(lawr.time[t + lawr.startTime + lawr.trainTime]).strftime(
+            "%d/%m/%Y %H:%M:%S"))
+        ax.invert_yaxis()
+        plt.tight_layout()
+        # s.set_ticklabels(contourLabels)
+    else:
+        im.set_data(lawr.nested_data[t + lawr.startTime + lawr.trainTime, :, :])
+        n.set_data(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime - 1)[:, 2:0:-1]))
+        o.set_data(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]))
+
+    time_text.set_text(
+        datetime.fromtimestamp(lawr.time[t + lawr.startTime + lawr.trainTime]).strftime("%d/%m/%Y %H:%M:%S"))
+    fig.savefig('/home/zmaw/u300675/analyis_' + str(i) + '.png')
+    i += 1
+
+i = 0
+t = prog - 1
+fig, ax = plt.subplots(1)
+im = ax.imshow(lawr.nested_data[t + lawr.startTime + lawr.trainTime, :, :],
+               norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
+plt.show(block=False)
+o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'go', alpha=1,
+             markersize=10)
+s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
+s.set_clim(0.1, 100)
+s.set_ticks(contours)
+s.set_label('Precipitation in mm/h')
+ax.grid(linewidth=0.5)
+ax.set_xticks([0, 100, 200, 300, 400])
+ax.set_yticks([0, 100, 200, 300, 400])
+ax.set_xlabel('Extent in km')
+ax.set_ylabel('Extent in km')
+ax.set_xticklabels((ax.get_xticks() * 0.1).astype(int))
+ax.set_yticklabels((ax.get_yticks() * 0.1).astype(int))
+s.draw_all()
+time_text = ax.text(30, 400, datetime.fromtimestamp(lawr.time[t + lawr.startTime + lawr.trainTime]).strftime(
+    "%d/%m/%Y %H:%M:%S"))
+ax.invert_yaxis()
+plt.tight_layout()
+
+plt.savefig('/home/zmaw/u300675/analysis_9.png')
