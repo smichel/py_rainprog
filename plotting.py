@@ -813,7 +813,8 @@ time_text = ax.text(9.1,54,datetime.fromtimestamp(dwd.time[0]).strftime("%d/%m/%
 
 fig,ax= plt.subplots(1)
 contours = [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100]
-
+test = dwd.nested_data
+test[test<0.01]=np.nan
 for t in range(len(dwd.nested_data)):
 #ax2.set_extent([8.8850204382049416, 11.092690616402427, 52.907742087109092, 54.219436438416714])
     if t==0:
@@ -828,6 +829,7 @@ for t in range(len(dwd.nested_data)):
         ax.set_xlim([dwd.Lon.min(),dwd.Lon.max()])
         ax.set_ylim([dwd.Lat.min(),dwd.Lat.max()])
         ax.grid(linewidth=0.5)
+        forceAspect(ax)
         plt.tight_layout()
         time_text = ax.text(9.1,54,datetime.fromtimestamp(dwd.time[t]).strftime("%d/%m/%Y %H:%M:%S"))
     else:
@@ -923,6 +925,7 @@ for t in range(prog - lawr.trainTime, prog):
         ax.set_ylabel('Extent in km')
         ax.set_xticklabels((ax.get_xticks() * 0.1).astype(int))
         ax.set_yticklabels((ax.get_yticks() * 0.1).astype(int))
+        forceAspect(ax)
         s.draw_all()
         ax.invert_yaxis()
         plt.tight_layout()
@@ -959,6 +962,7 @@ for t in range(prog - lawr.trainTime + 1, prog):
             "%d/%m/%Y %H:%M:%S"))
         ax.invert_yaxis()
         plt.tight_layout()
+        forceAspect(ax)
         # s.set_ticklabels(contourLabels)
     else:
         im.set_data(lawr.nested_data[t + lawr.startTime + lawr.trainTime, :, :])
@@ -989,6 +993,7 @@ ax.set_xlabel('Extent in km')
 ax.set_ylabel('Extent in km')
 ax.set_xticklabels((ax.get_xticks() * 0.1).astype(int))
 ax.set_yticklabels((ax.get_yticks() * 0.1).astype(int))
+forceAspect(ax)
 s.draw_all()
 time_text = ax.text(30, 400, datetime.fromtimestamp(lawr.time[t + lawr.startTime + lawr.trainTime]).strftime(
     "%d/%m/%Y %H:%M:%S"))
@@ -996,3 +1001,49 @@ ax.invert_yaxis()
 plt.tight_layout()
 
 plt.savefig('/home/zmaw/u300675/analysis_9.png')
+
+
+
+import geopandas as gpd
+alpha = 0.7
+
+pathshp = '/scratch/local1/shapefiles/hamburg-latest-free.shp'
+borders = gpd.read_file(pathshp + '/Hamburg_AL4.shp')
+import matplotlib.animation as animation
+test2 = np.copy(lawr.probabilities)
+test2[test2<0.01]=np.nan
+test2[:,lawr.dist_nested>lawr.r[-1]]=np.nan
+fig,ax=plt.subplots(1)
+t=0
+im = ax.imshow(np.flipud(test2[t, :, :]), plt.get_cmap('BuPu',10),
+               extent=(lawr.Lon.min(), lawr.Lon.max(), lawr.Lat.min(), lawr.Lat.max()))
+s = plt.colorbar(im,fraction=0.046, pad=0.04)
+s.set_clim(0,1)
+contours = np.arange(0,1.01,0.1)
+s.set_ticks(contours)
+s.draw_all()
+s.set_label('Precipitation probability')
+borders.plot(ax=ax, facecolor='none', edgecolor='k')
+ax.set_xlim([lawr.Lon.min(),lawr.Lon.max()])
+ax.set_ylim([lawr.Lat.min(),lawr.Lat.max()])
+ax.grid(linewidth=0.5)
+plt.tight_layout()
+time_text = ax.text(9.7,53.72,datetime.fromtimestamp(lawr.time[lawr.progStartIdx+t]).strftime("%d/%m/%Y %H:%M:%S"))
+
+def forceAspect(ax, aspect=1):
+    im = ax.get_images()
+    extent = im[0].get_extent()
+    ax.set_aspect(abs((extent[1] - extent[0]) / (extent[3] - extent[2])) / aspect)
+
+def animate(t):
+    im.set_data(np.flipud(test2[t,:,:]))
+    time_text.set_text(datetime.fromtimestamp(lawr.time[lawr.progStartIdx+t]).strftime("%d/%m/%Y %H:%M:%S"))
+    return [im]
+
+
+anim = animation.FuncAnimation(fig, animate,frames=len(test2),
+                                               interval=200, repeat=1,
+                                               blit=True)
+writer = animation.FFMpegWriter( fps=5, bitrate=4000,extra_args=['-vcodec', 'h264',
+                                      '-pix_fmt', 'yuv420p'])
+anim.save('/home/zmaw/u300675/lawr_radar_prognosis.mp4', writer=writer)

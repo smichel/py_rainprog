@@ -18,6 +18,8 @@ paths = ['/scratch/local1/radardata/prognosis12_variance1/','/scratch/local1/rad
          '/scratch/local1/radardata/prognosis12_variance7/','/scratch/local1/radardata/prognosis12_variance8/',
          '/scratch/local1/radardata/prognosis12_variance9/','/scratch/local1/radardata/prognosis12_variance10/']
 
+paths = [paths[4]]
+
 time = len(nc.groups['Prognosis Data'].variables['Time'][:])
 dist_nested = nc.groups['Prognosis Data'].variables['dist_nested'][:][:]
 rain_threshold = .5
@@ -207,8 +209,8 @@ for path in paths:
     Empirical_prob_pos.append(empirical_prob_pos)
     Sample_num.append(sample_num)
 
-plt.rcParams.update({'font.size': 10.5})
-plt.rcParams["figure.figsize"] = (5,3)
+plt.rcParams.update({'font.size': 18})
+plt.rcParams["figure.figsize"] = (5,5)
 day = np.zeros([len(selectedFiles)])
 month = np.copy(day)
 for i,file in enumerate(selectedFiles):
@@ -568,3 +570,17 @@ ax.set_ylabel('Number of forecasts')
 plt.tight_layout()
 ax.grid(linewidth=0.5)
 fig.savefig('/home/zmaw/u300675/ma_rainprog/forecasts_day.pgf')
+
+
+fig,ax = plt.subplots()
+ax.set_yscale('log')
+width =0.25
+xvals = np.arange(0,11,1)
+dist10 = ax.bar(xvals-width, np.nansum(Sample_num[0][:,20,:],axis=0),width,label='10 minutes lead time')
+dist30 = ax.bar(xvals, np.nansum(Sample_num[0][:,60,:],axis=0),width,label='30 minutes lead time')
+dist60 = ax.bar(xvals+width, np.nansum(Sample_num[0][:,-1,:],axis=0),width,label='60 minutes lead time')
+ax.set_xlabel('Probability')
+ax.set_xticklabels(ax.get_xticks()/10)
+ax.set_ylabel('Number of forecasted pixels')
+ax.legend()
+plt.tight_layout()

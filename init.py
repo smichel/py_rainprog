@@ -820,13 +820,19 @@ class DWDData(radarData, Totalfield):
         rho = (self.covNormAngle_norm[0,1]*varianceFactor)/(np.sqrt(self.covNormAngle_norm[0,0]*varianceFactor)*np.sqrt(self.covNormAngle_norm[1,1])*varianceFactor)
         [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
         self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle_norm[0,0])*varianceFactor,np.sqrt(self.covNormAngle_norm[1,1])*varianceFactor,rho,-self.gaussMeans_norm[0],-self.gaussMeans_norm[1])
-        while np.sum(self.kernel)<(1-0.0001):
+
+        filtersize += 10  # default filtersize
+        [y, x] = np.meshgrid(np.arange(-filtersize, filtersize + 1), np.arange(-filtersize, filtersize + 1))
+
+        while (np.sum(twodgauss(x, y, np.sqrt(self.covNormAngle_norm[0, 0]) * varianceFactor,
+                                    np.sqrt(self.covNormAngle_norm[1, 1]) * varianceFactor, rho, -self.gaussMeans_norm[0],
+                                    -self.gaussMeans_norm[1])) - np.sum(self.kernel))>0.01:
+
+            self.kernel = twodgauss(x, y, np.sqrt(self.covNormAngle_norm[0, 0]) * varianceFactor,
+                                    np.sqrt(self.covNormAngle_norm[1, 1]) * varianceFactor, rho, -self.gaussMeans_norm[0],
+                                    -self.gaussMeans_norm[1])
             filtersize += 10  # default filtersize
             [y, x] = np.meshgrid(np.arange(-filtersize, filtersize + 1), np.arange(-filtersize, filtersize + 1))
-
-            self.kernel = twodgauss(x, y, np.sqrt(self.covNormAngle[0, 0]) * varianceFactor,
-                                    np.sqrt(self.covNormAngle[1, 1]) * varianceFactor, rho, -self.gaussMeans[0],
-                                    -self.gaussMeans[1])
 
         self.kernel = self.kernel/np.sum(self.kernel)
 
@@ -1019,18 +1025,21 @@ class LawrData(radarData, Totalfield):
         [y,x] = np.meshgrid(np.arange(-filtersize,filtersize+1),np.arange(-filtersize,filtersize+1))
 
         self.kernel = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0])*varianceFactor,np.sqrt(self.covNormAngle[1,1])*varianceFactor,rho,-self.gaussMeans[0],-self.gaussMeans[1])
-        while np.sum(self.kernel)<(1-0.1):
-            filtersize += 10  # default filtersize
-            [y, x] = np.meshgrid(np.arange(-filtersize, filtersize + 1), np.arange(-filtersize, filtersize + 1))
+        filtersize += 10  # default filtersize
+        [y, x] = np.meshgrid(np.arange(-filtersize, filtersize + 1), np.arange(-filtersize, filtersize + 1))
+
+        while (np.sum(twodgauss(x, y, np.sqrt(self.covNormAngle[0, 0]) * varianceFactor,
+                                    np.sqrt(self.covNormAngle[1, 1]) * varianceFactor, rho, -self.gaussMeans[0],
+                                    -self.gaussMeans[1])) - np.sum(self.kernel))>0.01:
 
             self.kernel = twodgauss(x, y, np.sqrt(self.covNormAngle[0, 0]) * varianceFactor,
                                     np.sqrt(self.covNormAngle[1, 1]) * varianceFactor, rho, -self.gaussMeans[0],
                                     -self.gaussMeans[1])
-
-        self.kernel = self.kernel/np.sum(self.kernel)
+            filtersize += 10  # default filtersize
+            [y, x] = np.meshgrid(np.arange(-filtersize, filtersize + 1), np.arange(-filtersize, filtersize + 1))
 
         # self.kernel2 = twodgauss(x,y,np.sqrt(self.covNormAngle[0,0])*1.1,np.sqrt(self.covNormAngle[1,1])*1.1,rho,-self.gaussMeans[0],-self.gaussMeans[1])
-        # self.kernel2 = self.kernel2/np.sum(self.kernel2)
+        self.kernel = self.kernel/np.sum(self.kernel)
 
         self.prog_data = np.copy(self.nested_data[0,:,:])
         self.probabilities = np.zeros([progTimeSteps, self.prog_data.shape[0],self.prog_data.shape[1]])
