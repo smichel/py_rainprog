@@ -911,7 +911,7 @@ for t in range(prog - lawr.trainTime, prog):
         im = ax.imshow(lawr.nested_data[t + lawr.startTime + lawr.trainTime, :, :],
                        norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
         plt.show(block=False)
-        o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'ko',
+        o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'ro',
                      markersize=10)
 
         s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
@@ -944,7 +944,7 @@ for t in range(prog - lawr.trainTime + 1, prog):
         plt.show(block=False)
         n, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime - 1)[:, 2:0:-1]), 'ko',
                      markersize=10)
-        o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'go',
+        o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'ro',
                      alpha=0.8, markersize=10)
         s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
         s.set_clim(0.1, 100)
@@ -980,7 +980,7 @@ fig, ax = plt.subplots(1)
 im = ax.imshow(lawr.nested_data[t + lawr.startTime + lawr.trainTime, :, :],
                norm=matplotlib.colors.SymLogNorm(vmin=0, linthresh=1), cmap=newcmap)
 plt.show(block=False)
-o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'go', alpha=1,
+o, = ax.plot(*np.transpose(lawr.progField.return_histMaxima(t - prog + lawr.trainTime)[:, 2:0:-1]), 'ro', alpha=1,
              markersize=10)
 s = plt.colorbar(im, format=matplotlib.ticker.ScalarFormatter(), fraction=0.046, pad=0.04)
 s.set_clim(0.1, 100)
