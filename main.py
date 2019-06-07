@@ -33,6 +33,7 @@ def main():
     dwd_dir = '/scratch/local1/temp_radar_data/dwd_latest/'
 
     homepath = '/scratch/local1/temp_radar_data'
+    outf = '/home/zmaw/u300675/prognosis.mp4'
     newdata = 0
     progTime = 120
     frameRate = 5
@@ -130,7 +131,6 @@ def main():
 
                         if np.sum(dwd.prog_data[:, (dwd.dist_nested >= lawr.r[-1])]) >  50:
 
-                            outf = '/data/share/u231/pattern_mp4/prognosis.mp4'
                             #cmdstring = ('ffmpeg',
                             #             '-y', '-r', '5',  # overwrite, 30fps
                             #             '-s', '%dx%d' % (700, 700),  # size of image string
@@ -169,13 +169,12 @@ def main():
                                       extra_args=['-vcodec', 'h264',
                                                   '-pix_fmt', 'yuv420p'])
                             plt.close(fig)
-
+                            shutil.copy(outf, '/data/share/u231/pattern_mp4/prognosis.mp4')
                             os.chmod('/data/share/u231/pattern_mp4/prognosis.mp4', 0o755)
                             print('Prognosis successful.')
 
                             newdata=0
                         else:
-                            outf = '/data/share/u231/pattern_mp4/prognosis.mp4'
                             # cmdstring = ('ffmpeg',
                             #             '-y', '-r', '5',  # overwrite, 30fps
                             #             '-s', '%dx%d' % (700, 700),  # size of image string
@@ -211,6 +210,7 @@ def main():
                                       extra_args=['-vcodec', 'h264',
                                                   '-pix_fmt', 'yuv420p'])
                             plt.close(fig)
+                            shutil.copy(outf, '/data/share/u231/pattern_mp4/prognosis.mp4')
 
                             os.chmod('/data/share/u231/pattern_mp4/prognosis.mp4', 0o755)
                             print('Prognosis successful, no rain.')
@@ -218,7 +218,6 @@ def main():
 
                     except Exception as e:
                         print(e)
-                        outf = '/data/share/u231/pattern_mp4/prognosis.mp4'
                         #cmdstring = ('ffmpeg',
                         #             '-y', '-r', '5',  # overwrite, 30fps
                         #             '-s', '%dx%d' % (700, 700),  # size of image string
@@ -255,6 +254,7 @@ def main():
                                   extra_args=['-vcodec', 'h264',
                                               '-pix_fmt', 'yuv420p'])
                         plt.close(fig)
+                        shutil.copy(outf, '/data/share/u231/pattern_mp4/prognosis.mp4')
 
                         os.chmod('/data/share/u231/pattern_mp4/prognosis.mp4', 0o755)
                         print('Prognosis failed')

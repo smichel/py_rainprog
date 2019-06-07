@@ -632,7 +632,7 @@ class DWDData(radarData, Totalfield):
         lawr_sitecoords = [9.973997, 53.56833]
         #lawr_cartcoords = reproject(lawr_sitecoords, projection_target=proj_cart)
         boo_cartcoords = reproject(self.sitecoords, projection_target=proj_cart)
-        max_dist = 50000
+        max_dist = 60000
         self.polar_grid= reproject(points+boo_cartcoords, projection_source=proj_cart, projection_target=proj_geo)
         self.cRange = int(6000 / self.resolution)
 
