@@ -110,22 +110,27 @@ def main():
                                                        dwd.progField.return_fieldHistY().flatten() / 10)
                         dwd.gaussMeans_norm = [x / 10 for x in dwd.gaussMeans]
 
-                        dwd.extrapolation(progTime+15)
-
                         lawr.startTime = -lawr.trainTime
                         lawr.initial_maxima()
                         lawr.find_displacement()
                         resFactor = (dwd.resolution / lawr.resolution)  # resolution factor  between dwd and lawr
 
                         if np.any(np.isnan(lawr.covNormAngle)) or lawr.progField.deltaT > 8 or len(
-                                lawr.progField.activeFields):
+                                lawr.progField.activeFields)<2:
                             lawr.covNormAngle = np.cov((dwd.progField.return_fieldHistX().flatten() / 10) * resFactor,
                                                        dwd.progField.return_fieldHistY().flatten() / 10 * resFactor)
                             lawr.gaussMeans = [x / 10 * resFactor for x in dwd.gaussMeans]
 
+                        if np.any(np.isnan(dwd.covNormAngle)) or len(dwd.progField.activeFields) < 2:
+                            dwd.covNormAngle_norm = np.cov(lawr.progField.return_fieldHistX().flatten() / resFactor,
+                                                            lawr.progField.return_fieldHistY().flatten() / resFactor)
+
+                            dwd.gaussMeans_norm = [x/resFactor for x in lawr.gaussMeans]
+
                         dwd.HHGPos = findRadarSite(lawr, dwd)
                         dwd.set_auxillary_geoData(dwd, lawr, dwd.HHGPos)
 
+                        dwd.extrapolation(progTime+15)
                         lawr.extrapolation(dwd, progTime, 3)
                         lawr.probabilities[:, lawr.dist_nested >= np.max(lawr.r)] = 0
 

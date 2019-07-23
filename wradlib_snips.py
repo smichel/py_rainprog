@@ -1,6 +1,5 @@
-from osgeo import gdal, osr
+from osgeo import osr
 import numpy as np
-from sys import exit
 
 def make_2D_grid(sitecoords, proj, maxrange, maxalt, horiz_res, vert_res):
     """Generate Cartesian coordinates for a regular 3-D grid based on

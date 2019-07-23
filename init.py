@@ -903,10 +903,7 @@ class LawrData(radarData, Totalfield):
         self.prog_start = 3 * ['']
         self.dwdProgStartIdx = np.argmin(np.abs(dwd.time - self.time[self.progStartIdx]))
         dwd.total_data = np.vstack([dwd.nested_data>self.rainThreshold,dwd.prog_data])
-        self.prog_data[:, :] = nesting(self.prog_data[:, :], self.dist_nested, self.target_nested,
-                                          dwd.total_data[self.dwdProgStartIdx, :, :], dwd, self.r[-1],
-                                          self.rainThreshold, self,
-                                          self.Lat_nested, self.Lon_nested)
+
         self.time = np.array(self.time[-1])
 
         self.probabilities[0,:,:] = self.nested_data[self.progStartIdx,:,:]>self.rainThreshold
