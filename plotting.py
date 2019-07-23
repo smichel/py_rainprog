@@ -1052,6 +1052,22 @@ anim.save('/home/zmaw/u300675/lawr_radar_prognosis.mp4', writer=writer)
 cmap = plt.get_cmap('gist_ncar_r')
 newcmap = truncate_colormap(cmap, 0.45, 0.65)
 newcmap.set_under('1')
+import geopandas as gpd
+alpha = 0.7
+pathshp = '/scratch/local1/shapefiles/hamburg-latest-free.shp'
+borders = gpd.read_file(pathshp + '/Hamburg_AL4.shp')
+hh_streets = gpd.read_file(pathshp + '/gis_osm_roads_free_1.shp')
+rivers = gpd.read_file(pathshp + '/gis_osm_water_a_free_1.shp')
+rivers[np.logical_or((rivers['code'] == 8200), (rivers['code'] == 8202))].plot(ax=ax, color='b', alpha=alpha)
+hh_streets[np.logical_or((hh_streets['code'] == 5111), (hh_streets['code'] == 5112))].plot(ax=ax, color='g',
+                                                                                           alpha=alpha)
+hh_streets[hh_streets['code'] == 5113].plot(ax=ax, color=[1, 0.2, 0], alpha=alpha)
+
+cols = [(1,234/255,.0),(30/255,180/255,.0),(2/255,50/255,15/255)]
+from matplotlib.colors import LinearSegmentedColormap
+
+cm = LinearSegmentedColormap.from_list(
+    'test', cols, N=5)
 alpha = 0.8
 fig, axes = plt.subplots(nrows=2, ncols=2)
 t = [20, 40, 60, 80]
@@ -1059,10 +1075,10 @@ levels = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
 for i, ax in enumerate(axes.flat):
     rivers[np.logical_or((rivers['code'] == 8200), (rivers['code'] == 8202))].plot(ax=ax, color='b', alpha=alpha)
     hh_streets[np.logical_or((hh_streets['code'] == 5111), (hh_streets['code'] == 5112))].plot(ax=ax,
-                                                                                               color=[0.5, 0.5, 0.5],
+                                                                                               color=[0.8, 0.2, 0],
                                                                                                alpha=alpha)
-    hh_streets[hh_streets['code'] == 5113].plot(ax=ax, color=[0.5, 0.5, 0.5], alpha=alpha)
-    im = ax.contourf(np.max(test[:t[i], :, :], axis=0), levels, cmap=newcmap, alpha=alpha, extent=(
+    hh_streets[hh_streets['code'] == 5113].plot(ax=ax, color=[0.8, 0.2, 0], alpha=alpha)
+    im = ax.contourf(np.max(test[:t[i], :, :], axis=0), levels, cmap=cm, alpha=alpha, extent=(
     lawr.Lon_nested.min(), lawr.Lon_nested.max(), lawr.Lat_nested.min(), lawr.Lat_nested.max()))
     borders.plot(ax=ax, facecolor='none', edgecolor='k')
     ax.set_xlim([lawr.Lon_nested.min(), lawr.Lon_nested.max()])
@@ -1070,6 +1086,7 @@ for i, ax in enumerate(axes.flat):
     ax.set_title(str(int(t[i] / 2)) + ' Minuten Vorhersage')
     ax.tick_params(axis='both', which='both', bottom=0, top=0, labelbottom=0, right=0, left=0, labelleft=0)
     ax.set_aspect(1.5)
+
 fig.subplots_adjust(right=0.8)
 cbar_ax = fig.add_axes([0.85, 0.1325, 0.05, 0.725])
 cb = fig.colorbar(im, cax=cbar_ax, fraction=0.046, pad=0.04)
