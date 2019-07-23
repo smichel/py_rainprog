@@ -54,8 +54,8 @@ def prognosis(date,t):
         minute=date[4]
         progTime=120
         startTime = datetime.now()
-        dwdDirectoryPath = '/scratch/local1/radardata/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+str(mon).zfill(2)+'/'+str(day).zfill(2)
-        lawrDirectoryPath = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ str(mon).zfill(2) +'/'
+        dwdDirectoryPath = '/scratch/local1/radardata/masterthesis_simon/data/simon/dwd_boo/sweeph5allm/'+str(year)+'/'+str(mon).zfill(2)+'/'+str(day).zfill(2)
+        lawrDirectoryPath = '/scratch/local1/radardata/masterthesis_simon/data/simon/lawr/hhg/level1/'+str(year)+'/'+ str(mon).zfill(2) +'/'
         #fp = '/scratch/local1/radardata/simon/lawr/hhg/level1/'+str(year)+'/'+ str(mon).zfill(2) +'/HHGlawr2016'+str(mon).zfill(2)+str(day).zfill(2)+ str(hour).zfill(2) + '_111_L1.nc'
         #dwdDirectoryPath = '/scratch/local1/radardata/simon/nonconvective/dwd/level1'
         #lawrDirectoryPath = '/scratch/local1/radardata/simon/nonconvective/lawr/HHG/level1_cband/'

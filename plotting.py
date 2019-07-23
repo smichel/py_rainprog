@@ -1047,3 +1047,32 @@ anim = animation.FuncAnimation(fig, animate,frames=len(test2),
 writer = animation.FFMpegWriter( fps=5, bitrate=4000,extra_args=['-vcodec', 'h264',
                                       '-pix_fmt', 'yuv420p'])
 anim.save('/home/zmaw/u300675/lawr_radar_prognosis.mp4', writer=writer)
+
+
+cmap = plt.get_cmap('gist_ncar_r')
+newcmap = truncate_colormap(cmap, 0.45, 0.65)
+newcmap.set_under('1')
+alpha = 0.8
+fig, axes = plt.subplots(nrows=2, ncols=2)
+t = [20, 40, 60, 80]
+levels = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+for i, ax in enumerate(axes.flat):
+    rivers[np.logical_or((rivers['code'] == 8200), (rivers['code'] == 8202))].plot(ax=ax, color='b', alpha=alpha)
+    hh_streets[np.logical_or((hh_streets['code'] == 5111), (hh_streets['code'] == 5112))].plot(ax=ax,
+                                                                                               color=[0.5, 0.5, 0.5],
+                                                                                               alpha=alpha)
+    hh_streets[hh_streets['code'] == 5113].plot(ax=ax, color=[0.5, 0.5, 0.5], alpha=alpha)
+    im = ax.contourf(np.max(test[:t[i], :, :], axis=0), levels, cmap=newcmap, alpha=alpha, extent=(
+    lawr.Lon_nested.min(), lawr.Lon_nested.max(), lawr.Lat_nested.min(), lawr.Lat_nested.max()))
+    borders.plot(ax=ax, facecolor='none', edgecolor='k')
+    ax.set_xlim([lawr.Lon_nested.min(), lawr.Lon_nested.max()])
+    ax.set_ylim([lawr.Lat_nested.min(), lawr.Lat_nested.max()])
+    ax.set_title(str(int(t[i] / 2)) + ' Minuten Vorhersage')
+    ax.tick_params(axis='both', which='both', bottom=0, top=0, labelbottom=0, right=0, left=0, labelleft=0)
+    ax.set_aspect(1.5)
+fig.subplots_adjust(right=0.8)
+cbar_ax = fig.add_axes([0.85, 0.1325, 0.05, 0.725])
+cb = fig.colorbar(im, cax=cbar_ax, fraction=0.046, pad=0.04)
+cb.set_ticklabels((cb.get_ticks() * 100).astype(int))
+cb.set_label('Regenwahrscheinlichkeit in %')
+plt.show()
