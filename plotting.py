@@ -1063,29 +1063,54 @@ hh_streets[np.logical_or((hh_streets['code'] == 5111), (hh_streets['code'] == 51
                                                                                            alpha=alpha)
 hh_streets[hh_streets['code'] == 5113].plot(ax=ax, color=[1, 0.2, 0], alpha=alpha)
 
+
+
+
+
+import matplotlib.pyplot as plt
+import matplotlib.dates
+
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+
+plt.rcParams["figure.figsize"] = (9,6)
+plt.rcParams.update({'font.size': 10.5})
+
+
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111,projection=mercator)
+
+
+
+
+
+
+import cartopy.crs as ccrs
+from cartopy.io.img_tiles import OSM,GoogleTiles
 cols = [(1,234/255,.0),(30/255,180/255,.0),(2/255,50/255,15/255)]
 from matplotlib.colors import LinearSegmentedColormap
 
 cm = LinearSegmentedColormap.from_list(
     'test', cols, N=5)
 alpha = 0.8
-fig, axes = plt.subplots(nrows=2, ncols=2)
+google = GoogleTiles()
+mercator = google.crs
+osm_tiles = OSM()
+
+fig, axes = plt.subplots(nrows=2, ncols=2,subplot_kw={'projection': mercator})
+extent = [lawr.Lon_nested.min(), lawr.Lon_nested.max(), lawr.Lat_nested.min(), lawr.Lat_nested.max()]
+extent_transform = mercator.transform_points(mercator,np.array([extent[0],extent[2]]),np.array([extent[1],extent[3]]))
 t = [20, 40, 60, 80]
 levels = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
 for i, ax in enumerate(axes.flat):
-    rivers[np.logical_or((rivers['code'] == 8200), (rivers['code'] == 8202))].plot(ax=ax, color='b', alpha=alpha)
-    hh_streets[np.logical_or((hh_streets['code'] == 5111), (hh_streets['code'] == 5112))].plot(ax=ax,
-                                                                                               color=[0.8, 0.2, 0],
-                                                                                               alpha=alpha)
-    hh_streets[hh_streets['code'] == 5113].plot(ax=ax, color=[0.8, 0.2, 0], alpha=alpha)
+
+    ax.set_extent([extent_transform[0,0],extent_transform[0,1],extent_transform[1,0],extent_transform[1,1]])
+    ax.add_image(google, 9, interpolation='bilinear')
     im = ax.contourf(np.max(test[:t[i], :, :], axis=0), levels, cmap=cm, alpha=alpha, extent=(
-    lawr.Lon_nested.min(), lawr.Lon_nested.max(), lawr.Lat_nested.min(), lawr.Lat_nested.max()))
-    borders.plot(ax=ax, facecolor='none', edgecolor='k')
-    ax.set_xlim([lawr.Lon_nested.min(), lawr.Lon_nested.max()])
-    ax.set_ylim([lawr.Lat_nested.min(), lawr.Lat_nested.max()])
+        (extent_transform[0,0],extent_transform[0,1],extent_transform[1,0],extent_transform[1,1])),transform=ccrs.PlateCarree())
     ax.set_title(str(int(t[i] / 2)) + ' Minuten Vorhersage')
     ax.tick_params(axis='both', which='both', bottom=0, top=0, labelbottom=0, right=0, left=0, labelleft=0)
     ax.set_aspect(1.5)
+
 
 fig.subplots_adjust(right=0.8)
 cbar_ax = fig.add_axes([0.85, 0.1325, 0.05, 0.725])
