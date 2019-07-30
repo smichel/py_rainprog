@@ -1083,38 +1083,46 @@ ax2 = fig2.add_subplot(111,projection=mercator)
 
 
 
-
-import cartopy.crs as ccrs
-from cartopy.io.img_tiles import OSM,GoogleTiles
-cols = [(1,234/255,.0),(30/255,180/255,.0),(2/255,50/255,15/255)]
+plt.rcParams["figure.figsize"] = (10, 9)
+plt.rcParams.update({'font.size': 14})
+#cols = [(204 / 255, 204 / 255, 204 / 255, 0.8), (1, 234 / 255, 0.0, 0.8), (30 / 255, 180 / 255, 0.0, 0.8),
+#        (2 / 255, 50 / 255, 15 / 255, 0.8)](gray/255,gray/255,gray/255,0.4),
+#       (gray/255,gray/255,gray/255,0.5),
+#       (gray/255,gray/255,gray/255,0.6),
+#       (gray/255,gray/255,gray/255,0.7),
+#       (gray/255,gray/255,gray/255,0.8)
+#       (255/255,217/255,42/255,alpha),
+#       (131/255,202.5/255,25.5/255,alpha),
+#       (7/255,171/255,51/255,alpha),
+#       (4.5/255,110.5/255,33/255,alpha),
+#       (2/255,50/255,15/255,alpha)]
 from matplotlib.colors import LinearSegmentedColormap
-
-cm = LinearSegmentedColormap.from_list(
-    'test', cols, N=5)
+import matplotlib.image as mpimg
 alpha = 0.8
-google = GoogleTiles()
-mercator = google.crs
-osm_tiles = OSM()
-
-fig, axes = plt.subplots(nrows=2, ncols=2,subplot_kw={'projection': mercator})
+gray = 204
+cols=[(50/255,200/255,0/255,.4),
+      (255/255,255/255,42/255,.6),
+      (254/255,161/255,42/255,alpha)]
+cm = LinearSegmentedColormap.from_list(
+    'test', cols, N=10)
+test = np.copy(lawr.probabilities)
+test[:, lawr.dist_nested >= np.max(lawr.r)] = 0
+test[test > 1] = 1
+test[test<0.05] =-0.01
+fig, axes = plt.subplots(nrows=2, ncols=2)
 extent = [lawr.Lon_nested.min(), lawr.Lon_nested.max(), lawr.Lat_nested.min(), lawr.Lat_nested.max()]
-extent_transform = mercator.transform_points(mercator,np.array([extent[0],extent[2]]),np.array([extent[1],extent[3]]))
 t = [20, 40, 60, 80]
-levels = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+levels = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+img = mpimg.imread('/home/zmaw/u300675/background_100dpi.png')
 for i, ax in enumerate(axes.flat):
-
-    ax.set_extent([extent_transform[0,0],extent_transform[0,1],extent_transform[1,0],extent_transform[1,1]])
-    ax.add_image(google, 9, interpolation='bilinear')
-    im = ax.contourf(np.max(test[:t[i], :, :], axis=0), levels, cmap=cm, alpha=alpha, extent=(
-        (extent_transform[0,0],extent_transform[0,1],extent_transform[1,0],extent_transform[1,1])),transform=ccrs.PlateCarree())
+    ax.imshow(img,extent=extent)
+    im = ax.contourf(lawr.Lon_nested,lawr.Lat_nested,np.max(test[:t[i], :, :], axis=0), levels, cmap=cm)
     ax.set_title(str(int(t[i] / 2)) + ' Minuten Vorhersage')
     ax.tick_params(axis='both', which='both', bottom=0, top=0, labelbottom=0, right=0, left=0, labelleft=0)
-    ax.set_aspect(1.5)
-
-
+    ax.set_aspect(1.6)
 fig.subplots_adjust(right=0.8)
-cbar_ax = fig.add_axes([0.85, 0.1325, 0.05, 0.725])
+cbar_ax = fig.add_axes([0.85, 0.123, 0.05, 0.745])
 cb = fig.colorbar(im, cax=cbar_ax, fraction=0.046, pad=0.04)
 cb.set_ticklabels((cb.get_ticks() * 100).astype(int))
 cb.set_label('Regenwahrscheinlichkeit in %')
-plt.show()
+plt.savefig('/home/zmaw/u300675/Overview.jpeg',dpi=150)
