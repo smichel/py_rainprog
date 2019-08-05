@@ -172,6 +172,7 @@ class Totalfield:
         self.d_s = d_s
         self.timeDiff = timeDiff
         self.assign_ids()
+
     def return_maxima(self):
         maxima = np.empty([len(self.activeFields), 3])
         for q, field in enumerate(self.activeFields):
@@ -183,6 +184,7 @@ class Totalfield:
         for q, field in enumerate(self.activeFields):
             maxima[q, 0:3] = field.histMaxima[time]
         return maxima
+
     def return_fieldMeanX(self):
         fieldMeanX = []
         for field in self.activeFields:

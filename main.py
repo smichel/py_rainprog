@@ -1,13 +1,10 @@
 from init import DWDData, LawrData, findRadarSite
-from createblob import createblob
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.colors as colors
-import matplotlib
-import os
-import datetime
-import subprocess
 import os
 import shutil
 import time
@@ -133,9 +130,22 @@ def main():
                         dwd.extrapolation(progTime+15)
                         lawr.extrapolation(dwd, progTime, 3)
                         lawr.probabilities[:, lawr.dist_nested >= np.max(lawr.r)] = 0
-
-                        if np.sum(dwd.prog_data[:, (dwd.dist_nested >= lawr.r[-1])]) >  50:
-
+                        if np.sum(dwd.prog_data[:, (dwd.dist_nested >= lawr.r[-1])]) > 50:
+                            f=open("/home/zmaw/u300675/py_rainprog/displacement_parameters.txt","a+")
+                            f.write(serial_date_to_string(lawr.time[0]+2/24))
+                            f.write("\r\n")
+                            f.write('LAWR Coviances: ' + str(np.round(lawr.covNormAngle[0, 0], 3)) + " " + str(
+                                np.round(lawr.covNormAngle[0, 1], 3)) + " " + str(np.round(lawr.covNormAngle[1, 1], 3)))
+                            f.write("\r\n")
+                            f.write('LAWR Displacements: ' + str(np.round(lawr.gaussMeans, 3)))
+                            f.write("\r\n")
+                            f.write('DWD Coviances: ' + str(np.round(dwd.covNormAngle_norm[0, 0], 3)) + " " + str(
+                                np.round(dwd.covNormAngle_norm[0, 1], 3)) + " " + str(
+                                np.round(dwd.covNormAngle_norm[1, 1], 3)))
+                            f.write("\r\n")
+                            f.write('DWD Displacements: ' + str(np.round(dwd.gaussMeans_norm, 3) * 2))
+                            f.write("\r\n")
+                            f.close()
                             #cmdstring = ('ffmpeg',
                             #             '-y', '-r', '5',  # overwrite, 30fps
                             #             '-s', '%dx%d' % (700, 700),  # size of image string
@@ -144,6 +154,7 @@ def main():
                             #             # input from pipe, bitrate, compression
                             #             # tell ffmpeg to expect raw video from the pipe
                             #             '-vcodec', 'libx264','mpeg4', outf)  # output encoding
+                            plt.ioff()
                             fig = plt.figure()
                             fig.set_dpi(100)
                             fig.set_size_inches(7, 7)
@@ -177,6 +188,64 @@ def main():
                             shutil.copy(outf, '/data/share/u231/pattern_mp4/prognosis.mp4')
                             os.chmod('/data/share/u231/pattern_mp4/prognosis.mp4', 0o755)
                             print('Prognosis successful.')
+
+                            plt.rcParams["figure.figsize"] = (10, 9)
+                            plt.rcParams.update({'font.size': 14})
+
+                            from matplotlib.colors import LinearSegmentedColormap
+                            import matplotlib.image as mpimg
+                            alpha = 0.8
+                            gray = 204
+                            cols = [(50 / 255, 200 / 255, 0 / 255, .4),
+                                    (255 / 255, 255 / 255, 42 / 255, .6),
+                                    (254 / 255, 161 / 255, 42 / 255, alpha)]
+                            cm = LinearSegmentedColormap.from_list(
+                                'test', cols, N=10)
+                            test = np.copy(lawr.probabilities)
+                            test[:, lawr.dist_nested >= np.max(lawr.r)] = 0
+                            test[test > 1] = 1
+                            test[test < 0.05] = -0.01
+                            fig, axes = plt.subplots(nrows=2, ncols=2)
+                            extent = [lawr.Lon_nested.min(), lawr.Lon_nested.max(), lawr.Lat_nested.min(),
+                                      lawr.Lat_nested.max()]
+                            t = [20, 40, 60, 80]
+                            levels = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+                            img = mpimg.imread('/home/zmaw/u300675/background_100dpi.png')
+                            for i, ax in enumerate(axes.flat):
+                                ax.imshow(img, extent=extent)
+                                im = ax.contourf(lawr.Lon_nested, lawr.Lat_nested, np.max(test[:t[i], :, :], axis=0),
+                                                 levels, cmap=cm)
+                                ax.set_title(str(int(t[i] / 2)) + ' Minuten Vorhersage')
+                                ax.tick_params(axis='both', which='both', bottom=0, top=0, labelbottom=0, right=0,
+                                               left=0, labelleft=0)
+                                ax.set_aspect(1.62)
+                            fig.subplots_adjust(right=0.8)
+                            cbar_ax = fig.add_axes([0.85, 0.123, 0.05, 0.745])
+                            cb = fig.colorbar(im, cax=cbar_ax, fraction=0.046, pad=0.04)
+                            cb.set_ticklabels((cb.get_ticks() * 100).astype(int))
+                            cb.set_label('Regenwahrscheinlichkeit in %')
+                            plt.savefig('/home/zmaw/u300675/Overview.jpeg', dpi=150)
+                            plt.close(fig)
+                            img = mpimg.imread('/home/zmaw/u300675/background.png')
+
+                            plt.rcParams["figure.figsize"] = (10, 9)
+                            plt.rcParams.update({'font.size': 14})
+                            for i in range(len(t)):
+                                fig, ax = plt.subplots(1)
+                                ax.imshow(img, extent=extent)
+                                im = ax.contourf(lawr.Lon_nested, lawr.Lat_nested, np.max(test[:t[i], :, :], axis=0),
+                                                 levels, cmap=cm)
+                                ax.set_title(str(int(t[i] / 2)) + ' Minuten Vorhersage')
+                                ax.tick_params(axis='both', which='both', bottom=0, top=0, labelbottom=0, right=0,
+                                               left=0, labelleft=0)
+                                ax.set_aspect(1.65)
+                                fig.subplots_adjust(right=0.8)
+                                cbar_ax = fig.add_axes([0.85, 0.123, 0.05, 0.745])
+                                cb = fig.colorbar(im, cax=cbar_ax, fraction=0.046, pad=0.04)
+                                cb.set_ticklabels((cb.get_ticks() * 100).astype(int))
+                                cb.set_label('Regenwahrscheinlichkeit in %')
+                                plt.savefig('/home/zmaw/u300675/Panel_'+str(int(t[i] / 2)) + '_Mins.jpeg', dpi=150)
+                                plt.close(fig)
 
                             newdata=0
                         else:
